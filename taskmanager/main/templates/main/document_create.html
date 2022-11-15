@@ -1,0 +1,20 @@
+{% extends 'main/base.html' %}
+
+{% block title %}
+    Создание документа
+{% endblock %}
+
+{% block content %}
+    <h1>{{ title }}</h1>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.name }}<br>
+        {{ form.owner }}<br>
+        {{ form.description }}<br>
+        <input type="hidden" name="MAX_FILE_SIZE" value="3000000">
+        {{ form.file }}<br>
+        <button type="submit" class="btn btn-success">Добавить</button>
+        <span>{{ error }}</span>
+    </form>
+{% endblock %}
+

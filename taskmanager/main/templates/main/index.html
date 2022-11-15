@@ -1,0 +1,22 @@
+{% extends 'main/base.html' %}
+
+{% block title %}
+{{ title }}
+{% endblock %}
+
+{% block content %}
+    <h1>{{ title }}</h1>
+    {% if documents %}
+        {% for el in documents %}
+        <div class="alert alert-warning mt-2">
+            <h3>{{ el.name }} от {{ el.owner }}</h3>
+            <p>{{ el.description }}</p>
+            <a href="/download?file={{ el.file }}" target="_blank">Скачать</a>
+            <a href="/change?file={{ el.file }}" target="_blank">Редактировать</a>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p>Нет записей</p>
+    {% endif %}
+{% endblock %}
+
