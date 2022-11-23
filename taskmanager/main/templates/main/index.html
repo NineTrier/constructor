@@ -11,12 +11,14 @@
         <div class="alert alert-warning mt-2">
             <h3>{{ el.name }} от {{ el.owner }}</h3>
             <p>{{ el.description }}</p>
-            <a href="/download?file={{ el.file }}" target="_blank">Скачать</a>
-            <a href="/change?file={{ el.file }}" target="_blank">Редактировать</a>
+            <a href="/download?filename={{ el.name }}" target="_blank">Скачать</a>
+            <a href="/change?filename={{ el.name }}" target="_blank">Редактировать</a>
+            <a href="/doc?id={{ el.id }}" target="_blank">Просмотреть</a>
         </div>
         {% endfor %}
     {% else %}
         <p>Нет записей</p>
     {% endif %}
 {% endblock %}
+
 

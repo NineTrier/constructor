@@ -18,3 +18,16 @@
     </form>
 {% endblock %}
 
+{% block script %}
+    <script lang="JavaScript">
+        document.getElementById("inputFile").onchange = function(){
+            elem = document.getElementById("inputFile");
+            splitted = elem.value.split('\\');
+            document.getElementById("id_name").value = splitted[splitted.length - 1].split('.')[0];
+        }
+    </script>
+{% endblock %}
+
+
+
+

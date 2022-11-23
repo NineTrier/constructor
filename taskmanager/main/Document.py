@@ -1,6 +1,6 @@
 # Класс Документ, представленный xml структурой
 
-from WordAPI import WordAPI, create_element, create_attribute
+from .WordAPI import WordAPI, create_element, create_attribute
 from abc import ABC, abstractmethod
 import re
 
@@ -30,6 +30,7 @@ class Element(ABC):
 class Else(Element):
 
     def __init__(self, elem):
+        self.tag = elem.tag.split('}')[1]
         self.elem = elem
         self.childs = {}
 
@@ -76,7 +77,7 @@ class ElementFactory:
 class Properties(Element):
 
     def __init__(self, elem):
-        self.tag = f"{elem.tag.split('}')[1]}Pr" if "Pr" not in elem.tag else elem.tag.split('}')[1]
+        self.tag = elem.tag.split('}')[1]
         self.pr = {}
         self.childs = {}
         self.attrib = {f"{vsts[i.split('}')[0]+'}']}:" + i.split('}')[1]: elem.attrib[i] for i in elem.attrib}
@@ -104,6 +105,9 @@ class Properties(Element):
     def text(self):
         return ""
 
+    def to_css(self):
+        pass
+
     def __eq__(self, other):
         if self.pr == other.pr:
             return True
@@ -114,6 +118,7 @@ class Properties(Element):
 # Класс Ссылка
 class Hyperlink(Element):
     def __init__(self, elem):
+        self.tag = 'hyperlink'
         self.Id = elem.attrib[f'{vst1}id']
         self.history = elem.attrib[f"{vst}history"]
         self.attrib = {f"{vsts[i.split('}')[0]+'}']}:" + i.split('}')[1]: elem.attrib[i] for i in elem.attrib}
@@ -140,6 +145,7 @@ class Hyperlink(Element):
 # Класс Текстовый элемент
 class Text(Element):
     def __init__(self, elem):
+        self.tag = 't'
         self.textElem = elem.text
         self.attrib = {i.split('}')[1]: elem.attrib[i] for i in elem.attrib}
 
@@ -161,6 +167,7 @@ class Text(Element):
 class Run(Element):
 
     def __init__(self, elem):
+        self.tag = 'r'
         self.attrib = {f"{vsts[i.split('}')[0]+'}']}:" + i.split('}')[1]: elem.attrib[i] for i in elem.attrib}
         self.childs = ElementFactory().get_childs(elem)
 
@@ -187,6 +194,7 @@ class Run(Element):
 class Paragraph(Element):
 
     def __init__(self, elem):
+        self.tag = 'p'
         self.pr = Properties(elem[0])
         self.attrib = {f"{vsts[i.split('}')[0]+'}']}:" + i.split('}')[1]: elem.attrib[i] for i in elem.attrib}
         self.childs = ElementFactory().get_childs(elem)
@@ -222,6 +230,3 @@ class Document:
         self.wa.create_new_doc(list(self.childs.values()))
         self.wa.saveDoc("121.docx")
 
-
-doc = Document('test1.docx')
-doc.save()

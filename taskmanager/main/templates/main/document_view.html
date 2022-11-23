@@ -5,6 +5,20 @@
 {% endblock %}
 
 {% block content %}
-    <embed src="http://example.com/the.pdf" width="500" height="375" type="application/pdf">
+    {% if document %}
+        {% for el in document %}
+            <div class="alert alert-warning mt-2">
+                {% for el2 in el.childs.values %}
+                    <div class="d-inline-block bg-success">
+                        {% if el2.tag == 'r' %}
+                            <span>{{ el2.text }}</span>
+                        {% elif el2.tag == 'hyperlink' %}
+                            <a href="{{ el2.text }}">{{ el2.text }}</a>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+    {% endif %}
 {% endblock %}
 

@@ -622,9 +622,12 @@ class Formatter:
             print(self.path, 1)
             file_name = os.path.basename(self.path)
             print(file_name, 2)
-            number_doc = file_name[0:file_name.index("_", file_name.index("_") + 1)] if "_" in file_name else file_name
+            try:
+                number_doc = file_name[0:file_name.index("_", file_name.index("_") + 1)] if "_" in file_name else file_name
+            except:
+                number_doc = "123"
             print(file_name, 3)
-            file_to_save = f"Отформатированный {file_name}"
+            file_to_save = f"+{file_name}"
             if not os.path.exists(self.path_to_save):
                 print("Создаю ассистента")
                 os.mkdir(self.path_to_save)

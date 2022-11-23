@@ -9,5 +9,7 @@ urlpatterns = [
     path('about', views.about, name='about'),
     path('documents', DocumentCreate.as_view(), name='documents'),
     path('download', views.download),
-    path('change', views.change_doc)
+    path('change', views.change_doc),
+    path('upload_change', views.uploadRed),
+    path('doc', views.ViewDocument)
 ]

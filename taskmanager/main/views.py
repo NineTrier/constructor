@@ -5,6 +5,11 @@ from .forms import DocumentForm
 import os
 from django.conf import settings
 from django.http import HttpResponse, Http404
+from io import BytesIO
+from django.core.files.base import File
+import textract
+from docx import Document
+from .Document import Document
 
 from .Formatter.Formatter import Formatter
 
@@ -22,9 +27,33 @@ class DocumentCreate(CreateView):
     success_url = 'documents'
 
 
+def uploadRed(request):
+    filepath = request.GET.get('filename')
+    filepath = os.path.normpath(filepath)
+    print(filepath)
+    name = "".join(filepath.split('\\')[-1].split('.')[:-1])
+    print(name)
+    file_path = os.path.join(settings.MEDIA_ROOT, str(filepath.split('\\')[-1]))
+    doc = Documents(name=name, owner="Александр", description="Описание", file=file_path)
+    doc.save()
+    docToSave = Document(filepath)
+    docToSave.save(file_path)
+    file_path = os.path.join(settings.MEDIA_ROOT, str(filepath))
+    if os.path.exists(file_path):
+        frm = Formatter(file_path, path_to_save=str(settings.MEDIA_ROOT) + '/documents/Редактированные')
+        frm.Redact()
+        if os.path.exists(frm.path):
+            with open(frm.path, 'rb') as fh:
+                response = HttpResponse(fh.read(), content_type="application/vnd.ms-word")
+                response['Content-Disposition'] = 'inline; filename=' + os.path.basename(frm.path)
+                return response
+    raise Http404
+
+
 # Функция, которая позволяет скачать файл, загруженный на сервер
 def download(request):
-    file_path = os.path.join(settings.MEDIA_ROOT, request.GET.get('file'))
+    filepath = Documents.objects.filter(name=request.GET.get('filename'))[0].file
+    file_path = os.path.join(settings.MEDIA_ROOT, str(filepath))
     if os.path.exists(file_path):
         with open(file_path, 'rb') as fh:
             response = HttpResponse(fh.read(), content_type="application/vnd.ms-word")
@@ -35,7 +64,8 @@ def download(request):
 
 # Функция позволяет скачать изменённый при помощи летней программы файл
 def change_doc(request):
-    file_path = os.path.join(settings.MEDIA_ROOT, request.GET.get('file'))
+    filepath = Documents.objects.filter(name=request.GET.get('filename'))[0].file
+    file_path = os.path.join(settings.MEDIA_ROOT, str(filepath))
     if os.path.exists(file_path):
         frm = Formatter(file_path, path_to_save=str(settings.MEDIA_ROOT)+'/documents/Редактированные')
         frm.Redact()
@@ -45,6 +75,18 @@ def change_doc(request):
                 response['Content-Disposition'] = 'inline; filename=' + os.path.basename(frm.path)
                 return response
     raise Http404
+
+
+def ViewDocument(request):
+    fileid = request.GET.get('id')
+    file_path = Documents.objects.filter(id=fileid)[0].file
+    file_path = os.path.join(settings.MEDIA_ROOT, str(file_path))
+    document = Document(file_path)
+    context = {
+        'title': 'Просмотр документа',
+        'document': [document.childs[i] for i in list(document.childs.keys())],
+    }
+    return render(request, 'main/document_view.html', context)
 
 
 # Главная страница веб-сервиса
