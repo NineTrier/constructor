@@ -1,10 +1,12 @@
 {% extends 'main/base.html' %}
 
+
 {% block title %}
 {{ title }}
 {% endblock %}
 
 {% block content %}
+
     <h1>{{ title }}</h1>
     {% if documents %}
         {% for el in documents %}
@@ -12,13 +14,22 @@
             <h3>{{ el.name }} от {{ el.owner }}</h3>
             <p>{{ el.description }}</p>
             <a href="/download?filename={{ el.name }}" target="_blank">Скачать</a>
-            <a href="/change?filename={{ el.name }}" target="_blank">Редактировать</a>
+            <a href="/change?filename={{ el.name }}" target="_blank">Скачать отформатированный</a>
             <a href="/doc?id={{ el.id }}" target="_blank">Просмотреть</a>
         </div>
         {% endfor %}
     {% else %}
         <p>Нет записей</p>
     {% endif %}
+        <div id="app">
+            <p>"Кукукук"</p>
+            <p>{* a *}</p>
+            <button @click="changeText()">Тык</button>
+            <p>{* value *}</p>
+        </div>
+        {% load static %}
+        <script src="{% static 'js/main.js' %}"></script>
+
 {% endblock %}
 
 

@@ -1,17 +1,17 @@
+import json
+
 from django.shortcuts import render, redirect
 from django.views.generic import CreateView
-from .models import Documents
+from .models import Documents, Fonts
 from .forms import DocumentForm
 import os
 from django.conf import settings
 from django.http import HttpResponse, Http404
-from io import BytesIO
-from django.core.files.base import File
-import textract
 from docx import Document
 from .Document import Document
 
 from .Formatter.Formatter import Formatter
+from django.views.decorators.csrf import csrf_exempt
 
 
 # Класс, который помогает создавать новый записи в базу данных Documents
@@ -80,13 +80,31 @@ def change_doc(request):
 def ViewDocument(request):
     fileid = request.GET.get('id')
     file_path = Documents.objects.filter(id=fileid)[0].file
+    print(file_path)
     file_path = os.path.join(settings.MEDIA_ROOT, str(file_path))
     document = Document(file_path)
     context = {
         'title': 'Просмотр документа',
-        'document': [document.childs[i] for i in list(document.childs.keys())],
+        'id_doc': fileid,
+        'document': [(child, child.id) for child in document.childs],
+        'sectPr': document.childs[-1],
+        'fonts': Fonts.objects.order_by('id')
     }
     return render(request, 'main/document_view.html', context)
+
+
+@csrf_exempt
+def UpdateDocument(request):
+    fileid = request.GET.get('id')
+    doc = Documents.objects.filter(id=fileid)[0]
+    file_path = os.path.join(settings.MEDIA_ROOT, str(doc.file))
+    document = Document(file_path)
+    request_data = request.body
+    stroke = json.loads(request_data)
+    document.from_json(stroke)
+    document.save(file_path)
+    response = redirect('/')
+    return response
 
 
 # Главная страница веб-сервиса

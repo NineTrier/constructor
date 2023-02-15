@@ -11,5 +11,6 @@ urlpatterns = [
     path('download', views.download),
     path('change', views.change_doc),
     path('upload_change', views.uploadRed),
-    path('doc', views.ViewDocument)
+    path('doc', views.ViewDocument),
+    path('docupdate', views.UpdateDocument)
 ]

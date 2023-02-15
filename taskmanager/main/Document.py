@@ -1,8 +1,7 @@
 # Класс Документ, представленный xml структурой
 
-from .WordAPI import WordAPI, create_element, create_attribute
-from abc import ABC, abstractmethod
 import re
+from .PropertyParser import *
 
 # Специальные xml вставки от Microsoft, нужны, чтобы сравнивать теги
 vst = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
@@ -15,6 +14,11 @@ vsts = {"{http://schemas.openxmlformats.org/wordprocessingml/2006/main}": "w", "
 # Абстрактный класс Элемент
 class Element(ABC):
 
+    id: str
+    childs: list
+    tag: str
+    attrib: dict
+
     # Метод, который выводит текст, содержащийся в элементе
     @abstractmethod
     def text(self):
@@ -25,6 +29,10 @@ class Element(ABC):
     def to_lxml(self):
         pass
 
+    @abstractmethod
+    def from_json(self, json: dict):
+        pass
+
 
 # Объект, который просто копирует xml структуру элемента, для которого не описан класс
 class Else(Element):
@@ -32,13 +40,18 @@ class Else(Element):
     def __init__(self, elem):
         self.tag = elem.tag.split('}')[1]
         self.elem = elem
-        self.childs = {}
+        self.childs = []
+        self.attrib = {}
+        self.id = ""
 
     def text(self):
         return ""
 
     def to_lxml(self):
         return self.elem
+
+    def from_json(self, json: dict):
+        pass
 
 
 # Класс-паттерн фабрика для создания объектов класса Element
@@ -59,16 +72,52 @@ class ElementFactory:
             return Paragraph(elem)
         elif tag == "t":
             return Text(elem)
+        elif tag == "tbl":
+            return Table(elem)
+        elif tag == "tr":
+            return TableRow(elem)
+        elif tag == "tc":
+            return TableCol(elem)
         else:
             return Else(elem)
+
+    def initialize_from_json(self, json: dict):
+        tag = json['id'].split("_")[0]
+        if tag == "r":
+            r = Run(None)
+            r.from_json(json)
+            return r
+        elif tag == "hypers":
+            hyp = Hyperlink(None)
+            hyp.from_json(json)
+            return hyp
+        elif tag == "p":
+            p = Paragraph(None)
+            p.from_json(json)
+            return p
+        elif tag == "tbl":
+            tbl = Table(None)
+            tbl.from_json(json)
+            return tbl
+        elif tag == "tr":
+            tr = TableRow(None)
+            tr.from_json(json)
+            return tr
+        elif tag == "tc":
+            tc = TableCol(None)
+            tc.from_json(json)
+            return tc
+        else:
+            return ""
 
     # Функция возвращает потомков Элемента elem.
     # Пока что эта функция в классе фабрика, что не правильно, но не знаю куда лучше разместить
     def get_childs(self, elem):
-        childs = {}
+        childs = []
         i = 0
         for son in elem:
-            childs[son.tag.split('}')[1]+f"_{i}"] = self.initialize(son)
+            childs.append(self.initialize(son))
+            childs[-1].id = f"{son.tag.split('}')[1]}_{i}"
             i += 1
         return childs
 
@@ -77,36 +126,52 @@ class ElementFactory:
 class Properties(Element):
 
     def __init__(self, elem):
-        self.tag = elem.tag.split('}')[1]
-        self.pr = {}
-        self.childs = {}
-        self.attrib = {f"{vsts[i.split('}')[0]+'}']}:" + i.split('}')[1]: elem.attrib[i] for i in elem.attrib}
-        for prop in elem:
-            if prop.tag == f"{vst}rPr" or prop.tag == f"{vst}sectPr":
-                self.pr[prop.tag.split('}')[1]+f"_:{len(self.pr)}"] = Properties(prop)
-            else:
-                self.pr[prop.tag.split('}')[1]+f"_:{len(self.pr)}"] = {f"{vsts[i.split('}')[0]+'}']}:" + i.split('}')[1]: prop.attrib[i] for i in list(prop.keys())}
+        self.id = ""
+        if elem is None:
+            self.tag = ""
+            self.pr = [PropertiesCollection(None)]
+            self.attrib = {}
+            self.childs = []
+        else:
+            self.tag = elem.tag.split('}')[1]
+            self.pr = [PropertiesCollection(elem, self.tag)]
+            self.childs = []
+            self.attrib = {f"{vsts[i.split('}')[0]+'}']}:" + i.split('}')[1]: elem.attrib[i] for i in elem.attrib}
+            # Заполняем свойства
+            for prop in elem:
+                # Если свойства древовидные, то они тоже будут элементами класса Properties
+                if prop.tag == f"{vst}rPr" or prop.tag == f"{vst}sectPr":
+                    self.pr.append(Properties(prop))
 
+    # Перевод в lxml
     def to_lxml(self):
         Pr = create_element(f"w:{self.tag}")
         for k in list(self.attrib.keys()):
             create_attribute(Pr, f"{k}", self.attrib[k])
         for child in self.pr:
-            child_tag = child.split('_:')[0]
-            if child_tag == "rPr" or child_tag == "sectPr":
-                ch = self.pr[child].to_lxml()
-            else:
-                ch = create_element(f"w:{child_tag}")
-                for attr in self.pr[child]:
-                    create_attribute(ch, f"{attr}", self.pr[child][attr])
-            Pr.append(ch)
+            if type(child) == Properties:
+                ch = child.to_lxml()
+                Pr.append(ch)
+            elif type(child) == PropertiesCollection:
+                for ch in child.to_lxml():
+                    Pr.append(ch)
         return Pr
 
     def text(self):
         return ""
 
+    # Перевод свойств в css
     def to_css(self):
-        pass
+        css = """""" # Строка css сначала пустая
+        for ch in self.pr:
+            css += ch.to_css()
+        return css
+
+    # Получение элемента из JSON объекта, нужен когда закончили редактирование в html странице
+    def from_json(self, json: dict):
+        propCol = PropertiesCollection(None)
+        propCol.from_json(json)
+        self.pr = [propCol]
 
     def __eq__(self, other):
         if self.pr == other.pr:
@@ -118,15 +183,20 @@ class Properties(Element):
 # Класс Ссылка
 class Hyperlink(Element):
     def __init__(self, elem):
+        self.id = ""
         self.tag = 'hyperlink'
-        self.Id = elem.attrib[f'{vst1}id']
-        self.history = elem.attrib[f"{vst}history"]
-        self.attrib = {f"{vsts[i.split('}')[0]+'}']}:" + i.split('}')[1]: elem.attrib[i] for i in elem.attrib}
-        self.childs = ElementFactory().get_childs(elem)
+        if elem is None:
+            self.pr = Properties(None)
+            self.attrib = {}
+            self.childs = []
+        else:
+            self.attrib = {f"{vsts[i.split('}')[0]+'}']}:" + i.split('}')[1]: elem.attrib[i] for i in elem.attrib}
+            self.childs = ElementFactory().get_childs(elem)
+            self.pr = Properties(elem[0][0])
 
     def text(self):
         text = ""
-        for child in list(self.childs.values()):
+        for child in self.childs:
             text += child.text()
         return text
 
@@ -134,20 +204,35 @@ class Hyperlink(Element):
         hyperlink = create_element("w:hyperlink")
         for k in list(self.attrib.keys()):
             create_attribute(hyperlink, f"{k}", self.attrib[k])
-        for child in list(self.childs.values()):
+        for child in self.childs:
             try:
                 hyperlink.append(child.to_lxml())
             except Exception as exc:
                 print(exc, "Hyperlink to lxml")
         return hyperlink
 
+    def from_json(self, json: dict):
+        self.childs = []
+        r = Run(None)
+        r.from_json(json)
+        r.id = f'r_{len(self.childs)}'
+        self.childs.append(r)
+        idd = json['attrib'].split('/')[0]
+        hist = json['attrib'].split('/')[1]
+        self.attrib = {'r:id': idd, 'w:history': hist}
+
 
 # Класс Текстовый элемент
 class Text(Element):
     def __init__(self, elem):
+        self.id = ""
         self.tag = 't'
-        self.textElem = elem.text
-        self.attrib = {i.split('}')[1]: elem.attrib[i] for i in elem.attrib}
+        if elem is None:
+            self.textElem = ""
+            self.attrib = {}
+        else:
+            self.textElem = elem.text
+            self.attrib = {i.split('}')[1]: elem.attrib[i] for i in elem.attrib}
 
     def text(self):
         return self.textElem
@@ -162,46 +247,74 @@ class Text(Element):
         except Exception as exc:
             print(exc, "Text to lxml", self.textElem)
 
+    def from_json(self, json: dict):
+        self.textElem = json['text']
+        self.attrib['space'] = 'preserve'
+
 
 # Класс пробег по параграфу
 class Run(Element):
 
     def __init__(self, elem):
+        self.id = ""
         self.tag = 'r'
-        self.attrib = {f"{vsts[i.split('}')[0]+'}']}:" + i.split('}')[1]: elem.attrib[i] for i in elem.attrib}
-        self.childs = ElementFactory().get_childs(elem)
+        if elem is None:
+            self.pr = Properties(None)
+            self.attrib = {}
+            self.childs = []
+        else:
+            self.attrib = {f"{vsts[i.split('}')[0]+'}']}:" + i.split('}')[1]: elem.attrib[i] for i in elem.attrib}
+            self.childs = ElementFactory().get_childs(elem)
+            self.pr = Properties(elem[0]) if len(elem) > 0 and elem[0].tag.split('}')[1] == "rPr" else ""
 
     def text(self):
         t = ""
-        for son in list(self.childs.keys()):
-            if re.fullmatch("t_\d*", son):
-                t += self.childs[son].text()
+        for son in self.childs:
+            if re.fullmatch("t_\d*", son.id):
+                t += son.text()
         return t
 
     def to_lxml(self):
         r = create_element("w:r")
         for k in list(self.attrib.keys()):
             create_attribute(r, f"{k}", self.attrib[k])
-        for child in list(self.childs.values()):
+        for child in self.childs:
             try:
                 r.append(child.to_lxml())
             except Exception as exc:
                 print(exc, "Run to lxml", child)
         return r
 
+    def from_json(self, json: dict):
+        self.childs = []
+        rPr = Properties(None)
+        rPr.tag = 'rPr'
+        rPr.id = f'rPr_{len(self.childs)}'
+        rPr.from_json(json['style'])
+        self.childs.append(rPr)
+        text = Text(None)
+        text.from_json(json)
+        self.childs.append(text)
+
 
 # Класс параграф
 class Paragraph(Element):
 
     def __init__(self, elem):
+        self.id = ""
         self.tag = 'p'
-        self.pr = Properties(elem[0])
-        self.attrib = {f"{vsts[i.split('}')[0]+'}']}:" + i.split('}')[1]: elem.attrib[i] for i in elem.attrib}
-        self.childs = ElementFactory().get_childs(elem)
+        if elem is None:
+            self.pr = Properties(None)
+            self.attrib = {}
+            self.childs = []
+        else:
+            self.pr = Properties(elem[0]) if len(elem) > 0 and elem[0].tag.split('}')[1] == "pPr" else ""
+            self.attrib = {f"{vsts[i.split('}')[0]+'}']}:" + i.split('}')[1]: elem.attrib[i] for i in elem.attrib}
+            self.childs = ElementFactory().get_childs(elem)
 
     def text(self):
         text = ""
-        for child in list(self.childs.values()):
+        for child in self.childs:
             text += child.text()
         return text
 
@@ -209,12 +322,177 @@ class Paragraph(Element):
         p = create_element("w:p")
         for k in list(self.attrib.keys()):
             create_attribute(p, f"{k}", self.attrib[k])
-        for child in list(self.childs.values()):
+        for child in self.childs:
             try:
                 p.append(child.to_lxml())
             except Exception as exc:
                 print(exc, "Paragraph to lxml", child)
         return p
+
+    def from_json(self, json: dict):
+        self.childs = []
+        pPr = Properties(None)
+        pPr.tag = 'pPr'
+        pPr.id = f'pPr_{len(self.childs)}'
+        pPr.from_json(json['style'])
+        self.childs.append(pPr)
+        for child in json['childs']:
+            if child['id'].split('_')[0] == 'runs':
+                run = Run(None)
+                run.from_json(child)
+                self.childs.append(run)
+            elif child['id'].split('_')[0] == 'hypers':
+                hyper = Hyperlink(None)
+                hyper.from_json(child)
+                self.childs.append(hyper)
+
+
+# Класс таблица
+class Table(Element):
+
+    def __init__(self, elem):
+        self.id = ""
+        self.tag = "tbl"
+        if elem is None:
+            self.pr = Properties(None)
+            self.attrib = {}
+            self.childs = []
+            self.tableGrid = []
+        else:
+            self.pr = Properties(elem[0]) if len(elem) > 0 and elem[0].tag.split('}')[1] == "tblPr" else ""
+            self.attrib = {f"{vsts[i.split('}')[0]+'}']}:{i.split('}')[1]}": elem.attrib[i] for i in elem.attrib}
+            self.childs = ElementFactory().get_childs(elem)
+            self.tableGrid = [{f"{vsts[i.split('}')[0]+'}']}:{i.split('}')[1]}": gridCol.attrib[i] for i in gridCol.attrib} for gridCol in elem[1]]
+
+    def text(self):
+        text = ""
+        for child in self.childs:
+            text += child.text()
+        return text
+
+    def to_lxml(self):
+        tbl = create_element("w:tbl")
+        for k in list(self.attrib.keys()):
+            create_attribute(tbl, f"{k}", self.attrib[k])
+        for child in self.childs:
+            try:
+                tbl.append(child.to_lxml())
+                if child.tag.find("Pr") != -1:
+                    tableGrid = create_element("w:tblGrid")
+                    for gridCol in self.tableGrid:
+                        for k, v in gridCol.items():
+                            gridCol = create_element("w:gridCol")
+                            create_attribute(gridCol, "w:w", v)
+                            tableGrid.append(gridCol)
+                    tbl.append(tableGrid)
+            except Exception as exc:
+                print(exc, "Table to lxml", child)
+        return tbl
+
+    def from_json(self, json: dict):
+        self.childs = []
+        tblPr = Properties(None)
+        tblPr.tag = 'tblPr'
+        tblPr.id = f'tblPr_{len(self.childs)}'
+        tblPr.from_json(json['style'])
+        self.childs.append(tblPr)
+        for child in json['childs']:
+            if child['id'].split('_')[0] == 'tr':
+                row = TableRow(None)
+                row.from_json(child)
+                self.childs.append(row)
+        self.tableGrid = [{"w:w": i.split(':')[-1]} for i in json['tableGrid'].split('|')]
+
+
+# Класс строка таблицы
+class TableRow(Element):
+
+    def __init__(self, elem):
+        self.id = ""
+        self.tag = "tr"
+        if elem is None:
+            self.pr = Properties(None)
+            self.attrib = {}
+            self.childs = []
+        else:
+            self.pr = Properties(elem[0]) if len(elem) > 0 and elem[0].tag.split('}')[1] == "tblPr" else ""
+            self.attrib = {f"{vsts[i.split('}')[0]+'}']}:" + i.split('}')[1]: elem.attrib[i] for i in elem.attrib}
+            self.childs = ElementFactory().get_childs(elem)
+
+    def text(self):
+        text = ""
+        for child in self.childs:
+            text += child.text()
+        return text
+
+    def to_lxml(self):
+        p = create_element("w:tr")
+        for k in list(self.attrib.keys()):
+            create_attribute(p, f"{k}", self.attrib[k])
+        for child in self.childs:
+            try:
+                p.append(child.to_lxml())
+            except Exception as exc:
+                print(exc, "TableRow to lxml", child)
+        return p
+
+    def from_json(self, json: dict):
+        self.childs = []
+        trPr = Properties(None)
+        trPr.tag = 'trPr'
+        trPr.id = f'trPr_{len(self.childs)}'
+        trPr.from_json(json['style'])
+        self.childs.append(trPr)
+        for child in json['childs']:
+            if child['id'].split('_')[0] == 'tc':
+                col = TableCol(None)
+                col.from_json(child)
+                self.childs.append(col)
+
+
+# Класс ячейка таблицы (Но почему-то назвал как колонка таблицы, но по логике это ячейка)
+class TableCol(Element):
+
+    def __init__(self, elem):
+        self.id = ""
+        self.tag = "tc"
+        if elem is None:
+            self.pr = Properties(None)
+            self.attrib = {}
+            self.childs = []
+        else:
+            self.pr = Properties(elem[0]) if len(elem) > 0 and elem[0].tag.split('}')[1] == "tcPr" else Properties(None)
+            self.attrib = {f"{vsts[i.split('}')[0]+'}']}:" + i.split('}')[1]: elem.attrib[i] for i in elem.attrib}
+            self.childs = ElementFactory().get_childs(elem)
+
+    def text(self):
+        text = ""
+        for child in self.childs:
+            text += child.text()
+        return text
+
+    def to_lxml(self):
+        p = create_element("w:tc")
+        for k in list(self.attrib.keys()):
+            create_attribute(p, f"{k}", self.attrib[k])
+        for child in self.childs:
+            try:
+                p.append(child.to_lxml())
+            except Exception as exc:
+                print(exc, "TableCol to lxml", child.pr)
+        return p
+
+    def from_json(self, json: dict):
+
+        self.childs = []
+        tcPr = Properties(None)
+        tcPr.tag = 'tcPr'
+        tcPr.id = f'tcPr_{len(self.childs)}'
+        tcPr.from_json(json['style'])
+        self.childs.append(tcPr)
+        par = Paragraph(None)
+        par.from_json(json['paragraph'])
+        self.childs.append(par)
 
 
 # Класс документ
@@ -226,7 +504,18 @@ class Document:
 
         self.childs = ElementFactory().get_childs(body)
 
-    def save(self):
-        self.wa.create_new_doc(list(self.childs.values()))
-        self.wa.saveDoc("121.docx")
+    def save(self, path):
+        self.wa.create_new_doc(self.childs)
+        self.wa.saveDoc(path)
+
+    def from_json(self, json: dict):
+        self.childs = []
+        for elem in json['elements']:
+            print(f"{elem}\n")
+            self.childs.append(ElementFactory().initialize_from_json(elem))
+        sectPr = Properties(None)
+        sectPr.from_json({i: i for i in json['sectPr'].split('|')})
+        self.childs.append(sectPr)
+
+
 

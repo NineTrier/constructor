@@ -20,3 +20,13 @@ class Documents(models.Model):
         verbose_name = 'Документ'
         verbose_name_plural = 'Документы'
 
+
+class Fonts(models.Model):
+    name = models.CharField('Название', max_length=100)
+
+    def __str__(self):
+        return f"{self.name}"
+
+    class Meta:
+        verbose_name = 'Шрифт'
+        verbose_name_plural = 'Шрифты'

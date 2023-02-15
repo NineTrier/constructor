@@ -1,24 +1,297 @@
 {% extends 'main/base.html' %}
 
+
 {% block title %}
 {{ title }}
 {% endblock %}
 
+{% block connection %}
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/main/document_view_st.css' %}">
+{% endblock %}
+
 {% block content %}
     {% if document %}
-        {% for el in document %}
-            <div class="alert alert-warning mt-2">
-                {% for el2 in el.childs.values %}
-                    <div class="d-inline-block bg-success">
-                        {% if el2.tag == 'r' %}
-                            <span>{{ el2.text }}</span>
-                        {% elif el2.tag == 'hyperlink' %}
-                            <a href="{{ el2.text }}">{{ el2.text }}</a>
-                        {% endif %}
+<div id="menu">
+    <input value="" id="selectedElement"/>
+    <input type="number" onchange="SizeChanged()" id="fontSizeElement" value="14"/>
+    <ul class="topmenu">
+        <li><a href="#" class="submenu-link">Шрифт</a>
+        <ul class="submenu">{% for font in fonts %}
+            <li><a href="#" onclick='FontChanged("{{ font }}")'>{{ font }}</a></li>{% endfor %}
+        </ul>
+    </li>
+    </ul>
+</div>
+
+<div id="buttonMenu">
+    <button type="submit" class="btn btn-success" id="updateButton">Сохранить документ</button>
+</div>
+
+<div class="main">
+    <div id="leftMenu">
+        <button type="button" class="btn btn-light" onclick="ButtonAddParagraph_Click()">Добавить параграф</button>
+        <button type="button" class="btn btn-light" onclick="ButtonAddRun_Click()">Добавить текст</button>
+    </div>
+    <div class="document" style="{{ sectPr.to_css }}">
+            {% for el, key in document %}
+                {% if el.tag == 'p' %}
+                    <div class="paragraph" id="{{ key }}" style="{{ el.pr.to_css }}">
+                        {% for el2 in el.childs %}
+                            {% if el2.text > "" %}
+                                {% if el2.tag == 'r' %}
+                                    <span contenteditable="true" id="{{ el.id }}:{{ el2.id }}" class="runs" style="{{ el2.pr.to_css }}">{{ el2.text }}</span>
+                                {% elif el2.tag == 'hyperlink' %}
+                                    <span contenteditable="true" id="{% for k, v in el2.attrib.items %}{{ v }}/{% endfor %}" class="hypers" style="{{ el2.pr.to_css }}">{{ el2.text }}</span>
+                                {% endif %}
+                            {% endif %}
+                        {% endfor %}
                     </div>
-                {% endfor %}
+                {% elif el.tag == 'tbl' %}
+                    <div class="tables" id="{{ key }}" style="{{ el.pr.to_css }}">
+                        <input type="hidden" class="tableGrid" value="{% for gridCol in el.tableGrid %}{% for k,v in gridCol.items %}{{ k }}:{{ v }}|{% endfor %}{% endfor %}">
+                        <table align="center" style="{{ el.pr.to_css }}">
+                        {% for rows in el.childs %}
+                            {% if rows.tag == "tr" %}
+                                <tr style="{{ rows.pr.to_css }}">
+                                    {% for cols in rows.childs %}
+                                        {% if cols.tag == "tc" %}
+                                        <td style="border: 1px solid black;{{ cols.pr.to_css }}">
+                                            {% for paragraphs in cols.childs %}
+                                                {% if paragraphs.tag == "p" %}
+                                                    <div class="paragraphs" style="{{ paragraphs.pr.to_css }}width: 100%;">
+                                                    {% for run in paragraphs.childs %}
+                                                        {% if run.text > "" %}
+                                                            {% if run.tag == 'r' %}
+                                                                <span contenteditable="true" id="{% for k, v in run.attrib.items %}{{ v }}/{% endfor %}"  class="runs" style="{{ run.pr.to_css }}">{{ run.text }}</span>
+                                                        {% elif run.tag == 'hyperlink' %}
+                                                                <span contenteditable="true" id="{% for k, v in run.attrib.items %}{{ v }}/{% endfor %}" class="hypers" style="{{ run.pr.to_css }}">{{ run.text }}</span>
+                                                            {% else %}
+                                                                <span contenteditable="true" id="{% for k, v in run.attrib.items %}{{ v }}/{% endfor %}" class="else" style="{{ run.pr.to_css }}">{{ run.text }}</span>
+                                                            {% endif %}
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tr>
+                            {% endif %}
+                        {% endfor %}
+                        </table>
+                    </div>
+                {% endif %}
+            {% endfor %}
             </div>
-        {% endfor %}
-    {% endif %}
+
+        {% endif %}
+        <input type="hidden" id="sectPr" value="{{ sectPr.to_css }}"/>
+</div>
+
+{% endblock %}
+
+{% block script %}
+    <script lang="JavaScript">
+
+        var startFontSize = "14px";
+        var startFont = "Times New Roman"
+
+        var spans = document.getElementsByTagName("span");
+        for(let span of spans){
+            if(span.style.fontSize == ""){
+                span.style.fontSize = startFontSize;
+            }
+            if(span.style.fontFamily == ""){
+                span.style.fontFamily = startFont;
+            }
+            span.onclick = function(event){
+                ApplyMenu(event.target);
+            }
+        }
+
+        var paragraphs = document.getElementsByClassName("paragraph");
+        for(let paragraph of paragraphs){
+            paragraph.onclick = function(event){
+                ApplyMenu(event.target);
+            }
+        }
+
+        function GetId(parent, classname){
+            list = Array.from(parent.getElementsByClassName(classname));
+            if(list.length == 0)
+                return 0;
+            list.sort(function(a, b){
+                a_splitted = a.id.split("_");
+                b_splitted = b.id.split("_");
+                return Number(a_splitted[a_splitted.length-1]) > Number(b_splitted[b_splitted.length-1]);
+            });
+            console.log(list);
+            console.log(list[list.length-1]);
+            var splitted = list[list.length-1].id.split("_");
+            return Number(splitted[splitted.length-1]) + 1
+        }
+
+        function ButtonAddParagraph_Click(){
+            var element = document.getElementById(document.getElementById("selectedElement").value);
+            if(element.className != "paragraph"){
+                return;
+            }
+            var paragraph = document.createElement("div");
+            paragraph.className = "paragraph";
+            paragraph.id = "p_"+GetId(element.parentNode, "paragraph");
+            paragraph.onclick = function(event){
+                ApplyMenu(event.target);
+            }
+
+            element.parentNode.insertBefore(paragraph, element.nextSibling);
+        }
+        function ButtonAddRun_Click(){
+            var element = document.getElementById(document.getElementById("selectedElement").value);
+            console.log(element);
+            if(element.className != "runs" && element.className != "hypers"){
+                if(element.className == "paragraph"){
+                    var run = document.createElement("span");
+                    var par_id = element.id;
+
+                    run.className = "runs";
+                    run.id = par_id + ":r_"+GetId(element, "runs");
+                    run.contentEditable = true;
+                    run.innerHTML = " Какой-то текст";
+                    run.style.fontFamily = startFont;
+                    run.style.fontSize = startFontSize;
+                    run.onclick = function(event){
+                        ApplyMenu(event.target);
+                    }
+
+                    console.log(run)
+                    element.appendChild(run);
+                    return;
+                }
+                else
+                    return;
+            }
+            var run = document.createElement("span");
+            var par_id = element.parentNode.id;
+
+            run.className = "runs";
+            run.id = par_id + ":r_"+GetId(element.parentNode, "runs");
+            run.contentEditable = true;
+            run.innerHTML = " Какой-то текст";
+            run.style.fontFamily = startFont;
+            run.style.fontSize = startFontSize;
+            run.onclick = function(event){
+                ApplyMenu(event.target);
+            }
+
+            console.log(run)
+            element.parentNode.insertBefore(run, element.nextSibling);
+        }
+
+
+        function ApplyMenu(element){
+            var menu = document.getElementById("menu");
+            document.getElementById("selectedElement").value = element.id;
+            document.getElementById("fontSizeElement").value = element.style.fontSize.split("px")[0];
+            console.log(element.style.fontFamily);
+            document.getElementsByClassName("submenu-link")[0].innerHTML = element.style.fontFamily;
+        }
+
+        function SizeChanged(){
+            document.getElementById(document.getElementById("selectedElement").value).style.fontSize = document.getElementById("fontSizeElement").value + "px";
+        }
+
+        function FontChanged(font){
+            document.getElementById(document.getElementById("selectedElement").value).style.fontFamily = font;
+            document.getElementsByClassName("submenu-link")[0].innerHTML = font;
+        }
+
+
+        function TableRowToJSON(elem, id){
+            var tds = [];
+            for(let child of elem.childNodes){
+                if(child.nodeName == "TD"){
+                    tds.push(TableColumnToJSON(child, tds.length));
+                }
+            }
+            let op = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
+            return {'id': "tr_"+id, 'childs': tds, 'style': op};
+        }
+
+        function TableColumnToJSON(elem, id){
+            let o = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
+            return {'text': elem.value, 'id': "tc_" + id, 'style': o , 'paragraph': ParagraphToJSON(elem.childNodes[1], 0)};
+        }
+
+        function TableToJSON(elem, id){
+            var trs = [];
+            var grid;
+            for(let child of elem.childNodes){
+                if(child.nodeName == "TABLE"){
+                    for(let child1 of child.childNodes){
+                        console.log(child1.nodeName)
+                        for(let child2 of child1.childNodes){
+                            console.log(child2.nodeName)
+                            if(child2.nodeName == "TR"){
+                                trs.push(TableRowToJSON(child2, trs.length));
+                            }
+                        }
+                    }
+                }
+                if(child.nodeName == "INPUT"){
+                    grid = child.value;
+                }
+            }
+            let op = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
+            return {'id': "tbl_"+id, 'childs': trs, 'style': op, 'tableGrid': grid};
+        }
+
+        function ParagraphToJSON(elem, id){
+            var chil = [];
+            for(let child of elem.childNodes){
+                if(child.nodeName == "SPAN"){
+                    chil.push(ChildrenToJSON(child, chil.length));
+                }
+            }
+            console.log(elem)
+            let op = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
+            return {'id': "p_"+id, 'childs': chil, 'style': op};
+        }
+
+        function ChildrenToJSON(elem, id){
+            let o = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
+            return {'text': elem.innerHTML, 'id': elem.className + "_" + id, 'style': o , 'attrib': elem.id};
+        }
+
+        function CreateJSON(){
+            body = document.getElementsByClassName("document")[0];
+            var jsondict = {};
+            var chil = [];
+            for(let child of body.childNodes){
+                if(child.className == "paragraph"){
+                    chil.push(ParagraphToJSON(child, chil.length));
+                }
+                else if(child.className == "tables"){
+                    chil.push(TableToJSON(child, chil.length));
+                }
+            }
+            jsondict['elements'] = chil;
+            console.log(document.getElementById("sectPr"))
+            console.log(document.getElementById("sectPr").value)
+            jsondict['sectPr'] = document.getElementById("sectPr").value;
+            return jsondict;
+        }
+
+        document.getElementById("updateButton").onclick = function(){
+            $.ajax({
+                type: "POST",
+                url: "/docupdate?id={{ id_doc }}",
+                data: JSON.stringify(CreateJSON()),
+                contentType: "application/json; charset=utf-8",
+                dataType: 'json'
+            });
+        }
+    </script>
 {% endblock %}
 
