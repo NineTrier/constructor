@@ -177,9 +177,9 @@ class FontFamily(Property):
     def from_json(self, json: dict):
         for k, v in json.items():
             if k == "fontFamily":
-                self.attrib['w:ascii'] = v.split(',')[0]
-                self.attrib['w:hAnsi'] = v.split(',')[0]
-                self.attrib['w:cs'] = v.split(',')[0]
+                self.attrib['w:ascii'] = v
+                self.attrib['w:hAnsi'] = v
+                self.attrib['w:cs'] = v
                 self.enabled = True
 
 
@@ -203,7 +203,6 @@ class TextColor(Property):
         for k, v in json.items():
             if k == "color":
                 self.attrib["w:val"] = f"{rgb_to_hex(str_to_array(v))}"
-                print(self.attrib["w:val"])
                 self.enabled = True
 
 
@@ -279,13 +278,13 @@ class FontSize(Property):
         css = """"""
         for k, v in self.attrib.items():
             if k == "w:val":
-                css += f"font-size: {(int(v) / 2) + 2}px;\n"
+                css += f"font-size: {int((float(v) / 2) + 2)}px;\n"
         return css
 
     def from_json(self, json: dict):
         for k, v in json.items():
             if k == "fontSize":
-                self.attrib['w:val'] = f"{(int(v.split('px')[0]) - 2) * 2}"
+                self.attrib['w:val'] = f"{int((float(v.split('px')[0]) - 2) * 2)}"
                 self.enabled = True
 
 
@@ -518,13 +517,11 @@ class Borders(Property):
                 space = v['w:space']  # Не разобрался, не используют пока что
                 color = v['w:color']  # Цвет
                 css += f"border-{str(k).split(':')[1]}: {int(int(sz) / 4)}px {'solid' if val == 'single' else 'solid'} {'black' if color == 'auto' else color};"
-        print(css)
         return css
 
     def from_json(self, json: dict):
         for k, v in json.items():
             if k == "borderBottom":
-                print(k, v)
                 splitted_json = v.split(" ")
                 if splitted_json[0] == "0px":
                     self.borders["w:bottom"] = {"w:val": "nil"}
@@ -621,8 +618,8 @@ class PropertiesCollection:
                     self.properties["DocGrid"] = DocGrid(prop)
                 elif prop.tag == f"{vst}tcBorders":
                     self.properties["Borders"] = Borders(prop)
-                else:
-                    print("%%%% ", prop.tag, " %%%%")
+                # else:
+                #     print("%%%% ", prop.tag, " %%%%")
 
     def to_css(self):
         css = """"""

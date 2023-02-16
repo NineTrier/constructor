@@ -511,7 +511,6 @@ class Document:
     def from_json(self, json: dict):
         self.childs = []
         for elem in json['elements']:
-            print(f"{elem}\n")
             self.childs.append(ElementFactory().initialize_from_json(elem))
         sectPr = Properties(None)
         sectPr.from_json({i: i for i in json['sectPr'].split('|')})

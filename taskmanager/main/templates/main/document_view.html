@@ -12,20 +12,27 @@
 
 {% block content %}
     {% if document %}
-<div id="menu">
-    <input value="" id="selectedElement"/>
-    <input type="number" onchange="SizeChanged()" id="fontSizeElement" value="14"/>
-    <ul class="topmenu">
-        <li><a href="#" class="submenu-link">Шрифт</a>
-        <ul class="submenu">{% for font in fonts %}
-            <li><a href="#" onclick='FontChanged("{{ font }}")'>{{ font }}</a></li>{% endfor %}
-        </ul>
-    </li>
-    </ul>
-</div>
+<div id="TopMenu">
+    <div id="menu">
+        <input value="" id="selectedElement"/>
+        <input type="number" onchange="SizeChanged()" id="fontSizeElement" value="14"/>
 
-<div id="buttonMenu">
-    <button type="submit" class="btn btn-success" id="updateButton">Сохранить документ</button>
+        <div class="dropdown" id="DropDownFont">
+           <button class="btn btn-secondary dropdown-toggle" type="button" id="ButtonDropDownFont" data-bs-toggle="dropdown" aria-expanded="false">
+            Шрифт
+          </button>
+            <ul class="dropdown-menu" aria-labelledby="dropdownFont" >
+                {% for font in fonts %}
+                <li><button class="dropdown-item" type="button" onclick='FontChanged("{{ font }}")' style='font-family: {{ font }};'>{{ font }}</button></li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <div id="buttonMenu">
+        <button type="submit" class="btn btn-success" id="updateButton">Сохранить документ</button>
+        <button class="btn btn-danger" id="deleteButton">Удалить элемент</button>
+    </div>
 </div>
 
 <div class="main">
@@ -56,10 +63,10 @@
                                 <tr style="{{ rows.pr.to_css }}">
                                     {% for cols in rows.childs %}
                                         {% if cols.tag == "tc" %}
-                                        <td style="border: 1px solid black;{{ cols.pr.to_css }}">
+                                        <td style="{{ cols.pr.to_css }}">
                                             {% for paragraphs in cols.childs %}
                                                 {% if paragraphs.tag == "p" %}
-                                                    <div class="paragraphs" style="{{ paragraphs.pr.to_css }}width: 100%;">
+                                                    <div class="paragraph" style="{{ paragraphs.pr.to_css }}">
                                                     {% for run in paragraphs.childs %}
                                                         {% if run.text > "" %}
                                                             {% if run.tag == 'r' %}
@@ -95,63 +102,234 @@
 {% block script %}
     <script lang="JavaScript">
 
-        var startFontSize = "14px";
-        var startFont = "Times New Roman"
+        function Stack() {
+            this.count = 0
+            this.storage = {}
 
-        var spans = document.getElementsByTagName("span");
-        for(let span of spans){
-            if(span.style.fontSize == ""){
-                span.style.fontSize = startFontSize;
+            this.push = function(value) {
+                this.storage[this.count] = value
+                this.count++
             }
-            if(span.style.fontFamily == ""){
-                span.style.fontFamily = startFont;
+
+            this.pop = function() {
+                if (this.count === 0) return undefined
+                this.count--
+                let result = this.storage[this.count]
+                delete this.storage[this.count]
+                return result
             }
-            span.onclick = function(event){
-                ApplyMenu(event.target);
+
+            this.peek = function() {
+                return this.storage[this.count - 1]
+            }
+
+            this.size = function() {
+                return this.count
             }
         }
 
-        var paragraphs = document.getElementsByClassName("paragraph");
-        for(let paragraph of paragraphs){
-            paragraph.onclick = function(event){
-                ApplyMenu(event.target);
+        class ActiveElement{
+            constructor(){
+                this.element = 0;
             }
+
+            get(){
+                return this.element;
+            }
+
+            set(element){
+                if(element.id == this.element.id) return;
+                if(typeof(this.element) == "object"){
+                    this.deselect();
+                }
+                this.element = element;
+                ApplyMenu(this.element);
+                this.select();
+            }
+
+            select(){
+                if(this.element.classList.contains("selected") || this.element == undefined)
+                    return;
+                this.element.classList.add("selected")
+            }
+            deselect(){
+                if(!this.element.classList.contains("selected") || this.element == undefined)
+                    return;
+                this.element.classList.remove("selected")
+            }
+
+            delete(){
+                if(typeof(this.element) != "object")
+                    return;
+                this.element.parentNode.removeChild(this.element);
+                this.element = 0;
+            }
+        }
+
+       /*class Run(){
+            constructor(paragraph){
+                this.element = document.createElement("span");
+                this.element.classList.add("runs");
+                this.element.id = paragraph.id + ":r_" + GetId(paragraph, "runs");
+                this.element.contentEditable = true;
+                this.element.innerHTML = ""
+            }
+        }*/
+
+        var activeElement = new ActiveElement()
+        var startFontSize = "14px";
+        var startFont = "Times New Roman"
+        var lastVersions = new Stack();
+
+        SetDefault();
+
+        document.addEventListener('keydown', function(event){
+                if(event.key == 'Delete'){
+                    var arr = []
+                    for(let child of document.getElementsByClassName("document")[0].childNodes){
+                        arr.push(child.cloneNode(true));
+                    }
+                    lastVersions.push(arr);
+                    activeElement.delete();
+                }
+                if (event.code == 'KeyZ' && (event.ctrlKey || event.metaKey)) {
+                    ReturnToLastVersion();
+                }
+            });
+
+        function SetDefault(){
+            var spans = document.getElementsByTagName("span");
+            for(let span of spans){
+                if(span.style.fontSize == ""){
+                    span.style.fontSize = startFontSize;
+                }
+                if(span.style.fontFamily == ""){
+                    span.style.fontFamily = startFont;
+                }
+                span.onclick = function(event){
+                    activeElement.set(event.target);
+                }
+            }
+
+            var paragraphs = document.getElementsByClassName("paragraph");
+            for(let paragraph of paragraphs){
+                paragraph.onclick = function(event){
+                    activeElement.set(event.target);
+                }
+                paragraph.draggable = true;
+
+            }
+
+            var doc = document.getElementsByClassName("document")[0];
+
+            doc.addEventListener('dragstart', (evt) => {
+              evt.target.classList.add(`selected`);
+              activeElement.set(evt.target);
+            });
+            doc.addEventListener('dragend', (evt) => {
+              evt.target.classList.remove(`selected`);
+              activeElement = new ActiveElement();
+            });
+
+            const getNextElement = (cursorPosition, currentElement) => {
+              const currentElementCoord = currentElement.getBoundingClientRect();
+              const currentElementCenter = currentElementCoord.y + currentElementCoord.height / 2;
+
+              const nextElement = (cursorPosition < currentElementCenter) ?
+                currentElement :
+                currentElement.nextElementSibling;
+
+              return nextElement;
+            };
+
+            doc.addEventListener('dragover', (evt) => {
+                evt.preventDefault();
+
+              const currentElement = evt.target;
+              const isMoveable = activeElement.element !== currentElement &&
+                currentElement.classList.contains('paragraph');
+
+              if(evt.clientY <= 180 && evt.clientY > 170)
+                window.scrollBy(0, -100);
+              else if(evt.clientY <= 170)
+                window.scrollBy(0, -200);
+              else if(evt.clientY >= 700)
+                window.scrollBy(0, 100);
+
+              if (!isMoveable) {
+                return;
+              }
+              const nextElement = getNextElement(evt.clientY, currentElement);
+
+                if (
+                    nextElement &&
+                    activeElement.element === nextElement.previousElementSibling ||
+                    activeElement.element === nextElement
+                  ) {
+                    return;
+                  }
+
+              doc.insertBefore(activeElement.element, nextElement);
+            });
+        }
+
+        function ReturnToLastVersion(){
+            var lastVers = lastVersions.pop();
+
+            if( lastVers == undefined){
+                console.log("Не найдено последней версии");
+                return;
+            }
+            else{
+                var elem = document.getElementsByClassName("document")[0];
+                while (elem.firstChild) {
+                    elem.removeChild(elem.lastChild);
+                  }
+                for(let p of lastVers){
+                    elem.appendChild(p);
+                }
+                SetDefault();
+            }
+
         }
 
         function GetId(parent, classname){
             list = Array.from(parent.getElementsByClassName(classname));
+            console.log(list);
             if(list.length == 0)
                 return 0;
-            list.sort(function(a, b){
+            list =  list.sort(function(a, b){
                 a_splitted = a.id.split("_");
                 b_splitted = b.id.split("_");
-                return Number(a_splitted[a_splitted.length-1]) > Number(b_splitted[b_splitted.length-1]);
-            });
+                a1 = Number(a_splitted[a_splitted.length-1]);
+                b1 = Number(b_splitted[b_splitted.length-1]);
+                if (a1 > b1) return 1;
+                if (a1 == b1) return 0;
+                if (a1 < b1) return -1;
+                });
             console.log(list);
-            console.log(list[list.length-1]);
             var splitted = list[list.length-1].id.split("_");
             return Number(splitted[splitted.length-1]) + 1
         }
 
         function ButtonAddParagraph_Click(){
-            var element = document.getElementById(document.getElementById("selectedElement").value);
-            if(element.className != "paragraph"){
+            var element = activeElement.get();
+            if(!element.classList.contains("paragraph")){
                 return;
             }
             var paragraph = document.createElement("div");
             paragraph.className = "paragraph";
             paragraph.id = "p_"+GetId(element.parentNode, "paragraph");
             paragraph.onclick = function(event){
-                ApplyMenu(event.target);
+                activeElement.set(event.target);
             }
-
             element.parentNode.insertBefore(paragraph, element.nextSibling);
         }
         function ButtonAddRun_Click(){
-            var element = document.getElementById(document.getElementById("selectedElement").value);
+            var element = activeElement.get();
             console.log(element);
-            if(element.className != "runs" && element.className != "hypers"){
-                if(element.className == "paragraph"){
+            if(!element.classList.contains("runs") && !element.classList.contains("hypers")){
+                if(element.classList.contains("paragraph")){
                     var run = document.createElement("span");
                     var par_id = element.id;
 
@@ -162,10 +340,8 @@
                     run.style.fontFamily = startFont;
                     run.style.fontSize = startFontSize;
                     run.onclick = function(event){
-                        ApplyMenu(event.target);
+                        activeElement.set(event.target);
                     }
-
-                    console.log(run)
                     element.appendChild(run);
                     return;
                 }
@@ -182,10 +358,8 @@
             run.style.fontFamily = startFont;
             run.style.fontSize = startFontSize;
             run.onclick = function(event){
-                ApplyMenu(event.target);
+                activeElement.set(event.target);
             }
-
-            console.log(run)
             element.parentNode.insertBefore(run, element.nextSibling);
         }
 
@@ -194,8 +368,8 @@
             var menu = document.getElementById("menu");
             document.getElementById("selectedElement").value = element.id;
             document.getElementById("fontSizeElement").value = element.style.fontSize.split("px")[0];
-            console.log(element.style.fontFamily);
-            document.getElementsByClassName("submenu-link")[0].innerHTML = element.style.fontFamily;
+            document.getElementById("ButtonDropDownFont").innerHTML = element.style.fontFamily.replaceAll('"', '');
+            document.getElementById("ButtonDropDownFont").style.fontFamily = element.style.fontFamily;
         }
 
         function SizeChanged(){
@@ -204,7 +378,8 @@
 
         function FontChanged(font){
             document.getElementById(document.getElementById("selectedElement").value).style.fontFamily = font;
-            document.getElementsByClassName("submenu-link")[0].innerHTML = font;
+            document.getElementById("ButtonDropDownFont").innerHTML = font.replace('"', '');
+            document.getElementById("ButtonDropDownFont").style.fontFamily = font;
         }
 
 
@@ -265,6 +440,9 @@
         }
 
         function CreateJSON(){
+            console.log(activeElement.get());
+            if(typeof(activeElement.get()) == "object")
+                activeElement.deselect();
             body = document.getElementsByClassName("document")[0];
             var jsondict = {};
             var chil = [];
@@ -283,7 +461,7 @@
             return jsondict;
         }
 
-        document.getElementById("updateButton").onclick = function(){
+        document.getElementById("updateButton").onclick = function UpdateFile(){
             $.ajax({
                 type: "POST",
                 url: "/docupdate?id={{ id_doc }}",

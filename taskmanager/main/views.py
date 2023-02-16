@@ -109,7 +109,7 @@ def UpdateDocument(request):
 
 # Главная страница веб-сервиса
 def index(request):
-    documents = Documents.objects.order_by("name")
+    documents = Documents.objects.order_by("id")
     context = {
         'title': 'Главная страница сайта',
         'documents': documents,

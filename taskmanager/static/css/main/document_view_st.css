@@ -1,7 +1,6 @@
 #menu{
     display: flex;
-    margin: 0 auto;
-    background: white;
+    margin: auto;
     text-align: center;
 }
 
@@ -24,63 +23,16 @@ body {
   margin: 0;
   padding: 0;
 }
-.topmenu:after {
-  content: "";
-  display: table;
-  clear: both;
-}
-.topmenu > li {
-  width: 25%;
-  float: left;
-  position: relative;
-  font-family: 'Open Sans', sans-serif;
-}
-.topmenu > li > a {
-  text-transform: uppercase;
-  font-size: 14px;
-  font-weight: bold;
-  color: #404040;
-  padding: 15px 30px;
-}
-.topmenu li a:hover { color: #D5B45B; }
-.submenu-link:after {
-  font-family: "FontAwesome";
-  color: inherit;
-  margin-left: 10px;
-}
-.submenu {
-  background: #273037;
-  position: absolute;
-  left: 0;
-  top: 100%;
-  z-index: 5;
-  width: 200px;
-  opacity: 0;
-  transform: scaleY(0);
-  transform-origin: 0 0;
-  transition: .5s ease-in-out;
-}
-.submenu a {
-  color: white;
-  text-align: left;
-  padding: 12px 15px;
-  font-size: 13px;
-  border-bottom: 1px solid rgba(255,255,255,.1);
-}
-.submenu li:last-child a { border-bottom: none; }
-.topmenu > li:hover .submenu {
-  opacity: 1;
-  transform: scaleY(1);
-}
 
 .paragraph{
     min-height: 50px;
-    background-color: rgb(240, 240, 240);
-    border: 1px solid rgb(210, 210, 210);
+    background-color: rgb(250, 250, 250);
+	max-width: 100%;
+	padding: 10px;
 }
 
-.paragraphs:hover{
-    background-color: rgb(230, 230, 230);
+.paragraph:hover{
+    background-color: rgb(220, 220, 220);
 }
 
 .main{
@@ -88,9 +40,13 @@ body {
     flex-direction: row;
 }
 
-.main#leftMenu{
-    flex-grow:2;
+#leftMenu{
     height: 100%;
+	display:flex;
+	flex-direction: column;
+	position: sticky;
+	top: 135px;
+	background-color: rgb(150, 150, 150);
 }
 
 #leftMenu button{
@@ -101,5 +57,60 @@ body {
 
 .document{
     height: 100%;
-    flex-grow: 5;
+	width: 790.6px;
+    flex-grow: 1;
+	display:flex;
+	flex-direction: column;
+	background-color: rgb(250, 250, 250);
+	margin-left: 30px;
+	margin-top: 30px;
+	padding-top: 80px;
+	padding-left: 100px;
+}
+
+.runs{
+    color: black;
+}
+
+.selected{
+    border: 1px solid rgb(210, 210, 210);
+    transform: scale(1.1);
+}
+
+td{
+	border: 1px solid black;
+}
+
+td.paragraph{
+	width: 100%;
+}
+
+#buttonMenu{
+	margin-top: 10px;
+	margin-bottom: 10px;
+}
+
+#TopMenu{
+	position: sticky; 
+	top: 20px;
+	background-color: rgb(120, 120, 120);
+	padding: 10px;
+	z-index: 1000;
+}
+
+#DropDownFont{
+	width:300px;
+	text-align: right;
+}
+
+#ButtonDropDownFont{
+	width:100%;
+	text-align: right;
+}
+
+#DropDownFont ul{
+	width: 300px;
+	max-height: 300px;
+	overflow: auto;
+	
 }
