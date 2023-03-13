@@ -27,35 +27,79 @@
                 {% endfor %}
             </ul>
         </div>
+        <div class="btn-group" role="group" aria-label="Basic radio toggle button group">
+          <input type="radio" class="btn-check" name="btnradio" id="leftAlign" onclick="OnAlignButtonClick(this)" autocomplete="off" checked>
+          <label class="btn btn-outline-primary" for="leftAlign">Л</label>
+
+          <input type="radio" class="btn-check" name="btnradio" id="centerAlign" onclick="OnAlignButtonClick(this)" autocomplete="off">
+          <label class="btn btn-outline-primary" for="centerAlign">Ц</label>
+
+          <input type="radio" class="btn-check" name="btnradio" id="rightAlign" onclick="OnAlignButtonClick(this)" autocomplete="off">
+          <label class="btn btn-outline-primary" for="rightAlign">П</label>
+
+            <input type="radio" class="btn-check" name="btnradio" id="bothAlign" onclick="OnAlignButtonClick(this)" autocomplete="off">
+          <label class="btn btn-outline-primary" for="bothAlign">В</label>
+        </div>
     </div>
 
     <div id="buttonMenu">
-        <button type="submit" class="btn btn-success" id="updateButton">Сохранить документ</button>
         <button class="btn btn-danger" id="deleteButton">Удалить элемент</button>
+        <input value="" id="span_value"/>
+        <div style="display:flex;">
+        <button type="submit" class="btn btn-success" id="updateButton">Сохранить документ</button>
+        </div>
     </div>
 </div>
 
 <div class="main">
     <div id="leftMenu">
-        <button type="button" class="btn btn-light" onclick="ButtonAddParagraph_Click()">Добавить параграф</button>
-        <button type="button" class="btn btn-light" onclick="ButtonAddRun_Click()">Добавить текст</button>
+        <div class="list-container">
+            <button type="button" class="btn btn-light" onclick="ButtonAddParagraph_Click()">Добавить параграф</button>
+        </div>
+        <div class="list-container">
+            <button type="button" class="btn btn-light" onclick="ButtonAddRun_Click()">Добавить текст</button>
+        </div>
+
+        <div class="list-container" id="list_saved">
+            <ul class="list-group" id="list_saved_sp">
+            </ul>
+        </div>
+        <div class="list-container" id="table_oknapolya">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th scope="col">Название</th>
+                  <th scope="col">Значение</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for var in variable %}
+                <tr class="variable" id="variable_cont:{{ var.id }}" data-idDB="{{ var.id }}">
+                  <td><span class="variable_name" id="variable_name:{{ var.id }}">{{ var.name }}</span></td>
+                  <td><input class="variable_mean" id="variable_mean:{{ var.id }}" value="{{ var.meaning }}"/></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+        </div>
     </div>
-    <div class="document" style="{{ sectPr.to_css }}">
-            {% for el, key in document %}
+    <div class="document" id="document_main" style="{{ sectPr.to_css }}">
+        
+            <!-- {% for el, key in document %}
                 {% if el.tag == 'p' %}
-                    <div class="paragraph" id="{{ key }}" style="{{ el.pr.to_css }}">
+                    <div class="paragraph docelement" id="{{ key }}" style="{{ el.pr.to_css }}">
                         {% for el2 in el.childs %}
                             {% if el2.text > "" %}
                                 {% if el2.tag == 'r' %}
-                                    <span contenteditable="true" id="{{ el.id }}:{{ el2.id }}" class="runs" style="{{ el2.pr.to_css }}">{{ el2.text }}</span>
+                                    <span id="{{ el2.id }}" class="runs docelement" style="{{ el2.pr.to_css }}" data-invis="{{ el2.text }}">{{ el2.text }}</span>
                                 {% elif el2.tag == 'hyperlink' %}
-                                    <span contenteditable="true" id="{% for k, v in el2.attrib.items %}{{ v }}/{% endfor %}" class="hypers" style="{{ el2.pr.to_css }}">{{ el2.text }}</span>
+                                    <span id="{{ el2.id }}" class="hypers docelement" style="{{ el2.pr.to_css }}" data-invis="{{ el2.text }}">{{ el2.text }}</span>
                                 {% endif %}
                             {% endif %}
                         {% endfor %}
                     </div>
                 {% elif el.tag == 'tbl' %}
-                    <div class="tables" id="{{ key }}" style="{{ el.pr.to_css }}">
+                    <div class="tables docelement" id="{{ key }}" style="{{ el.pr.to_css }}">
                         <input type="hidden" class="tableGrid" value="{% for gridCol in el.tableGrid %}{% for k,v in gridCol.items %}{{ k }}:{{ v }}|{% endfor %}{% endfor %}">
                         <table align="center" style="{{ el.pr.to_css }}">
                         {% for rows in el.childs %}
@@ -66,15 +110,15 @@
                                         <td style="{{ cols.pr.to_css }}">
                                             {% for paragraphs in cols.childs %}
                                                 {% if paragraphs.tag == "p" %}
-                                                    <div class="paragraph" style="{{ paragraphs.pr.to_css }}">
+                                                    <div class="paragraph docelement" style="{{ paragraphs.pr.to_css }}">
                                                     {% for run in paragraphs.childs %}
                                                         {% if run.text > "" %}
                                                             {% if run.tag == 'r' %}
-                                                                <span contenteditable="true" id="{% for k, v in run.attrib.items %}{{ v }}/{% endfor %}"  class="runs" style="{{ run.pr.to_css }}">{{ run.text }}</span>
+                                                                <span id="{{ run.id }}" class="runs docelement" style="{{ run.pr.to_css }}">{{ run.text }}</span>
                                                         {% elif run.tag == 'hyperlink' %}
-                                                                <span contenteditable="true" id="{% for k, v in run.attrib.items %}{{ v }}/{% endfor %}" class="hypers" style="{{ run.pr.to_css }}">{{ run.text }}</span>
+                                                                <span id="{{ run.id }}" class="hypers docelement" style="{{ run.pr.to_css }}">{{ run.text }}</span>
                                                             {% else %}
-                                                                <span contenteditable="true" id="{% for k, v in run.attrib.items %}{{ v }}/{% endfor %}" class="else" style="{{ run.pr.to_css }}">{{ run.text }}</span>
+                                                                <span id="{{ run.id }}" class="else docelement" style="{{ run.pr.to_css }}">{{ run.text }}</span>
                                                             {% endif %}
                                                         {% endif %}
                                                     {% endfor %}
@@ -93,7 +137,7 @@
             {% endfor %}
             </div>
 
-        {% endif %}
+        {% endif %} -->
         <input type="hidden" id="sectPr" value="{{ sectPr.to_css }}"/>
 </div>
 
@@ -129,155 +173,496 @@
         }
 
         class ActiveElement{
+
             constructor(){
-                this.element = 0;
+                this.paragraph = undefined;
+                this.run = undefined;
             }
 
-            get(){
-                return this.element;
+            setRun(element){
+                this.unsetRun();
+                this.run = element;
+                this.run.classList.add('selected');
+                ApplyMenu(this.run);
             }
 
-            set(element){
-                if(element.id == this.element.id) return;
-                if(typeof(this.element) == "object"){
-                    this.deselect();
+            setParagraph(element){
+                this.unsetParagraph();
+                this.paragraph = element;
+                this.paragraph.classList.add('selected');
+                ApplyMenu(this.paragraph);
+            }
+
+            unsetRun(){
+                try {
+                    this.run.classList.remove('selected');
+                    this.run = undefined;
+                } catch (error) {
+                   // console.log('Элемент не выделен', error);
                 }
-                this.element = element;
-                ApplyMenu(this.element);
-                this.select();
             }
 
-            select(){
-                if(this.element.classList.contains("selected") || this.element == undefined)
-                    return;
-                this.element.classList.add("selected")
-            }
-            deselect(){
-                if(!this.element.classList.contains("selected") || this.element == undefined)
-                    return;
-                this.element.classList.remove("selected")
+            unsetParagraph(){
+                try {
+                    this.paragraph.classList.remove('selected');
+                    this.paragraph = undefined; 
+                } catch (error) {
+                    //console.log('Элемент не выделен', error);
+                }
             }
 
-            delete(){
-                if(typeof(this.element) != "object")
+            deleteRun(){
+                try {
+                    this.run.parentNode.removeChild(this.run);
+                    this.run = undefined;
+                } catch (error) {
+                   // console.log('Элемент не выделен', error);
+                }
+            }
+
+            deleteParagraph(){
+                try {
+                    this.paragraph.parentNode.removeChild(this.par);
+                    this.paragraph = undefined;
+                } catch (error) {
+                    //console.log('Элемент не выделен', error);
+                }
+            }
+
+
+            setActive(element){
+                if(!element.classList)
                     return;
-                this.element.parentNode.removeChild(this.element);
-                this.element = 0;
+                this.unsetActive();
+                if(element.classList.contains('runs')){
+                    this.setRun(element);
+                    this.setParagraph(element.parentNode);
+                }
+                else if(element.classList.contains('paragraph')){
+                    this.setParagraph(element);
+                }
+                
+            }
+
+            unsetActive(){
+                this.unsetRun();
+                this.unsetParagraph();
+            }
+
+            deleteActive(){
+                this.unsetActive();
+                this.deleteRun();
+                this.deleteParagraph();
+            }
+
+            isRun(){
+                return this.run != undefined;
             }
         }
 
-       /*class Run(){
-            constructor(paragraph){
-                this.element = document.createElement("span");
-                this.element.classList.add("runs");
-                this.element.id = paragraph.id + ":r_" + GetId(paragraph, "runs");
-                this.element.contentEditable = true;
-                this.element.innerHTML = ""
+        function TextFromJSON(child){
+            var span = document.createElement('span');
+            if(child['class'] == 'runs'){
+                span.classList.add('runs');
+                span.classList.add('docelement');
+                span.id = child['id'];
+                for(let [key, value] of Object.entries(child['style'])){
+                    span.style[key] = value;
+                }
+                span.innerHTML = child['text'];
+                span.setAttribute('data-invis', child['data-invis']);
+                SetDefaultRun(span);
             }
-        }*/
+            return span;
+        }
 
-        var activeElement = new ActiveElement()
-        var startFontSize = "14px";
-        var startFont = "Times New Roman"
-        var lastVersions = new Stack();
-
-        SetDefault();
-
-        document.addEventListener('keydown', function(event){
-                if(event.key == 'Delete'){
-                    var arr = []
-                    for(let child of document.getElementsByClassName("document")[0].childNodes){
-                        arr.push(child.cloneNode(true));
+        function ParagraphFromJSON(id, style, childs){
+            var par = document.createElement('div');
+            par.classList.add('paragraph');
+            par.classList.add('docelement');
+            par.id = id;
+            for(let [key, value] of Object.entries(style)){
+                par.style[key] = value;
+            }
+            for(let child of childs){
+                par.appendChild(TextFromJSON(JSON.parse(child)));
+            }
+            SetDefaultPar(par);
+            return par;
+        }
+        
+        function DocFromJSON(data) {
+            try {
+                var jsonp = JSON.parse(data);
+                for(let element of jsonp['elements']){
+                    var child = JSON.parse(element);
+                    if(child['class'] == 'paragraph'){
+                        var id = child['id'];
+                        var style = child['style'];
+                        var childs = child['childs'];
+                        document_main.appendChild(ParagraphFromJSON(id, style, childs));
                     }
-                    lastVersions.push(arr);
-                    activeElement.delete();
                 }
-                if (event.code == 'KeyZ' && (event.ctrlKey || event.metaKey)) {
-                    ReturnToLastVersion();
+            } catch (error) {
+                return;
+            }
+        }
+        
+        function ListSavedFromJSON(data) {
+            var jsonp = JSON.parse(data);
+            for(let [key, value] of Object.entries(jsonp)){
+                var child = JSON.parse(value);
+                if(child['class'] == 'paragraph'){
+                    var id = child['id'];
+                    var style = child['style'];
+                    var childs = child['childs'];
+                    SaveElementToList(ParagraphFromJSON(id, style, childs), key.split(':')[0], key.split(':')[1]);
                 }
+                else if(child['class'] == 'runs'){
+                    SaveElementToList(TextFromJSON(child), key.split(':')[0], key.split(':')[1]);
+                }
+            }
+
+        }
+
+        function SaveLastVersion(){
+            var arr = []
+            for(let child of document.getElementsByClassName("document")[0].childNodes){
+                arr.push(child.cloneNode(true));
+            }
+            lastVersions.push(arr);
+        }
+
+        function CreateConnect(span){
+            var name = span.getAttribute('data-invis').trim();
+            name = name.slice(3, name.length-3);
+            for(let variable of document.getElementsByClassName('variable')){
+                var nam = variable.getElementsByClassName('variable_name')[0];
+                var val = variable.getElementsByClassName('variable_mean')[0];
+                if(nam.innerHTML == name){
+                    span.innerHTML = val.value;
+                    span.classList.add('variable_ref');
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function CheckOnVariableInSpan(span){
+            let regexp = new RegExp("{: .* :}")
+            if(regexp.test(span.getAttribute('data-invis').trim())){
+                if(!CreateConnect(span)){
+                    span.classList.remove('variable_ref');
+                }
+            }
+            else{
+                span.classList.remove('variable_ref');
+            }
+        }
+
+        function OnAlignButtonClick(button){
+            switch(button.id){
+                case 'leftAlign':
+                    activeElement.paragraph.style.textAlign = "left";
+                    break;
+                case 'centerAlign':
+                    activeElement.paragraph.style.textAlign = "center";
+                    break;
+                case 'rightAlign':
+                    activeElement.paragraph.style.textAlign = "right";
+                    break;
+                case 'bothAlign':
+                    activeElement.paragraph.style.textAlign = "justify";
+                    break;
+            }
+        }
+
+        function ReadAlign(element){
+            try{
+                switch(element.style.textAlign){
+                    case 'left':
+                        leftAlign.checked = true;
+                        break;
+                    case 'center':
+                        centerAlign.checked = true;
+                        break;
+                    case 'right':
+                        rightAlign.checked = true;
+                        break;
+                    case 'justify':
+                        bothAlign.checked = true;
+                        break;
+                    default:
+                        leftAlign.checked = true;
+                        element.style.textAlign = "left";
+                }
+            }
+            catch(err){
+                return;
+            }
+        }
+
+        function CheckNameElementFromList(name){
+            for(var elem of list_saved_sp.childNodes){
+                if(!elem.classList)
+                    continue;
+                if(elem.firstChild.firstChild.innerHTML == name)
+                    return false;
+            }
+            return true;
+        }
+
+        function CheckIdElementFromList(id){
+            for(var elem of list_saved_sp.childNodes){
+                if(!elem.classList)
+                    continue;
+                if(elem.id == id)
+                    return false;
+            }
+            return true;
+        }
+
+        function SaveElementToList(element, name, id){
+            var list = document.getElementById("list_saved_sp");
+            var divSmall = document.createElement("span");
+            var divElem = element.cloneNode(true);
+            var divBig = document.createElement("div");
+            var li = document.createElement("li");
+
+            divSmall.className = "fw-bold";
+            if(name == undefined){
+                var i = 1;
+                while(!CheckNameElementFromList("Элемент" + i)){
+                    i++;
+                }
+                divSmall.innerHTML = "Элемент" + i;
+            }
+            else
+                divSmall.innerHTML = name;
+            divSmall.classList.add("list_saved_element_label");
+            divSmall.contentEditable = true;
+
+            divElem.hidden = true;
+
+            divBig.className = "ms-2 me-auto";
+            divBig.appendChild(divSmall);
+            divBig.appendChild(divElem);
+
+            li.classList.add("list-group-item");
+            li.classList.add("d-flex");
+            li.classList.add("justify-content-between");
+            li.classList.add("align-items-start");
+            li.classList.add("list_saved_element");
+            if(id == undefined){
+                var i = 1;
+                while(!CheckIdElementFromList("listElement_" + i)){
+                    i++;
+                }
+                li.setAttribute('data-idDB', -1)
+                li.id = "listElement_" + i;
+            }
+            else{
+                li.setAttribute('data-idDB', id)
+                li.id = "listElement_" + id;
+            }
+            li.draggable = true;
+            li.addEventListener('dragstart', (evt) => {
+                var elem = evt.target.firstChild.childNodes[1].cloneNode(true);
+                elem.hidden = false;
+                activeElement.setActive(elem);
+                evt.dataTransfer.setData("id", evt.target.id);
             });
+            li.appendChild(divBig);
+
+            list.appendChild(li);
+        }
 
         function SetDefault(){
-            var spans = document.getElementsByTagName("span");
+            var spans = document.getElementsByClassName("runs");
             for(let span of spans){
-                if(span.style.fontSize == ""){
-                    span.style.fontSize = startFontSize;
-                }
-                if(span.style.fontFamily == ""){
-                    span.style.fontFamily = startFont;
-                }
-                span.onclick = function(event){
-                    activeElement.set(event.target);
-                }
+                SetDefaultRun(span);
+                CheckOnVariableInSpan(span);
             }
 
             var paragraphs = document.getElementsByClassName("paragraph");
-            for(let paragraph of paragraphs){
-                paragraph.onclick = function(event){
-                    activeElement.set(event.target);
-                }
-                paragraph.draggable = true;
+            for(let paragraph of paragraphs)
+                SetDefaultPar(paragraph);
 
-            }
+            var variables = document.getElementsByClassName("variable");
+            for(let variable of variables)
+                SetDefaultVariable(variable);
+            SetDragAndDrop();
+        }
 
-            var doc = document.getElementsByClassName("document")[0];
-
-            doc.addEventListener('dragstart', (evt) => {
-              evt.target.classList.add(`selected`);
-              activeElement.set(evt.target);
-            });
-            doc.addEventListener('dragend', (evt) => {
-              evt.target.classList.remove(`selected`);
-              activeElement = new ActiveElement();
-            });
-
-            const getNextElement = (cursorPosition, currentElement) => {
-              const currentElementCoord = currentElement.getBoundingClientRect();
-              const currentElementCenter = currentElementCoord.y + currentElementCoord.height / 2;
-
-              const nextElement = (cursorPosition < currentElementCenter) ?
-                currentElement :
-                currentElement.nextElementSibling;
-
-              return nextElement;
-            };
-
-            doc.addEventListener('dragover', (evt) => {
-                evt.preventDefault();
-
-              const currentElement = evt.target;
-              const isMoveable = activeElement.element !== currentElement &&
-                currentElement.classList.contains('paragraph');
-
-              if(evt.clientY <= 180 && evt.clientY > 170)
-                window.scrollBy(0, -100);
-              else if(evt.clientY <= 170)
-                window.scrollBy(0, -200);
-              else if(evt.clientY >= 700)
-                window.scrollBy(0, 100);
-
-              if (!isMoveable) {
-                return;
-              }
-              const nextElement = getNextElement(evt.clientY, currentElement);
-
-                if (
-                    nextElement &&
-                    activeElement.element === nextElement.previousElementSibling ||
-                    activeElement.element === nextElement
-                  ) {
+        function SetDragAndDrop(){
+            var doc = document.getElementsByClassName("main")[0];
+            doc.addEventListener('dragstart', function(evt) {
+                if(evt.target.classList.contains("list_saved_element"))
                     return;
-                  }
-
-              doc.insertBefore(activeElement.element, nextElement);
+                activeElement.setActive(evt.target);
+                if(activeElement.isRun())
+                    activeElement.run.classList.add('dragged');
+                else{
+                    activeElement.paragraph.classList.add('dragged');
+                }
+                evt.dataTransfer.setData('id', evt.target.id);
             });
+            doc.addEventListener('dragend', function(evt) {
+                try {
+                    if(activeElement.isRun())
+                        activeElement.run.classList.remove('dragged');
+                    else{
+                        activeElement.paragraph.classList.remove('dragged');
+                    }
+                } catch (error) {
+                    list_saved.style.border = "";
+                    return
+                }
+                
+            });
+
+            doc.addEventListener('drop', function(evt){
+                var id = evt.dataTransfer.getData('id');
+                if(evt.target.id == "list_saved" || evt.target.id == "list_saved_sp" || evt.target.classList.contains("list_saved_element")){
+                    if(activeElement.isRun())
+                        SaveElementToList(activeElement.run, undefined, undefined);
+                    else
+                        SaveElementToList(activeElement.paragraph, undefined, undefined);
+                    return;
+                }
+                if(activeElement.isRun()){
+                    SetDefaultRun(activeElement.run);
+                    var span = document.getElementById(activeElement.run.id);
+                    if(span && span != activeElement.run)
+                        activeElement.run.id = "runs_"+GetId();
+                    var spans = document_main.getElementsByClassName('runs');
+                    for(let span of spans){
+                        CheckOnVariableInSpan(span);
+                    }
+                }
+                else{
+                    SetDefaultPar(activeElement.paragraph);
+                    activeElement.paragraph.id = "p_"+GetId();
+                    var spans = document_main.getElementsByClassName('runs');
+                    for(let span of spans){
+                        CheckOnVariableInSpan(span);
+                    }
+                }
+                list_saved.style.border = "";
+            });
+
+            doc.addEventListener('dragleave', function(evt){
+                list_saved.style.border = "";
+            });
+
+            doc.addEventListener('dragover', function(evt) {
+                evt.preventDefault();
+                const currentElement = evt.target;
+                if(evt.clientY <= 180 && evt.clientY > 170)
+                    window.scrollBy(0, -100);
+                else if(evt.clientY >= 700)
+                    window.scrollBy(0, 100);
+                if(evt.target.id == "list_saved" || evt.target.id == "list_saved_sp" || evt.target.classList.contains("list_saved_element")){
+                    list_saved.style.border = "2px dashed green";
+                }
+                if(activeElement.isRun()){
+                    const isMoveable = activeElement.run !== currentElement &&
+                    currentElement.classList.contains('runs');
+                    if (!isMoveable) {
+                        if(currentElement.classList.contains('paragraph')){
+                            activeElement.setParagraph(currentElement);
+                            activeElement.paragraph.appendChild(activeElement.run);
+                        }
+                        return;
+                    }
+
+                    const getNextElement = (cursorPosition, currentElement) => {
+                        const currentElementCoord = currentElement.getBoundingClientRect();
+                        const currentElementCenter = currentElementCoord.x + currentElementCoord.width / 2;
+                        const nextElement = (cursorPosition < currentElementCenter) ?
+                            currentElement :
+                            currentElement.nextElementSibling;
+                        return nextElement;
+                    };
+                    
+                    const nextElement = getNextElement(evt.clientX, currentElement);
+                    if (nextElement &&
+                        activeElement.run === nextElement.previousElementSibling ||
+                        activeElement.run === nextElement){return;}
+                    activeElement.paragraph.insertBefore(activeElement.run, nextElement);
+                    
+                }
+                else{
+                    const isMoveable = activeElement.paragraph !== currentElement &&
+                    currentElement.classList.contains('paragraph');
+                    if (!isMoveable) {
+                        return;
+                    }
+
+                    const getNextElement = (cursorPosition, currentElement) => {
+                        const currentElementCoord = currentElement.getBoundingClientRect();
+                        const currentElementCenter = currentElementCoord.y + currentElementCoord.height / 2;
+                        const nextElement = (cursorPosition < currentElementCenter) ?
+                            currentElement :
+                            currentElement.nextElementSibling;
+                        return nextElement;
+                    };
+
+                    const nextElement = getNextElement(evt.clientY, currentElement);
+                    if (nextElement &&
+                        activeElement.paragraph === nextElement.previousElementSibling ||
+                        activeElement.paragraph === nextElement){return;}
+                        document_main.insertBefore(activeElement.paragraph, nextElement);
+                }
+            });
+        }
+
+        function SetDefaultRun(run){
+            if(run.style.fontSize == ""){
+                run.style.fontSize = startFontSize;
+            }
+            if(run.style.fontFamily == ""){
+                run.style.fontFamily = startFont;
+            }
+            run.onclick = function(event){
+                if(run.classList.contains('selected') && !run.classList.contains('variable_ref')){
+                    run.contentEditable = true;
+                    redSpan = run;
+                }
+                activeElement.setActive(run);
+            }
+            run.draggable = true;
+            run.contentEditable = false;
+            if(!run.getAttribute('data-invis'))
+                run.setAttribute('data-invis', run.innerHTML);
+         }
+
+        function SetDefaultPar(paragraph){
+           paragraph.onclick = function(event){
+               activeElement.setActive(event.target);
+           }
+           for(let runs of paragraph.childNodes){
+                if(runs.classList && runs.classList.contains("runs")){
+                    SetDefaultRun(runs);
+                }     
+           }
+           paragraph.draggable = true;
+        }
+
+        function SetDefaultVariable(variable){
+            variable.getElementsByClassName('variable_name')[0].contentEditable = true;
+            variable.getElementsByClassName('variable_mean')[0].oninput = function(){
+                for(let span of document.getElementsByClassName('variable_ref')){
+                    CheckOnVariableInSpan(span);
+                }
+                
+            }
         }
 
         function ReturnToLastVersion(){
             var lastVers = lastVersions.pop();
 
             if( lastVers == undefined){
-                console.log("Не найдено последней версии");
                 return;
             }
             else{
@@ -290,12 +675,10 @@
                 }
                 SetDefault();
             }
-
         }
 
-        function GetId(parent, classname){
-            list = Array.from(parent.getElementsByClassName(classname));
-            console.log(list);
+        function GetId(){
+            list = Array.from(document.getElementsByClassName("docelement"));
             if(list.length == 0)
                 return 0;
             list =  list.sort(function(a, b){
@@ -307,81 +690,80 @@
                 if (a1 == b1) return 0;
                 if (a1 < b1) return -1;
                 });
-            console.log(list);
             var splitted = list[list.length-1].id.split("_");
             return Number(splitted[splitted.length-1]) + 1
         }
 
         function ButtonAddParagraph_Click(){
-            var element = activeElement.get();
-            if(!element.classList.contains("paragraph")){
-                return;
-            }
+            var element = activeElement.paragraph;
             var paragraph = document.createElement("div");
-            paragraph.className = "paragraph";
-            paragraph.id = "p_"+GetId(element.parentNode, "paragraph");
-            paragraph.onclick = function(event){
-                activeElement.set(event.target);
-            }
-            element.parentNode.insertBefore(paragraph, element.nextSibling);
+            paragraph.classList.add("paragraph");
+            paragraph.classList.add("docelement");
+            paragraph.id = "p_"+GetId();
+            SetDefaultPar(paragraph);
+            if(element == undefined)
+                document_main.insertBefore(paragraph, document_main.lastChild)
+            else
+                element.parentNode.insertBefore(paragraph, element.nextSibling);
+                SaveLastVersion();
         }
+
         function ButtonAddRun_Click(){
-            var element = activeElement.get();
-            console.log(element);
-            if(!element.classList.contains("runs") && !element.classList.contains("hypers")){
-                if(element.classList.contains("paragraph")){
+            var element = activeElement.run;
+            if(element == undefined){
+                element = activeElement.paragraph;
+                if(element != undefined){
+                    SaveLastVersion();
                     var run = document.createElement("span");
                     var par_id = element.id;
 
-                    run.className = "runs";
-                    run.id = par_id + ":r_"+GetId(element, "runs");
-                    run.contentEditable = true;
+                    run.classList.add("runs");
+                    run.classList.add("docelement");
+                    run.id = "runs_"+GetId();
                     run.innerHTML = " Какой-то текст";
-                    run.style.fontFamily = startFont;
-                    run.style.fontSize = startFontSize;
-                    run.onclick = function(event){
-                        activeElement.set(event.target);
-                    }
+                    run.setAttribute('data-invis', run.innerHTML);
+
+                    SetDefaultRun(run);
                     element.appendChild(run);
-                    return;
                 }
                 else
                     return;
             }
-            var run = document.createElement("span");
-            var par_id = element.parentNode.id;
+                else{
+                SaveLastVersion();
+                var run = document.createElement("span");
+                var par_id = element.parentNode.id;
 
-            run.className = "runs";
-            run.id = par_id + ":r_"+GetId(element.parentNode, "runs");
-            run.contentEditable = true;
-            run.innerHTML = " Какой-то текст";
-            run.style.fontFamily = startFont;
-            run.style.fontSize = startFontSize;
-            run.onclick = function(event){
-                activeElement.set(event.target);
+                run.classList.add("runs");
+                run.classList.add("docelement");
+                run.id = "runs_"+GetId();
+                run.innerHTML = " Какой-то текст";
+                run.setAttribute('data-invis', run.innerHTML);
+x
+                SetDefaultRun(run);
+                element.parentNode.insertBefore(run, element.nextSibling);
             }
-            element.parentNode.insertBefore(run, element.nextSibling);
         }
 
-
         function ApplyMenu(element){
-            var menu = document.getElementById("menu");
-            document.getElementById("selectedElement").value = element.id;
-            document.getElementById("fontSizeElement").value = element.style.fontSize.split("px")[0];
-            document.getElementById("ButtonDropDownFont").innerHTML = element.style.fontFamily.replaceAll('"', '');
-            document.getElementById("ButtonDropDownFont").style.fontFamily = element.style.fontFamily;
+            selectedElement.value = element.id;
+            fontSizeElement.value = element.style.fontSize.split("px")[0];
+            ButtonDropDownFont.innerHTML = element.style.fontFamily.replaceAll('"', '');
+            ButtonDropDownFont.style.fontFamily = element.style.fontFamily;
+            if(activeElement.isRun())
+                span_value.value = activeElement.run.getAttribute('data-invis');
+            ReadAlign(activeElement.paragraph);
         }
 
         function SizeChanged(){
-            document.getElementById(document.getElementById("selectedElement").value).style.fontSize = document.getElementById("fontSizeElement").value + "px";
+            document.getElementById(selectedElement.value).style.fontSize = fontSizeElement.value + "px";
         }
 
         function FontChanged(font){
             document.getElementById(document.getElementById("selectedElement").value).style.fontFamily = font;
-            document.getElementById("ButtonDropDownFont").innerHTML = font.replace('"', '');
-            document.getElementById("ButtonDropDownFont").style.fontFamily = font;
+            ButtonDropDownFont.innerHTML = font.replace('"', '');
+            ButtonDropDownFont.style.fontFamily = font;
         }
-
 
         function TableRowToJSON(elem, id){
             var tds = [];
@@ -391,12 +773,12 @@
                 }
             }
             let op = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
-            return {'id': "tr_"+id, 'childs': tds, 'style': op};
+            return JSON.stringify({'id': "tr_"+id, 'childs': tds, 'style': op});
         }
 
         function TableColumnToJSON(elem, id){
             let o = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
-            return {'text': elem.value, 'id': "tc_" + id, 'style': o , 'paragraph': ParagraphToJSON(elem.childNodes[1], 0)};
+            return JSON.stringify({'text': elem.value, 'id': "tc_" + id, 'style': o , 'paragraph': ParagraphToJSON(elem.childNodes[1], 0)});
         }
 
         function TableToJSON(elem, id){
@@ -405,9 +787,7 @@
             for(let child of elem.childNodes){
                 if(child.nodeName == "TABLE"){
                     for(let child1 of child.childNodes){
-                        console.log(child1.nodeName)
                         for(let child2 of child1.childNodes){
-                            console.log(child2.nodeName)
                             if(child2.nodeName == "TR"){
                                 trs.push(TableRowToJSON(child2, trs.length));
                             }
@@ -419,7 +799,7 @@
                 }
             }
             let op = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
-            return {'id': "tbl_"+id, 'childs': trs, 'style': op, 'tableGrid': grid};
+            return JSON.stringify({'id': "tbl_"+id, 'childs': trs, 'style': op, 'tableGrid': grid});
         }
 
         function ParagraphToJSON(elem, id){
@@ -429,36 +809,89 @@
                     chil.push(ChildrenToJSON(child, chil.length));
                 }
             }
-            console.log(elem)
             let op = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
-            return {'id': "p_"+id, 'childs': chil, 'style': op};
+            return JSON.stringify({'id': "p_"+id, 'class': elem.classList[0], 'childs': chil, 'style': op});
         }
 
         function ChildrenToJSON(elem, id){
             let o = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
-            return {'text': elem.innerHTML, 'id': elem.className + "_" + id, 'style': o , 'attrib': elem.id};
+
+            return JSON.stringify({'text': elem.innerHTML, 'data-invis': elem.getAttribute('data-invis'), 'class': elem.classList[0], 'id': elem.classList[0] + "_" + id, 'style': o , 'attrib': elem.id});
+        }
+
+        function ListSavedToJSON(){
+            var chil = [];
+            for(let list_elem of list_saved_sp.childNodes){
+                console.log(list_elem)
+                if(!list_elem.firstChild)
+                    continue;
+                var element = list_elem.firstChild.childNodes[1];
+                var inner = list_elem.firstChild.childNodes[0].innerHTML;
+                var id = list_elem.getAttribute('data-idDB');
+                var lst = {};
+                console.log(element);
+                lst['id'] = id;
+                lst['name'] = inner;
+                if(element.classList.contains("paragraph")){
+                    lst['json'] = ParagraphToJSON(element, chil.length);
+                }
+                else if(element.classList.contains("tables")){
+                    lst['json'] = TableToJSON(element, chil.length);
+                }
+                else if(element.classList.contains("runs")){
+                    lst['json'] = ChildrenToJSON(element, chil.length);
+                }
+                chil.push(lst);
+                console.log(chil);
+            }
+            return chil;
+        }
+
+        function VariablesToJSON(){
+            var chil = [];
+            for(let variable of document.getElementsByClassName('variable')){
+                console.log(variable);
+                var name = variable.firstElementChild.firstElementChild.innerHTML;
+                console.log(name);
+                var value = variable.lastElementChild.firstElementChild.value;
+                console.log(value);
+                var id = variable.getAttribute('data-idDB');
+                var lst = {};
+                lst['id'] = id;
+                lst['name'] = name;
+                lst['value'] = value;
+                chil.push(lst);
+            }
+            return chil;
         }
 
         function CreateJSON(){
-            console.log(activeElement.get());
-            if(typeof(activeElement.get()) == "object")
-                activeElement.deselect();
+            activeElement.unsetActive();
             body = document.getElementsByClassName("document")[0];
             var jsondict = {};
             var chil = [];
             for(let child of body.childNodes){
-                if(child.className == "paragraph"){
+                if(child.classList == undefined)
+                    continue;
+                if(child.classList.contains("paragraph")){
                     chil.push(ParagraphToJSON(child, chil.length));
                 }
-                else if(child.className == "tables"){
+                else if(child.classList.contains("tables")){
                     chil.push(TableToJSON(child, chil.length));
                 }
             }
             jsondict['elements'] = chil;
-            console.log(document.getElementById("sectPr"))
-            console.log(document.getElementById("sectPr").value)
             jsondict['sectPr'] = document.getElementById("sectPr").value;
+            jsondict['list_saved'] = ListSavedToJSON();
+            jsondict['variables'] = VariablesToJSON();
             return jsondict;
+        }
+
+        span_value.oninput = function(event){
+            var span = activeElement.run;
+            span.innerHTML = span_value.value;
+            span.setAttribute('data-invis', span_value.value);
+            CheckOnVariableInSpan(span);
         }
 
         document.getElementById("updateButton").onclick = function UpdateFile(){
@@ -470,6 +903,49 @@
                 dataType: 'json'
             });
         }
-    </script>
+
+        document.addEventListener('keydown', function(event){
+                if(event.key == 'Delete'){
+                    SaveLastVersion()
+                    activeElement.deleteActive();
+                }
+                if (event.code == 'KeyZ' && (event.ctrlKey || event.metaKey)) {
+                    ReturnToLastVersion();
+                }
+                if (event.key == 'Enter'){
+                    SaveLastVersion();
+                    console.log(redSpan);
+                    redSpan.setAttribute('data-invis', redSpan.innerHTML);
+                    redSpan.contentEditable = false;
+                    redSpan = 0;
+                }
+            });
+
+        document.addEventListener('click', function(event){
+            if(event.target != redSpan && redSpan != 0){
+                SaveLastVersion();
+                console.log(redSpan);
+                redSpan.setAttribute('data-invis', redSpan.innerHTML);
+                redSpan.contentEditable = false;
+                redSpan = 0;
+            }
+        });
+
+
+        var activeElement = new ActiveElement()
+        var startFontSize = "14px";
+        var startFont = "Times New Roman"
+        var lastVersions = new Stack();
+        var redSpan = 0;
+        var list_save = [];
+        
+        DocFromJSON("{{ document_json|escapejs }}")
+       
+        ListSavedFromJSON("{{ saved_elements|escapejs }}");
+
+        SetDefault();
+
+        
+    </script> 
 {% endblock %}
 

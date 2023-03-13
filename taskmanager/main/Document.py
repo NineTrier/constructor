@@ -1,5 +1,5 @@
 # Класс Документ, представленный xml структурой
-
+import json
 import re
 from .PropertyParser import *
 
@@ -9,6 +9,7 @@ vst1 = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
 vst2 = "{http://schemas.openxmlformats.org/markup-compatibility/2006}"
 
 vsts = {"{http://schemas.openxmlformats.org/wordprocessingml/2006/main}": "w", "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}": "r"}
+i_id = 0
 
 
 # Абстрактный класс Элемент
@@ -81,31 +82,35 @@ class ElementFactory:
         else:
             return Else(elem)
 
-    def initialize_from_json(self, json: dict):
-        tag = json['id'].split("_")[0]
+    def initialize_from_json(self, json1: dict):
+        if type(json1) == str:
+            json_stroke = json.loads(json1)
+        else:
+            json_stroke = json1
+        tag = json_stroke['id'].split("_")[0]
         if tag == "r":
             r = Run(None)
-            r.from_json(json)
+            r.from_json(json_stroke)
             return r
         elif tag == "hypers":
             hyp = Hyperlink(None)
-            hyp.from_json(json)
+            hyp.from_json(json_stroke)
             return hyp
         elif tag == "p":
             p = Paragraph(None)
-            p.from_json(json)
+            p.from_json(json_stroke)
             return p
         elif tag == "tbl":
             tbl = Table(None)
-            tbl.from_json(json)
+            tbl.from_json(json_stroke)
             return tbl
         elif tag == "tr":
             tr = TableRow(None)
-            tr.from_json(json)
+            tr.from_json(json_stroke)
             return tr
         elif tag == "tc":
             tc = TableCol(None)
-            tc.from_json(json)
+            tc.from_json(json_stroke)
             return tc
         else:
             return ""
@@ -113,12 +118,12 @@ class ElementFactory:
     # Функция возвращает потомков Элемента elem.
     # Пока что эта функция в классе фабрика, что не правильно, но не знаю куда лучше разместить
     def get_childs(self, elem):
+        global i_id
         childs = []
-        i = 0
         for son in elem:
             childs.append(self.initialize(son))
-            childs[-1].id = f"{son.tag.split('}')[1]}_{i}"
-            i += 1
+            childs[-1].id = f"{son.tag.split('}')[1]}_{i_id}"
+            i_id += 1
         return childs
 
 
@@ -168,9 +173,9 @@ class Properties(Element):
         return css
 
     # Получение элемента из JSON объекта, нужен когда закончили редактирование в html странице
-    def from_json(self, json: dict):
+    def from_json(self, json_stroke: dict):
         propCol = PropertiesCollection(None)
-        propCol.from_json(json)
+        propCol.from_json(json_stroke)
         self.pr = [propCol]
 
     def __eq__(self, other):
@@ -211,14 +216,18 @@ class Hyperlink(Element):
                 print(exc, "Hyperlink to lxml")
         return hyperlink
 
-    def from_json(self, json: dict):
+    def from_json(self, json1: dict):
+        if type(json1) == str:
+            json_stroke = json.loads(json1)
+        else:
+            json_stroke = json1
         self.childs = []
         r = Run(None)
-        r.from_json(json)
+        r.from_json(json_stroke)
         r.id = f'r_{len(self.childs)}'
         self.childs.append(r)
-        idd = json['attrib'].split('/')[0]
-        hist = json['attrib'].split('/')[1]
+        idd = json_stroke['attrib'].split('/')[0]
+        hist = json_stroke['attrib'].split('/')[1]
         self.attrib = {'r:id': idd, 'w:history': hist}
 
 
@@ -247,8 +256,12 @@ class Text(Element):
         except Exception as exc:
             print(exc, "Text to lxml", self.textElem)
 
-    def from_json(self, json: dict):
-        self.textElem = json['text']
+    def from_json(self, json1: dict):
+        if type(json1) == str:
+            json_stroke = json.loads(json1)
+        else:
+            json_stroke = json1
+        self.textElem = json_stroke['text']
         self.attrib['space'] = 'preserve'
 
 
@@ -285,15 +298,19 @@ class Run(Element):
                 print(exc, "Run to lxml", child)
         return r
 
-    def from_json(self, json: dict):
+    def from_json(self, json1: dict):
+        if type(json1) == str:
+            json_stroke = json.loads(json1)
+        else:
+            json_stroke = json1
         self.childs = []
         rPr = Properties(None)
         rPr.tag = 'rPr'
         rPr.id = f'rPr_{len(self.childs)}'
-        rPr.from_json(json['style'])
+        rPr.from_json(json_stroke['style'])
         self.childs.append(rPr)
         text = Text(None)
-        text.from_json(json)
+        text.from_json(json_stroke)
         self.childs.append(text)
 
 
@@ -329,22 +346,27 @@ class Paragraph(Element):
                 print(exc, "Paragraph to lxml", child)
         return p
 
-    def from_json(self, json: dict):
+    def from_json(self, json1):
+        if type(json1) == str:
+            json_stroke = json.loads(json1)
+        else:
+            json_stroke = json1
         self.childs = []
         pPr = Properties(None)
         pPr.tag = 'pPr'
         pPr.id = f'pPr_{len(self.childs)}'
-        pPr.from_json(json['style'])
+        pPr.from_json(json_stroke['style'])
         self.childs.append(pPr)
-        for child in json['childs']:
-            if child['id'].split('_')[0] == 'runs':
+        for child in json_stroke['childs']:
+            json_childs = json.loads(child)
+            if json_childs['id'].split('_')[0] == 'runs':
                 run = Run(None)
-                run.from_json(child)
+                run.from_json(json_childs)
                 self.childs.append(run)
-            elif child['id'].split('_')[0] == 'hypers':
+            elif json_childs['id'].split('_')[0] == 'hypers':
                 hyper = Hyperlink(None)
                 hyper.from_json(child)
-                self.childs.append(hyper)
+                self.childs.append(json_childs)
 
 
 # Класс таблица
@@ -389,19 +411,23 @@ class Table(Element):
                 print(exc, "Table to lxml", child)
         return tbl
 
-    def from_json(self, json: dict):
+    def from_json(self, json1: dict):
+        if type(json1) == str:
+            json_stroke = json.loads(json1)
+        else:
+            json_stroke = json1
         self.childs = []
         tblPr = Properties(None)
         tblPr.tag = 'tblPr'
         tblPr.id = f'tblPr_{len(self.childs)}'
-        tblPr.from_json(json['style'])
+        tblPr.from_json(json_stroke['style'])
         self.childs.append(tblPr)
-        for child in json['childs']:
+        for child in json_stroke['childs']:
             if child['id'].split('_')[0] == 'tr':
                 row = TableRow(None)
                 row.from_json(child)
                 self.childs.append(row)
-        self.tableGrid = [{"w:w": i.split(':')[-1]} for i in json['tableGrid'].split('|')]
+        self.tableGrid = [{"w:w": i.split(':')[-1]} for i in json_stroke['tableGrid'].split('|')]
 
 
 # Класс строка таблицы
@@ -436,14 +462,18 @@ class TableRow(Element):
                 print(exc, "TableRow to lxml", child)
         return p
 
-    def from_json(self, json: dict):
+    def from_json(self, json1: dict):
+        if type(json1) == str:
+            json_stroke = json.loads(json1)
+        else:
+            json_stroke = json1
         self.childs = []
         trPr = Properties(None)
         trPr.tag = 'trPr'
         trPr.id = f'trPr_{len(self.childs)}'
-        trPr.from_json(json['style'])
+        trPr.from_json(json_stroke['style'])
         self.childs.append(trPr)
-        for child in json['childs']:
+        for child in json_stroke['childs']:
             if child['id'].split('_')[0] == 'tc':
                 col = TableCol(None)
                 col.from_json(child)
@@ -482,38 +512,50 @@ class TableCol(Element):
                 print(exc, "TableCol to lxml", child.pr)
         return p
 
-    def from_json(self, json: dict):
-
+    def from_json(self, json1: dict):
+        if type(json1) == str:
+            json_stroke = json.loads(json1)
+        else:
+            json_stroke = json1
         self.childs = []
         tcPr = Properties(None)
         tcPr.tag = 'tcPr'
         tcPr.id = f'tcPr_{len(self.childs)}'
-        tcPr.from_json(json['style'])
+        tcPr.from_json(json_stroke['style'])
         self.childs.append(tcPr)
         par = Paragraph(None)
-        par.from_json(json['paragraph'])
+        par.from_json(json_stroke['paragraph'])
         self.childs.append(par)
 
 
 # Класс документ
 class Document:
 
-    def __init__(self, path):
-        self.wa = WordAPI(path)
-        body = self.wa.get_elements_by_tag("w:body")[0]
-
-        self.childs = ElementFactory().get_childs(body)
+    def __init__(self, path=None):
+        global i_id
+        i_id = 0
+        if path is None:
+            self.wa = WordAPI()
+            self.childs = []
+        else:
+            self.wa = WordAPI(path)
+            try:
+                body = self.wa.get_elements_by_tag("w:body")[0]
+            except TypeError:
+                self.childs = []
+                return
+            self.childs = ElementFactory().get_childs(body)
 
     def save(self, path):
         self.wa.create_new_doc(self.childs)
         self.wa.saveDoc(path)
 
-    def from_json(self, json: dict):
+    def from_json(self, json_stroke: dict):
         self.childs = []
-        for elem in json['elements']:
+        for elem in json_stroke['elements']:
             self.childs.append(ElementFactory().initialize_from_json(elem))
         sectPr = Properties(None)
-        sectPr.from_json({i: i for i in json['sectPr'].split('|')})
+        sectPr.from_json({i: i for i in json_stroke['sectPr'].split('|')})
         self.childs.append(sectPr)
 
 

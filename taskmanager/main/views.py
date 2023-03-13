@@ -2,7 +2,7 @@ import json
 
 from django.shortcuts import render, redirect
 from django.views.generic import CreateView
-from .models import Documents, Fonts
+from .models import Documents, Fonts, SavedElements, VariableBlock
 from .forms import DocumentForm
 import os
 from django.conf import settings
@@ -12,6 +12,7 @@ from .Document import Document
 
 from .Formatter.Formatter import Formatter
 from django.views.decorators.csrf import csrf_exempt
+from transliterate import translit
 
 
 # Класс, который помогает создавать новый записи в базу данных Documents
@@ -24,7 +25,26 @@ class DocumentCreate(CreateView):
 
     template_name = 'main/document_create.html'
 
-    success_url = 'documents'
+    success_url = '/'
+
+
+def create_New_Document(request):
+    if request.method == 'POST':
+        document = Documents()
+        document.name = request.POST['name']
+        document.description = request.POST['description']
+        document.owner = request.POST['owner']
+        document.file = f"documents\\{translit(document.name, reversed=True)}{translit(document.owner, reversed=True)}.docx"
+        file_path = os.path.join(settings.MEDIA_ROOT, str(document.file))
+        file_path_blank = os.path.join(settings.MEDIA_ROOT, f"documents\\blank.docx")
+        doc_file = Document(file_path_blank)
+        doc_file.save(file_path)
+        document.save()
+    form = DocumentForm()
+    context = {
+        'form': form,
+    }
+    return render(request, 'main/new_document.html', context)
 
 
 def uploadRed(request):
@@ -79,7 +99,8 @@ def change_doc(request):
 
 def ViewDocument(request):
     fileid = request.GET.get('id')
-    file_path = Documents.objects.filter(id=fileid)[0].file
+    Doc = Documents.objects.filter(id=fileid)[0]
+    file_path = Doc.file
     print(file_path)
     file_path = os.path.join(settings.MEDIA_ROOT, str(file_path))
     document = Document(file_path)
@@ -88,9 +109,43 @@ def ViewDocument(request):
         'id_doc': fileid,
         'document': [(child, child.id) for child in document.childs],
         'sectPr': document.childs[-1],
-        'fonts': Fonts.objects.order_by('id')
+        'fonts': Fonts.objects.order_by('id'),
+        'saved_elements': json.dumps({f"{el.name}:{el.id}": json.dumps(el.json) for el in SavedElements.objects.filter(type=Doc.type)}),
+        'variable': VariableBlock.objects.filter(doc=Doc.id),
+        'document_json': json.dumps(Doc.json)
     }
     return render(request, 'main/document_view.html', context)
+
+
+def SavedElementFromJSON(json_stroke):
+    for list_elem in json_stroke:
+        print(list_elem)
+        name, id_elem, element = list_elem['name'], list_elem['id'], list_elem['json']
+        if id_elem == '-1':
+            saved = SavedElements()
+            saved.name = name
+            saved.json = json.loads(element)
+            saved.save()
+        else:
+            saved = SavedElements.objects.get(id=id_elem)
+            saved.name = name
+            saved.json = json.loads(element)
+            saved.save()
+
+def VariablesFromJSON(json_stroke):
+    for variable in json_stroke:
+        print(variable)
+        name, id_elem, value = variable['name'], variable['id'], variable['value']
+        if id_elem == '-1':
+            var = VariableBlock()
+            var.name = name
+            var.meaning = value
+            var.save()
+        else:
+            var = VariableBlock.objects.get(id=id_elem)
+            var.name = name
+            var.meaning = value
+            var.save()
 
 
 @csrf_exempt
@@ -101,6 +156,11 @@ def UpdateDocument(request):
     document = Document(file_path)
     request_data = request.body
     stroke = json.loads(request_data)
+    doc.json = stroke
+    doc.save()
+    print(stroke)
+    SavedElementFromJSON(stroke["list_saved"])
+    VariablesFromJSON(stroke["variables"])
     document.from_json(stroke)
     document.save(file_path)
     response = redirect('/')

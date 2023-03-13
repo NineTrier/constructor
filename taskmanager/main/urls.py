@@ -12,5 +12,6 @@ urlpatterns = [
     path('change', views.change_doc),
     path('upload_change', views.uploadRed),
     path('doc', views.ViewDocument),
-    path('docupdate', views.UpdateDocument)
+    path('docupdate', views.UpdateDocument),
+    path('newdocument', views.create_New_Document, name='newdocuments'),
 ]

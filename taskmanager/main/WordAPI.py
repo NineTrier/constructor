@@ -16,8 +16,11 @@ def create_attribute(element, name, value):
 # Класс API для работы с документами Microsoft Word в xml структуре
 class WordAPI:
 
-    def __init__(self, document):
-        self.doc = Document(document)
+    def __init__(self, document=None):
+        if document is None:
+            self.doc = Document()
+        else:
+            self.doc = Document(document)
 
     def openDoc(self, doc):
         self.doc = Document(doc)
