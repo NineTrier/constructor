@@ -1,0 +1,27 @@
+{% extends 'main/base.html' %}
+
+{% block title %}
+    Создание документа
+{% endblock %}
+
+{% block content %}
+    <h1>{{ title }}</h1>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.name }}<br>
+        {{ form.owner }}<br>
+        {{ form.description }}<br>
+        <button type="submit" class="btn btn-success">Создать</button>
+        <span>{{ error }}</span>
+    </form>
+{% endblock %}
+
+{% block script %}
+    <script lang="JavaScript">
+
+    </script>
+{% endblock %}
+
+
+
+
