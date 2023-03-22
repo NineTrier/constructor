@@ -5,31 +5,67 @@
 {{ title }}
 {% endblock %}
 
+{% block connection %}
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/main/index.css' %}">
+{% endblock %}
+
 {% block content %}
 
-    <h1>{{ title }}</h1>
     {% if documents %}
-        {% for el in documents %}
-        <div class="alert alert-warning mt-2">
-            <h3>{{ el.name }} от {{ el.owner }}</h3>
-            <p>{{ el.description }}</p>
-            <a href="/download?filename={{ el.name }}" target="_blank">Скачать</a>
-            <a href="/change?filename={{ el.name }}" target="_blank">Скачать отформатированный</a>
-            <a href="/doc?id={{ el.id }}" target="_blank">Просмотреть</a>
-        </div>
-        {% endfor %}
+        <ul class="list-group list-group-horizontal" id="list_of_document">
+            {% for el in documents %}
+            <li class="list-group-item doc_in_list" data-idDB="{{ el.id }}">
+                <div class="btns_container">
+                    <a href="/document/download?id={{ el.id }}" target="_blank" class="btn btn-labeled"><i class="fas fa-download"></i></a>
+                    <a href="/document/view?id={{ el.id }}&type=0" class="btn btn-labeled"><i class="fas fa-pen"></i></a>
+                    <button type="button" class="btn btn-labeled doc_del_button"><i class="fas fa-trash" style="color:red;"></i></button>
+                </div>
+                <div class="alert alert-warning mt-2 doc_image">        
+                </div>
+                <h4>{{ el.name }}</h4>
+                <h5>{{ el.owner }}</h5>
+                <p>{{ el.description }}</p>
+            </li>
+            {% endfor %}
+        </ul>
     {% else %}
         <p>Нет записей</p>
     {% endif %}
-        <div id="app">
+        <!-- <div id="app">
             <p>"Кукукук"</p>
             <p>{* a *}</p>
             <button @click="changeText()">Тык</button>
             <p>{* value *}</p>
         </div>
         {% load static %}
-        <script src="{% static 'js/main.js' %}"></script>
+        <script src="{% static 'js/main.js' %}"></script> -->
 
+{% endblock %}
+
+{% block script %}
+    <script lang="JavaScript">
+        var btns_del = document.getElementsByClassName("doc_del_button");
+        for(let btn of btns_del){
+            btn.onclick = function(evt){
+                var spisok_element = btn.parentElement.parentElement;
+                if(spisok_element.getAttribute('data-idDB') != -1){
+                    $.ajax({
+                        type: "POST",
+                        url: "document/delete",
+                        data: JSON.stringify({'id': spisok_element.getAttribute('data-idDB')}),
+                        contentType: "application/json; charset=utf-8",
+                        dataType: 'json',
+                        success: spisok_element.parentNode.removeChild(spisok_element)
+                    });
+                
+                }
+                else{
+                    var_elem.parentNode.removeChild(spisok_element);
+                }
+            }
+        }
+    </script>
 {% endblock %}
 
 

@@ -1,14 +1,36 @@
+:root{
+    --color-primary: #F2F2F2;
+    --color-secondary:#adb4b3da;
+    --color-accent: #6f95ff;
+
+    --document-size: 790.6px;
+    --button-menu-width: 25px;
+}
+
+.btn_menu{
+    max-width: var(--button-menu-width);
+}
+
 #menu{
     display: flex;
     margin: auto;
     text-align: center;
+    background-color: var(--color-secondary);
+    border-radius: 10px;
+    margin-bottom: 5px;
+    padding: 5px;
+}
+
+#menu .vr{
+    margin-right: 10px;
+    margin-left: 10px;
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  background-color: #F2F2F2;
+  background-color: var(--color-primary);
 }
 
 #menu a {
@@ -46,8 +68,9 @@ body {
 	flex-direction: column;
 	position: sticky;
 	top: 135px;
-	background-color: rgb(150, 150, 150);
+	background-color: var(--color-secondary);
 	padding: 10px;
+    margin-left: 10px;
 }
 
 #leftMenu button{
@@ -61,17 +84,23 @@ body {
 }
 
 
-.document{
+#document_main{
     height: 100%;
-	width: 790.6px;
-    flex-grow: 1;
+	min-width: var(--document-size);
+    max-width: var(--document-size);
 	display:flex;
 	flex-direction: column;
-	background-color: rgb(250, 250, 250);
+	background-color: rgb(255, 255, 255);
 	margin-left: 30px;
-	margin-top: 30px;
+	margin-top: 5px;
 	padding-top: 80px;
 	padding-left: 100px;
+    padding-right: 50px;
+}
+
+#save_complete{
+    display: none;
+    align-items: center;
 }
 
 #selectedElement{
@@ -81,10 +110,15 @@ body {
 
 #fontSizeElement{
     max-width: 60px;
+    background-color: var(--color-secondary);
 }
 
 #span_value{
-    min-width: 500px;
+    min-width: var(--document-size);
+    max-width: var(--document-size);
+    margin-left: 30px;
+    position: sticky;
+	top: 135px;
 }
 
 .runs{
@@ -92,8 +126,7 @@ body {
 }
 
 .selected{
-    border: 1px solid rgb(210, 210, 210);
-    transform: scale(1.1);
+    border: 1px solid rgb(170, 170, 170);
 }
 
 td{
@@ -104,22 +137,17 @@ td.paragraph{
 	width: 100%;
 }
 
-#buttonMenu{
-	margin-top: 10px;
-	margin-bottom: 10px;
-}
 
 #TopMenu{
 	position: sticky; 
 	top: 20px;
-	background-color: rgb(120, 120, 120);
 	padding: 10px;
-	z-index: 1000;
+	z-index: 15;
 }
 
 #DropDownFont{
 	width:300px;
-	text-align: right;
+	text-align: left;
 }
 
 #ButtonDropDownFont{
@@ -143,7 +171,7 @@ td.paragraph{
     max-height: 200px;
     max-width: 250px;
     min-width: 250px;
-    overflow: auto;
+    overflow-y: scroll;
 }
 
 .list_saved_element{
@@ -159,8 +187,8 @@ td.paragraph{
 
 #table_oknapolya{
     overflow: auto;
-    max-width: 240px;
-    min-width: 240px;
+    width: 90%;
+    height: 90%;
     background-color: white;
     padding: 5px;
 }
@@ -177,3 +205,39 @@ td.paragraph{
     display: flex;
     flex-direction: row;
 }
+
+.savedElement_container{
+    display: flex;
+    flex-direction: row;
+    max-height: 15px;
+}
+
+.savedElement_btns{
+    display: flex;
+    flex-direction: row;
+    position: absolute;
+    left: 93%;
+}
+
+#doc_name{
+    font-size: 20px;
+    margin-right: 10px;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+#instruments_menu{
+    display: flex;
+    flex-direction: row;
+    margin-left: 10px;
+}
+
+#doc_name_container{
+    display: flex;
+    align-items: center;
+}
+
+#font_select{
+    background-color: var(--color-secondary);
+    max-width: 100px;
+}
+

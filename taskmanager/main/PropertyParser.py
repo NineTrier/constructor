@@ -224,7 +224,7 @@ class Underline(Property):
 
     def from_json(self, json: dict):
         for k, v in json.items():
-            if k == "textDecoration":
+            if k == "textDecoration" and v == 'underline':
                 self.attrib["w:val"] = "single"
                 self.enabled = True
 

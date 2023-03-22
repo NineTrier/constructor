@@ -12,44 +12,87 @@
 
 {% block content %}
     {% if document %}
+    
 <div id="TopMenu">
+    <div id="instruments_menu">
+        <div id="doc_name_container">
+            <span id="doc_name" contenteditable="true">{{ name_of_document }}</span>
+        </div>
+        <div id="save_complete"><i class="fa-solid fa-check"></i></div>
+        <a type="submit" class="btn btn-labeled" id="updateButton"><i class="fa-solid fa-floppy-disk"></i></a>
+        <a href="/document/download?id={{ id_doc }}" target="_blank" class="btn btn-labeled" id="updateButton"><i class="fa-solid fa-download"></i></a>
+    </div>
     <div id="menu">
         <input value="" id="selectedElement"/>
-        <input type="number" onchange="SizeChanged()" id="fontSizeElement" value="14"/>
-
-        <div class="dropdown" id="DropDownFont">
-           <button class="btn btn-secondary dropdown-toggle" type="button" id="ButtonDropDownFont" data-bs-toggle="dropdown" aria-expanded="false">
-            Шрифт
-          </button>
-            <ul class="dropdown-menu" aria-labelledby="dropdownFont" >
-                {% for font in fonts %}
-                <li><button class="dropdown-item" type="button" onclick='FontChanged("{{ font }}")' style='font-family: {{ font }};'>{{ font }}</button></li>
-                {% endfor %}
-            </ul>
-        </div>
+            <a type="button" class="btn btn-labeled btn_menu" onclick="ButtonAddParagraph_Click()"><i class="fa-solid fa-plus"></i></a>
+            <a type="button" class="btn btn-labeled btn_menu" onclick="ButtonAddRun_Click()"><i class="fa-solid fa-square-plus"></i></a>
+            <a class="btn btn-labeled btn_menu" id="deleteButton"><i class="fa-solid fa-ban" style="color:red;"></i></a>
+        <div class="vr"></div>
+        <input class="form-control" type="number" onchange="SizeChanged()" id="fontSizeElement" value="14"/>
+        <div class="vr"></div>
+        <select class="form-select" id="font_select" aria-label=".form-select пример" onchange="FontChanged()">
+            {% for font in fonts %}
+                <option style='font-family: {{ font }};' value="{{ font }}">{{ font }}</option>
+            {% endfor %}
+        </select>
+        <div class="vr"></div>
+            <input type="checkbox" class="btn-check" id="btn_check_bold" autocomplete="off" onchange="SetBold()">
+            <label class="btn btn-labeled" for="btn_check_bold"><i class="fa-solid fa-bold"></i></label>
+            
+            <input type="checkbox" class="btn-check" id="btn_check_italic" autocomplete="off" onchange="SetItalic()">
+            <label class="btn btn-labeled" for="btn_check_italic"><i class="fa-solid fa-italic"></i></label>
+            
+            <input type="checkbox" class="btn-check" id="btn_check_underline" autocomplete="off" onchange="SetUnderline()">
+            <label class="btn btn-labeled" for="btn_check_underline"><i class="fa-solid fa-underline"></i></label>
+        <div class="vr"></div>
         <div class="btn-group" role="group" aria-label="Basic radio toggle button group">
-          <input type="radio" class="btn-check" name="btnradio" id="leftAlign" onclick="OnAlignButtonClick(this)" autocomplete="off" checked>
-          <label class="btn btn-outline-primary" for="leftAlign">Л</label>
+            <input type="radio" class="btn-check" name="btnradio" id="leftAlign" onclick="OnAlignButtonClick(this)" autocomplete="off" checked>
+            <label class="btn" for="leftAlign"><i class="fa-solid fa-align-left"></i></label>
 
-          <input type="radio" class="btn-check" name="btnradio" id="centerAlign" onclick="OnAlignButtonClick(this)" autocomplete="off">
-          <label class="btn btn-outline-primary" for="centerAlign">Ц</label>
+            <input type="radio" class="btn-check" name="btnradio" id="centerAlign" onclick="OnAlignButtonClick(this)" autocomplete="off">
+            <label class="btn" for="centerAlign"><i class="fa-solid fa-align-center"></i></label>
 
-          <input type="radio" class="btn-check" name="btnradio" id="rightAlign" onclick="OnAlignButtonClick(this)" autocomplete="off">
-          <label class="btn btn-outline-primary" for="rightAlign">П</label>
+            <input type="radio" class="btn-check" name="btnradio" id="rightAlign" onclick="OnAlignButtonClick(this)" autocomplete="off">
+            <label class="btn" for="rightAlign"><i class="fa-solid fa-align-right"></i></label>
 
             <input type="radio" class="btn-check" name="btnradio" id="bothAlign" onclick="OnAlignButtonClick(this)" autocomplete="off">
-          <label class="btn btn-outline-primary" for="bothAlign">В</label>
+            <label class="btn" for="bothAlign"><i class="fa-solid fa-align-justify"></i></label>
         </div>
+        <div class="vr"></div>
     </div>
-
-    <div id="buttonMenu">
-        <button class="btn btn-danger" id="deleteButton">Удалить элемент</button>
-        <input value="" id="span_value"/>
-        <div style="display:flex;">
-        <button type="submit" class="btn btn-success" id="updateButton">Сохранить документ</button>
-        </div>
-    </div>
+    
 </div>
+  
+  <!-- Модальное окно -->
+  <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="exampleModalLabel">Переменные документа</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+        </div>
+        <div class="modal-body">
+            <div class="list-container" id="table_oknapolya">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                        <th scope="col">Название</th>
+                        <th scope="col">Значение</th>
+                        <th scope="col"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                  </tbody>
+                </table>
+                <button id="variable_add_btn">Добавить</button>
+            </div>
+        </div>
+        <div class="modal-footer">
+        </div>
+      </div>
+    </div>
+  </div>
+
 
 <div class="main">
     <div id="leftMenu">
@@ -64,82 +107,73 @@
             <ul class="list-group" id="list_saved_sp">
             </ul>
         </div>
-        <div class="list-container" id="table_oknapolya">
-            <table class="table table-hover">
-              <thead>
-                <tr>
-                  <th scope="col">Название</th>
-                  <th scope="col">Значение</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for var in variable %}
-                <tr class="variable" id="variable_cont:{{ var.id }}" data-idDB="{{ var.id }}">
-                  <td><span class="variable_name" id="variable_name:{{ var.id }}">{{ var.name }}</span></td>
-                  <td><input class="variable_mean" id="variable_mean:{{ var.id }}" value="{{ var.meaning }}"/></td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-        </div>
+        <!-- Кнопка-триггер модального окна -->
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#exampleModal">
+        Переменные
+    </button>
     </div>
-    <div class="document" id="document_main" style="{{ sectPr.to_css }}">
-        
-            <!-- {% for el, key in document %}
-                {% if el.tag == 'p' %}
-                    <div class="paragraph docelement" id="{{ key }}" style="{{ el.pr.to_css }}">
-                        {% for el2 in el.childs %}
-                            {% if el2.text > "" %}
-                                {% if el2.tag == 'r' %}
-                                    <span id="{{ el2.id }}" class="runs docelement" style="{{ el2.pr.to_css }}" data-invis="{{ el2.text }}">{{ el2.text }}</span>
-                                {% elif el2.tag == 'hyperlink' %}
-                                    <span id="{{ el2.id }}" class="hypers docelement" style="{{ el2.pr.to_css }}" data-invis="{{ el2.text }}">{{ el2.text }}</span>
+    <div>
+        <input value="" id="span_value" class="form-control" disabled/>
+        <div class="document" id="document_main" style="{{ sectPr.to_css }}">
+            {% if type == '1' %}
+                {% for el, key in document %}
+                    {% if el.tag == 'p' %}
+                        <div class="paragraph docelement" id="{{ key }}" style="{{ el.pr.to_css }}">
+                            {% for el2 in el.childs %}
+                                {% if el2.text > "" %}
+                                    {% if el2.tag == 'r' %}
+                                        <span id="{{ el2.id }}" class="runs docelement" style="{{ el2.pr.to_css }}" data-invis="{{ el2.text }}">{{ el2.text }}</span>
+                                    {% elif el2.tag == 'hyperlink' %}
+                                        <span id="{{ el2.id }}" class="hypers docelement" style="{{ el2.pr.to_css }}" data-invis="{{ el2.text }}">{{ el2.text }}</span>
+                                    {% endif %}
                                 {% endif %}
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-                {% elif el.tag == 'tbl' %}
-                    <div class="tables docelement" id="{{ key }}" style="{{ el.pr.to_css }}">
-                        <input type="hidden" class="tableGrid" value="{% for gridCol in el.tableGrid %}{% for k,v in gridCol.items %}{{ k }}:{{ v }}|{% endfor %}{% endfor %}">
-                        <table align="center" style="{{ el.pr.to_css }}">
-                        {% for rows in el.childs %}
-                            {% if rows.tag == "tr" %}
-                                <tr style="{{ rows.pr.to_css }}">
-                                    {% for cols in rows.childs %}
-                                        {% if cols.tag == "tc" %}
-                                        <td style="{{ cols.pr.to_css }}">
-                                            {% for paragraphs in cols.childs %}
-                                                {% if paragraphs.tag == "p" %}
-                                                    <div class="paragraph docelement" style="{{ paragraphs.pr.to_css }}">
-                                                    {% for run in paragraphs.childs %}
-                                                        {% if run.text > "" %}
-                                                            {% if run.tag == 'r' %}
-                                                                <span id="{{ run.id }}" class="runs docelement" style="{{ run.pr.to_css }}">{{ run.text }}</span>
-                                                        {% elif run.tag == 'hyperlink' %}
-                                                                <span id="{{ run.id }}" class="hypers docelement" style="{{ run.pr.to_css }}">{{ run.text }}</span>
-                                                            {% else %}
-                                                                <span id="{{ run.id }}" class="else docelement" style="{{ run.pr.to_css }}">{{ run.text }}</span>
+                            {% endfor %}
+                        </div>
+                    {% elif el.tag == 'tbl' %}
+                        <div class="tables docelement" id="{{ key }}" style="{{ el.pr.to_css }}">
+                            <input type="hidden" class="tableGrid" value="{% for gridCol in el.tableGrid %}{% for k,v in gridCol.items %}{{ k }}:{{ v }}|{% endfor %}{% endfor %}">
+                            <table align="center" style="{{ el.pr.to_css }}">
+                            {% for rows in el.childs %}
+                                {% if rows.tag == "tr" %}
+                                    <tr style="{{ rows.pr.to_css }}">
+                                        {% for cols in rows.childs %}
+                                            {% if cols.tag == "tc" %}
+                                            <td style="{{ cols.pr.to_css }}">
+                                                {% for paragraphs in cols.childs %}
+                                                    {% if paragraphs.tag == "p" %}
+                                                        <div class="paragraph docelement" style="{{ paragraphs.pr.to_css }}">
+                                                        {% for run in paragraphs.childs %}
+                                                            {% if run.text > "" %}
+                                                                {% if run.tag == 'r' %}
+                                                                    <span id="{{ run.id }}" class="runs docelement" style="{{ run.pr.to_css }}">{{ run.text }}</span>
+                                                            {% elif run.tag == 'hyperlink' %}
+                                                                    <span id="{{ run.id }}" class="hypers docelement" style="{{ run.pr.to_css }}">{{ run.text }}</span>
+                                                                {% else %}
+                                                                    <span id="{{ run.id }}" class="else docelement" style="{{ run.pr.to_css }}">{{ run.text }}</span>
+                                                                {% endif %}
                                                             {% endif %}
-                                                        {% endif %}
-                                                    {% endfor %}
-                                                    </div>
-                                                {% endif %}
-                                            {% endfor %}
-                                        </td>
-                                        {% endif %}
-                                    {% endfor %}
-                                </tr>
-                            {% endif %}
-                        {% endfor %}
-                        </table>
-                    </div>
+                                                        {% endfor %}
+                                                        </div>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                            </table>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+                </div>
                 {% endif %}
-            {% endfor %}
-            </div>
-
-        {% endif %} -->
-        <input type="hidden" id="sectPr" value="{{ sectPr.to_css }}"/>
+            {% endif %}
+            <input type="hidden" id="sectPr" value="{{ sectPr.to_css }}"/>
+    </div>
 </div>
+<!-- Подложка под модальным окном -->
+<div class="overlay" id="overlay-modal"></div>
 
 {% endblock %}
 
@@ -174,26 +208,40 @@
 
         class ActiveElement{
 
-            constructor(){
-                this.paragraph = undefined;
-                this.run = undefined;
+            constructor(element){
+                if(element != undefined)
+                    this.setActive(element);
+                else{
+                    this.paragraph = undefined;
+                    this.run = undefined;
+                }
+                
             }
 
             setRun(element){
-                this.unsetRun();
-                this.run = element;
-                this.run.classList.add('selected');
-                ApplyMenu(this.run);
+                try {
+                    this.run = element;
+                    this.run.classList.add('selected');
+                    ApplyMenu(this.run);
+                } catch (error) {
+                    console.log("Текстовый элемент не существует", error);
+                    return;
+                }
             }
 
             setParagraph(element){
-                this.unsetParagraph();
-                this.paragraph = element;
-                this.paragraph.classList.add('selected');
-                ApplyMenu(this.paragraph);
+                try {
+                    this.paragraph = element;
+                    this.paragraph.classList.add('selected');
+                    ApplyMenu(this.paragraph);
+                } catch (error) {
+                    console.log("Параграф не существует", error);
+                    return;
+                } 
             }
 
             unsetRun(){
+                console.log("UnsetRun");
                 try {
                     this.run.classList.remove('selected');
                     this.run = undefined;
@@ -203,6 +251,7 @@
             }
 
             unsetParagraph(){
+                console.log("UnsetParagraph");
                 try {
                     this.paragraph.classList.remove('selected');
                     this.paragraph = undefined; 
@@ -216,32 +265,28 @@
                     this.run.parentNode.removeChild(this.run);
                     this.run = undefined;
                 } catch (error) {
-                   // console.log('Элемент не выделен', error);
+                    console.log(error);
                 }
             }
 
             deleteParagraph(){
                 try {
-                    this.paragraph.parentNode.removeChild(this.par);
+                    this.paragraph.parentNode.removeChild(this.paragraph);
                     this.paragraph = undefined;
                 } catch (error) {
-                    //console.log('Элемент не выделен', error);
+                    console.log('Элемент не выделен', error);
                 }
             }
 
 
             setActive(element){
-                if(!element.classList)
-                    return;
-                this.unsetActive();
                 if(element.classList.contains('runs')){
-                    this.setRun(element);
                     this.setParagraph(element.parentNode);
+                    this.setRun(element);
                 }
                 else if(element.classList.contains('paragraph')){
                     this.setParagraph(element);
                 }
-                
             }
 
             unsetActive(){
@@ -250,13 +295,16 @@
             }
 
             deleteActive(){
-                this.unsetActive();
                 this.deleteRun();
                 this.deleteParagraph();
             }
 
             isRun(){
                 return this.run != undefined;
+            }
+
+            isEqual(active){
+                return (this.run == active.run && this.paragraph == active.paragraph);
             }
         }
 
@@ -327,10 +375,11 @@
 
         function SaveLastVersion(){
             var arr = []
-            for(let child of document.getElementsByClassName("document")[0].childNodes){
+            for(let child of document.getElementsByClassName("document")[0].children){
                 arr.push(child.cloneNode(true));
             }
             lastVersions.push(arr);
+            SaveNotComplete();
         }
 
         function CreateConnect(span){
@@ -402,10 +451,59 @@
             }
         }
 
+        function SetBold(){
+            if(activeElement.isRun()){
+                if(btn_check_bold.checked)
+                    activeElement.run.style.fontWeight = "bold";
+                else
+                    activeElement.run.style.fontWeight = "normal";
+            }
+            else{
+                for(let run of activeElement.paragraph.children){
+                    if(btn_check_bold.checked)
+                        run.style.fontWeight = "bold";
+                    else
+                        run.style.fontWeight = "normal";
+                }
+            }
+        }
+
+        function SetItalic(){
+            if(activeElement.isRun()){
+                if(btn_check_italic.checked)
+                    activeElement.run.style.fontStyle = "italic";
+                else
+                    activeElement.run.style.fontStyle = "normal";
+            }
+            else{
+                for(let run of activeElement.paragraph.children){
+                    if(btn_check_italic.checked)
+                        run.style.fontStyle = "italic";
+                    else
+                        run.style.fontStyle = "normal";
+                }
+            }
+        }
+
+        function SetUnderline(){
+            if(activeElement.isRun()){
+                if(btn_check_underline.checked)
+                    activeElement.run.style.textDecoration = "underline";
+                else
+                    activeElement.run.style.textDecoration = "none";
+            }
+            else{
+                for(let run of activeElement.paragraph.children){
+                    if(btn_check_underline.checked)
+                        run.style.textDecoration = "underline";
+                    else
+                        run.style.textDecoration = "none";
+                }
+            }
+        }
+
         function CheckNameElementFromList(name){
-            for(var elem of list_saved_sp.childNodes){
-                if(!elem.classList)
-                    continue;
+            for(var elem of list_saved_sp.children){
                 if(elem.firstChild.firstChild.innerHTML == name)
                     return false;
             }
@@ -413,9 +511,7 @@
         }
 
         function CheckIdElementFromList(id){
-            for(var elem of list_saved_sp.childNodes){
-                if(!elem.classList)
-                    continue;
+            for(var elem of list_saved_sp.children){
                 if(elem.id == id)
                     return false;
             }
@@ -444,9 +540,34 @@
 
             divElem.hidden = true;
 
-            divBig.className = "ms-2 me-auto";
+            divBig.classList.add('savedElement_container');
+            divBig.classList.add("ms-2") ;
+            divBig.classList.add("me-auto");
             divBig.appendChild(divSmall);
             divBig.appendChild(divElem);
+
+            var btns_container = document.createElement('div');
+            btns_container.classList.add('savedElement_btns');
+            var btn_close = document.createElement('button');
+            btn_close.type = 'button';
+            btn_close.classList.add('btn-close');
+            btn_close.setAttribute('aria-label', 'Close');
+            btn_close.style.maxHeight = '7px'; 
+
+            btn_close.onclick = function(evt){
+                var list_element = btn_close.parentNode.parentNode.parentNode;
+                $.ajax({
+                    type: "POST",
+                    url: "/savedelementdelete",
+                    data: JSON.stringify({'id': list_element.getAttribute('data-idDB')}),
+                    contentType: "application/json; charset=utf-8",
+                    dataType: 'json',
+                    success: list_element.parentNode.removeChild(list_element)
+                });
+            }
+
+            btns_container.appendChild(btn_close);
+            divBig.appendChild(btns_container);
 
             li.classList.add("list-group-item");
             li.classList.add("d-flex");
@@ -467,13 +588,15 @@
             }
             li.draggable = true;
             li.addEventListener('dragstart', (evt) => {
-                var elem = evt.target.firstChild.childNodes[1].cloneNode(true);
+                var elem = evt.target.firstElementChild.children[1].cloneNode(true);
                 elem.hidden = false;
+                activeElement.unsetActive();
                 activeElement.setActive(elem);
                 evt.dataTransfer.setData("id", evt.target.id);
             });
             li.appendChild(divBig);
 
+            
             list.appendChild(li);
         }
 
@@ -499,6 +622,7 @@
             doc.addEventListener('dragstart', function(evt) {
                 if(evt.target.classList.contains("list_saved_element"))
                     return;
+                activeElement.unsetActive();
                 activeElement.setActive(evt.target);
                 if(activeElement.isRun())
                     activeElement.run.classList.add('dragged');
@@ -617,6 +741,25 @@
             });
         }
 
+        function ClearArrayActive(){
+            for(let active of activeElements){
+                active.unsetActive();
+            }
+            activeElements = [];
+        }
+
+        function AddActiveInArray(element){
+            var newActive = new ActiveElement(element);
+            for(let active of activeElements){
+                if(active.isEqual(newActive)){
+                    active.unsetActive();
+                    
+                }
+                    
+            }
+            activeElements.push(newActive);
+        }
+
         function SetDefaultRun(run){
             if(run.style.fontSize == ""){
                 run.style.fontSize = startFontSize;
@@ -629,8 +772,18 @@
                     run.contentEditable = true;
                     redSpan = run;
                 }
-                activeElement.setActive(run);
+                if(event.ctrlKey || event.metaKey){
+                    AddActiveInArray(run);
+                }
+                else{
+                    ClearArrayActive();
+                    activeElement.unsetActive();
+                    activeElement.setActive(run);
+                    AddActiveInArray(run);
+                }
             }
+            run.classList.add("runs");
+            run.classList.add("docelement");
             run.draggable = true;
             run.contentEditable = false;
             if(!run.getAttribute('data-invis'))
@@ -638,15 +791,20 @@
          }
 
         function SetDefaultPar(paragraph){
-           paragraph.onclick = function(event){
-               activeElement.setActive(event.target);
-           }
-           for(let runs of paragraph.childNodes){
-                if(runs.classList && runs.classList.contains("runs")){
+            paragraph.onclick = function(event){
+                if(!event.target.classList.contains('paragraph'))
+                    return;
+                activeElement.unsetActive();
+                activeElement.setActive(event.target);
+            }
+            for(let runs of paragraph.children){
+                if(runs.classList.contains("runs")){
                     SetDefaultRun(runs);
                 }     
-           }
-           paragraph.draggable = true;
+            }
+            paragraph.classList.add("paragraph");
+            paragraph.classList.add("docelement");
+            paragraph.draggable = true;
         }
 
         function SetDefaultVariable(variable){
@@ -695,82 +853,132 @@
         }
 
         function ButtonAddParagraph_Click(){
-            var element = activeElement.paragraph;
             var paragraph = document.createElement("div");
-            paragraph.classList.add("paragraph");
-            paragraph.classList.add("docelement");
+            
             paragraph.id = "p_"+GetId();
             SetDefaultPar(paragraph);
-            if(element == undefined)
+            if(activeElement.paragraph == undefined)
                 document_main.insertBefore(paragraph, document_main.lastChild)
             else
-                element.parentNode.insertBefore(paragraph, element.nextSibling);
-                SaveLastVersion();
+                activeElement.paragraph.parentElement.insertBefore(paragraph, activeElement.paragraph.nextSibling);
+            SaveLastVersion();
+            activeElement.unsetActive();
+            activeElement.setActive(paragraph);
+            paragraph.scrollIntoView();
         }
 
         function ButtonAddRun_Click(){
-            var element = activeElement.run;
-            if(element == undefined){
-                element = activeElement.paragraph;
-                if(element != undefined){
-                    SaveLastVersion();
-                    var run = document.createElement("span");
-                    var par_id = element.id;
-
-                    run.classList.add("runs");
-                    run.classList.add("docelement");
-                    run.id = "runs_"+GetId();
-                    run.innerHTML = " Какой-то текст";
-                    run.setAttribute('data-invis', run.innerHTML);
-
-                    SetDefaultRun(run);
-                    element.appendChild(run);
-                }
-                else
-                    return;
+            if(activeElement.run == undefined && activeElement.paragraph == undefined){
+                var paragraphs = document.getElementsByClassName('paragraph');
+                activeElement.setActive(paragraphs[paragraphs.length-1]);
             }
-                else{
-                SaveLastVersion();
-                var run = document.createElement("span");
-                var par_id = element.parentNode.id;
-
-                run.classList.add("runs");
-                run.classList.add("docelement");
-                run.id = "runs_"+GetId();
-                run.innerHTML = " Какой-то текст";
-                run.setAttribute('data-invis', run.innerHTML);
-x
-                SetDefaultRun(run);
-                element.parentNode.insertBefore(run, element.nextSibling);
+            var run = document.createElement("span");
+            var par_id = activeElement.paragraph.id;
+            
+            run.id = "runs_"+GetId();
+            run.innerHTML = " Какой-то текст";
+            run.setAttribute('data-invis', run.innerHTML);
+            SaveLastVersion();
+            SetDefaultRun(run);
+            if(activeElement.isRun()){
+                activeElement.paragraph.insertBefore(run, activeElement.run.nextSibling);
             }
+            else{
+                activeElement.paragraph.appendChild(run);
+            }
+            activeElement.unsetActive();
+            activeElement.setActive(run);
+            run.scrollIntoView();
         }
 
         function ApplyMenu(element){
             selectedElement.value = element.id;
-            fontSizeElement.value = element.style.fontSize.split("px")[0];
-            ButtonDropDownFont.innerHTML = element.style.fontFamily.replaceAll('"', '');
-            ButtonDropDownFont.style.fontFamily = element.style.fontFamily;
-            if(activeElement.isRun())
+            if(activeElement.isRun()){
+                fontSizeElement.value = element.style.fontSize.split("px")[0];
+                font_select.value = element.style.fontFamily.replaceAll('"', '');
+                font_select.style.fontFamily = element.style.fontFamily;
+                span_value.disabled = false; 
                 span_value.value = activeElement.run.getAttribute('data-invis');
-            ReadAlign(activeElement.paragraph);
+                if(element.style.fontWeight == "bold"){
+                    btn_check_bold.checked = true;
+                }
+                else{
+                    btn_check_bold.checked = false;
+                }
+                if(element.style.fontStyle == "italic"){
+                    btn_check_italic.checked = true;
+                }
+                else{
+                    btn_check_italic.checked = false;
+                }
+                if(element.style.textDecoration == "underline"){
+                    btn_check_underline.checked = true;
+                }
+                else{
+                    btn_check_underline.checked = false;
+                }
+            }
+            else{
+                if(element.children.length > 0){
+                    fontSizeElement.value = element.firstElementChild.style.fontSize.split("px")[0];
+                    font_select.value = element.firstElementChild.style.fontFamily.replaceAll('"', '');
+                    font_select.style.fontFamily = element.firstElementChild.style.fontFamily;
+                    if(element.firstElementChild.style.fontWeight == "bold"){
+                        btn_check_bold.checked = true;
+                    }
+                    else{
+                        btn_check_bold.checked = false;
+                    }
+                    if(element.firstElementChild.style.fontStyle == "italic"){
+                        btn_check_italic.checked = true;
+                    }
+                    else{
+                        btn_check_italic.checked = false;
+                    }
+                    if(element.firstElementChild.style.textDecoration == "underline"){
+                        btn_check_underline.checked = true;
+                    }
+                    else{
+                        btn_check_underline.checked = false;
+                    }
+                }
+                else{
+                    btn_check_bold.checked = false;
+                    btn_check_italic.checked = false;
+                    btn_check_underline.checked = false;
+                }
+                span_value.value = ""
+                span_value.disabled = true; 
+                ReadAlign(activeElement.paragraph);
+            }
         }
 
         function SizeChanged(){
-            document.getElementById(selectedElement.value).style.fontSize = fontSizeElement.value + "px";
+            if(activeElement.isRun())
+                activeElement.run.style.fontSize = fontSizeElement.value + "px";
+            else{
+                for(let run of activeElement.paragraph.children){
+                    run.style.fontSize = fontSizeElement.value + "px";
+                }
+            }   
         }
 
-        function FontChanged(font){
-            document.getElementById(document.getElementById("selectedElement").value).style.fontFamily = font;
-            ButtonDropDownFont.innerHTML = font.replace('"', '');
-            ButtonDropDownFont.style.fontFamily = font;
+        function FontChanged(){
+            font_select.style.fontFamily = font_select.value;
+
+            if(activeElement.isRun())
+                activeElement.run.style.fontFamily = font_select.value;
+            else{
+                for(let run of activeElement.paragraph.children){
+                    run.style.fontFamily = font_select.value;
+                }
+            }
         }
 
         function TableRowToJSON(elem, id){
             var tds = [];
-            for(let child of elem.childNodes){
-                if(child.nodeName == "TD"){
-                    tds.push(TableColumnToJSON(child, tds.length));
-                }
+            for(let child of elem.children){
+                tds.push(TableColumnToJSON(child, tds.length));
             }
             let op = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
             return JSON.stringify({'id': "tr_"+id, 'childs': tds, 'style': op});
@@ -778,16 +986,16 @@ x
 
         function TableColumnToJSON(elem, id){
             let o = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
-            return JSON.stringify({'text': elem.value, 'id': "tc_" + id, 'style': o , 'paragraph': ParagraphToJSON(elem.childNodes[1], 0)});
+            return JSON.stringify({'text': elem.value, 'id': "tc_" + id, 'style': o , 'paragraph': ParagraphToJSON(elem.firstElementChild, 0)});
         }
 
         function TableToJSON(elem, id){
             var trs = [];
             var grid;
-            for(let child of elem.childNodes){
+            for(let child of elem.children){
                 if(child.nodeName == "TABLE"){
-                    for(let child1 of child.childNodes){
-                        for(let child2 of child1.childNodes){
+                    for(let child1 of child.children){
+                        for(let child2 of child1.children){
                             if(child2.nodeName == "TR"){
                                 trs.push(TableRowToJSON(child2, trs.length));
                             }
@@ -804,7 +1012,7 @@ x
 
         function ParagraphToJSON(elem, id){
             var chil = [];
-            for(let child of elem.childNodes){
+            for(let child of elem.children){
                 if(child.nodeName == "SPAN"){
                     chil.push(ChildrenToJSON(child, chil.length));
                 }
@@ -821,15 +1029,11 @@ x
 
         function ListSavedToJSON(){
             var chil = [];
-            for(let list_elem of list_saved_sp.childNodes){
-                console.log(list_elem)
-                if(!list_elem.firstChild)
-                    continue;
-                var element = list_elem.firstChild.childNodes[1];
-                var inner = list_elem.firstChild.childNodes[0].innerHTML;
+            for(let list_elem of list_saved_sp.children){
+                var element = list_elem.firstChild.children[1];
+                var inner = list_elem.firstChild.children[0].innerHTML;
                 var id = list_elem.getAttribute('data-idDB');
                 var lst = {};
-                console.log(element);
                 lst['id'] = id;
                 lst['name'] = inner;
                 if(element.classList.contains("paragraph")){
@@ -842,7 +1046,6 @@ x
                     lst['json'] = ChildrenToJSON(element, chil.length);
                 }
                 chil.push(lst);
-                console.log(chil);
             }
             return chil;
         }
@@ -850,11 +1053,8 @@ x
         function VariablesToJSON(){
             var chil = [];
             for(let variable of document.getElementsByClassName('variable')){
-                console.log(variable);
-                var name = variable.firstElementChild.firstElementChild.innerHTML;
-                console.log(name);
-                var value = variable.lastElementChild.firstElementChild.value;
-                console.log(value);
+                var name = variable.children[0].firstElementChild.innerHTML;
+                var value = variable.children[1].firstElementChild.value;
                 var id = variable.getAttribute('data-idDB');
                 var lst = {};
                 lst['id'] = id;
@@ -870,9 +1070,7 @@ x
             body = document.getElementsByClassName("document")[0];
             var jsondict = {};
             var chil = [];
-            for(let child of body.childNodes){
-                if(child.classList == undefined)
-                    continue;
+            for(let child of body.children){
                 if(child.classList.contains("paragraph")){
                     chil.push(ParagraphToJSON(child, chil.length));
                 }
@@ -884,7 +1082,21 @@ x
             jsondict['sectPr'] = document.getElementById("sectPr").value;
             jsondict['list_saved'] = ListSavedToJSON();
             jsondict['variables'] = VariablesToJSON();
+            jsondict['doc_name'] = doc_name.innerHTML;
+            console.log(jsondict['doc_name']);
             return jsondict;
+        }
+
+        function DeleteVariable(id){
+            var var_element = document.getElementById("variable_cont:"+id);
+                $.ajax({
+                    type: "POST",
+                    url: "document/variable/delete",
+                    data: JSON.stringify({'id': id}),
+                    contentType: "application/json; charset=utf-8",
+                    dataType: 'json',
+                    success: var_element.parentNode.removeChild(var_element)
+                });
         }
 
         span_value.oninput = function(event){
@@ -894,56 +1106,149 @@ x
             CheckOnVariableInSpan(span);
         }
 
-        document.getElementById("updateButton").onclick = function UpdateFile(){
+        function SaveComplete(){
+            console.log("Сохранение прошло успешно");
+            save_complete.style.display = "flex";
+        }
+
+        function SaveNotComplete(){
+            save_complete.style.display = "none";
+        }
+
+        function UpdateFile(){
             $.ajax({
                 type: "POST",
-                url: "/docupdate?id={{ id_doc }}",
+                url: "/document/update?id={{ id_doc }}",
                 data: JSON.stringify(CreateJSON()),
                 contentType: "application/json; charset=utf-8",
-                dataType: 'json'
+                dataType: 'json',
+                success: SaveComplete()
             });
+        }
+
+        document.getElementById("updateButton").onclick = function(evt){
+            UpdateFile();
+        }
+
+        deleteButton.onclick = function(){
+            SaveLastVersion();
+            activeElement.deleteActive();
         }
 
         document.addEventListener('keydown', function(event){
                 if(event.key == 'Delete'){
-                    SaveLastVersion()
+                    SaveLastVersion();
                     activeElement.deleteActive();
                 }
                 if (event.code == 'KeyZ' && (event.ctrlKey || event.metaKey)) {
                     ReturnToLastVersion();
                 }
                 if (event.key == 'Enter'){
+                    if(redSpan == undefined)
+                        return;
                     SaveLastVersion();
-                    console.log(redSpan);
                     redSpan.setAttribute('data-invis', redSpan.innerHTML);
                     redSpan.contentEditable = false;
-                    redSpan = 0;
+                    redSpan = undefined;
                 }
             });
 
         document.addEventListener('click', function(event){
-            if(event.target != redSpan && redSpan != 0){
+            if(redSpan != undefined && event.target != redSpan){
                 SaveLastVersion();
-                console.log(redSpan);
                 redSpan.setAttribute('data-invis', redSpan.innerHTML);
                 redSpan.contentEditable = false;
-                redSpan = 0;
+                redSpan = undefined;
             }
         });
 
+        function VariableFromJSON(data) {
+            var jsonp = JSON.parse(data);
+            for(let [key, value] of Object.entries(jsonp)){
+                CreateNewVariable(key, value.split(':')[0], value.split(':')[1]);
+            }
+        }
 
+        function CreateNewVariable(id, name1, val){
+            var tbody = table_oknapolya.firstElementChild.children[1];
+            var tr = document.createElement('tr');
+            tr.classList.add('variable');
+            if(id != undefined)
+                tr.setAttribute('data-idDB', id);
+            else
+                tr.setAttribute('data-idDB', '-1');
+            var tdn = document.createElement('td');
+            var tdm = document.createElement('td');
+            var tdb = document.createElement('td');
+            var name = document.createElement('span');
+            name.classList.add('variable_name');
+            name.contentEditable = true;
+            if(name1 != undefined)
+                name.innerHTML = name1;
+            else
+                name.innerHTML = "Переменная" + tbody.children.length;
+            tdn.appendChild(name);
+            var meaning = document.createElement('input');
+            meaning.classList.add('variable_mean');
+            if(val != undefined)
+                meaning.value = val
+            else
+                meaning.value = "";
+            tdm.appendChild(meaning);
+            var btn_close = document.createElement('button');
+            btn_close.type = 'button';
+            btn_close.classList.add('btn-close');
+            btn_close.classList.add('variable_close');
+            btn_close.onclick = function(evt){
+                var var_elem = btn_close.parentElement.parentElement;
+                if(var_elem.getAttribute('data-idDB') != -1){
+                    $.ajax({
+                        type: "POST",
+                        url: "document/variable/delete",
+                        data: JSON.stringify({'id': var_elem.getAttribute('data-idDB')}),
+                        contentType: "application/json; charset=utf-8",
+                        dataType: 'json',
+                        success: var_elem.parentNode.removeChild(var_elem)
+                    });
+                
+                }
+                else{
+                    var_elem.parentNode.removeChild(var_elem);
+                }
+            }
+            tdb.appendChild(btn_close)
+            
+            tr.appendChild(tdn);
+            tr.appendChild(tdm);
+            tr.appendChild(tdb);
+            SetDefaultVariable(tr);
+            tbody.appendChild(tr);
+        }
+
+        variable_add_btn.addEventListener('click', function(evt){
+            CreateNewVariable(undefined, undefined, undefined);
+        });
+
+        var activeElements = []
         var activeElement = new ActiveElement()
         var startFontSize = "14px";
         var startFont = "Times New Roman"
         var lastVersions = new Stack();
-        var redSpan = 0;
+        var redSpan = undefined;
         var list_save = [];
         
-        DocFromJSON("{{ document_json|escapejs }}")
+        if("{{ type }}" == '0')
+            DocFromJSON("{{ document_json|escapejs }}")
        
         ListSavedFromJSON("{{ saved_elements|escapejs }}");
 
+        VariableFromJSON("{{ variable|escapejs }}")
+
         SetDefault();
+
+        setInterval(
+            () => UpdateFile(), 60000
+        );
 
         
     </script> 
