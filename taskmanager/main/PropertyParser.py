@@ -68,7 +68,7 @@ class Align(Property):
     def from_json(self, json: dict):
         for k, v in json.items():
             if k == "textAlign":
-                self.attrib["w:val"] = v
+                self.attrib["w:val"] = v if v != 'justify' else 'both'
                 self.enabled = True
 
 
@@ -142,23 +142,23 @@ class Indent(Property):
         css = """"""
         for k, v in self.attrib.items():
             if k == "w:left":
-                css += f"margin-left: {float(v) / 567.2}em;\n"
+                css += f"margin-left: {float(v) / 17.7}px;\n"
             elif k == "w:right":  # Отступ до параграфа
-                css += f"margin-right: {float(v) / 567.2}em;\n"
+                css += f"margin-right: {float(v) / 17.7}px;\n"
             elif k == "w:firstLine":  # Отступ после параграфа
-                css += f"text-indent: {float(v) / 567.2}em;\n"
+                css += f"text-indent: {float(v) / 17.7}px;\n"
         return css
 
     def from_json(self, json: dict):
         for k, v in json.items():
             if k == "marginLeft":
-                self.attrib["w:left"] = f"{int(float(v.split('em')[0]) * 240)}"
+                self.attrib["w:left"] = f"{int(float(v.split('px')[0]) * 17.7)}"
                 self.enabled = True
             elif k == "marginRight":
-                self.attrib['w:right'] = f"{int(float(v.split('em')[0]) * 240)}"
+                self.attrib['w:right'] = f"{int(float(v.split('px')[0]) * 17.7)}"
                 self.enabled = True
             elif k == "textIndent":
-                self.attrib['w:firstLine'] = f"{int(float(v.split('em')[0]) * 567.2)}"
+                self.attrib['w:firstLine'] = f"{int(float(v.split('px')[0]) * 17.7)}"
                 self.enabled = True
 
 
@@ -278,13 +278,13 @@ class FontSize(Property):
         css = """"""
         for k, v in self.attrib.items():
             if k == "w:val":
-                css += f"font-size: {int((float(v) / 2) + 2)}px;\n"
+                css += f"font-size: {int((float(v) / 2) + 3)}px;\n"
         return css
 
     def from_json(self, json: dict):
         for k, v in json.items():
             if k == "fontSize":
-                self.attrib['w:val'] = f"{int((float(v.split('px')[0]) - 2) * 2)}"
+                self.attrib['w:val'] = f"{int((float(v.split('px')[0]) - 3) * 2)}"
                 self.enabled = True
 
 

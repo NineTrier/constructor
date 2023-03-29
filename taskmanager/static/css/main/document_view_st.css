@@ -1,7 +1,9 @@
 :root{
     --color-primary: #F2F2F2;
-    --color-secondary:#adb4b3da;
+    --color-third: #dcd9d9;
+    --color-secondary:#97c0ff;
     --color-accent: #6f95ff;
+    --color-document: #ffffff;
 
     --document-size: 790.6px;
     --button-menu-width: 25px;
@@ -47,8 +49,8 @@ body {
 }
 
 .paragraph{
-    min-height: 50px;
-    background-color: rgb(250, 250, 250);
+    min-height: 30px;
+    background-color: var(--color-document);
 	max-width: 100%;
 	padding: 10px;
 }
@@ -90,7 +92,7 @@ body {
     max-width: var(--document-size);
 	display:flex;
 	flex-direction: column;
-	background-color: rgb(255, 255, 255);
+	background-color: var(--color-document);
 	margin-left: 30px;
 	margin-top: 5px;
 	padding-top: 80px;
@@ -111,6 +113,7 @@ body {
 #fontSizeElement{
     max-width: 60px;
     background-color: var(--color-secondary);
+    border: 1px solid var(--color-secondary);
 }
 
 #span_value{
@@ -238,6 +241,47 @@ td.paragraph{
 
 #font_select{
     background-color: var(--color-secondary);
+    border: 1px solid var(--color-secondary);
     max-width: 100px;
 }
 
+#document_tree{
+    min-width: 350px;
+    margin-left: 20px;
+    padding: 15px;
+    background-color: var(--color-secondary);
+}
+
+#tree_paragraph{
+    background-color: var(--color-primary);
+    padding:20px;
+    max-height: 400px;
+    overflow: auto;
+}
+
+.tree_element{
+    min-width: 200px;
+    padding: 10px;
+    z-index: 10;
+}
+
+.tree_element:hover{
+    background-color: var(--color-third);
+}
+
+.tree_element_label{
+    margin-left:10px;
+}
+
+.tree_element_run{
+    z-index: 15;
+    padding: 5px;
+}
+
+.tree_element_run:hover{
+    background-color: var(--color-accent);
+}
+
+.run_tree_list{
+    margin-top: 5px;
+}

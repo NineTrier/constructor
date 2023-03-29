@@ -11,8 +11,6 @@
 {% endblock %}
 
 {% block content %}
-    {% if document %}
-    
 <div id="TopMenu">
     <div id="instruments_menu">
         <div id="doc_name_container">
@@ -108,12 +106,13 @@
             </ul>
         </div>
         <!-- Кнопка-триггер модального окна -->
-    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#exampleModal">
-        Переменные
-    </button>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#exampleModal">
+            Переменные
+        </button>
     </div>
     <div>
-        <input value="" id="span_value" class="form-control" disabled/>
+        <input list="variable_list" value="" id="span_value" class="form-control" disabled/>
+        <datalist id="variable_list"></datalist>
         <div class="document" id="document_main" style="{{ sectPr.to_css }}">
             {% if type == '1' %}
                 {% for el, key in document %}
@@ -138,25 +137,25 @@
                                     <tr style="{{ rows.pr.to_css }}">
                                         {% for cols in rows.childs %}
                                             {% if cols.tag == "tc" %}
-                                            <td style="{{ cols.pr.to_css }}">
-                                                {% for paragraphs in cols.childs %}
-                                                    {% if paragraphs.tag == "p" %}
-                                                        <div class="paragraph docelement" style="{{ paragraphs.pr.to_css }}">
-                                                        {% for run in paragraphs.childs %}
-                                                            {% if run.text > "" %}
-                                                                {% if run.tag == 'r' %}
-                                                                    <span id="{{ run.id }}" class="runs docelement" style="{{ run.pr.to_css }}">{{ run.text }}</span>
-                                                            {% elif run.tag == 'hyperlink' %}
-                                                                    <span id="{{ run.id }}" class="hypers docelement" style="{{ run.pr.to_css }}">{{ run.text }}</span>
-                                                                {% else %}
-                                                                    <span id="{{ run.id }}" class="else docelement" style="{{ run.pr.to_css }}">{{ run.text }}</span>
-                                                                {% endif %}
-                                                            {% endif %}
-                                                        {% endfor %}
-                                                        </div>
-                                                    {% endif %}
-                                                {% endfor %}
-                                            </td>
+                                                <td style="{{ cols.pr.to_css }}">
+                                                    {% for paragraphs in cols.childs %}
+                                                        {% if paragraphs.tag == "p" %}
+                                                            <div class="paragraph docelement" style="{{ paragraphs.pr.to_css }}">
+                                                                {% for run in paragraphs.childs %}
+                                                                    {% if run.text > "" %}
+                                                                        {% if run.tag == 'r' %}
+                                                                            <span id="{{ run.id }}" class="runs docelement" style="{{ run.pr.to_css }}">{{ run.text }}</span>
+                                                                        {% elif run.tag == 'hyperlink' %}
+                                                                            <span id="{{ run.id }}" class="hypers docelement" style="{{ run.pr.to_css }}">{{ run.text }}</span>
+                                                                        {% else %}
+                                                                            <span id="{{ run.id }}" class="else docelement" style="{{ run.pr.to_css }}">{{ run.text }}</span>
+                                                                        {% endif %}
+                                                                    {% endif %}
+                                                                {% endfor %}
+                                                            </div>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </td>
                                             {% endif %}
                                         {% endfor %}
                                     </tr>
@@ -166,10 +165,12 @@
                         </div>
                     {% endif %}
                 {% endfor %}
-                </div>
-                {% endif %}
             {% endif %}
+            </div>
             <input type="hidden" id="sectPr" value="{{ sectPr.to_css }}"/>
+    </div>
+    <div id="document_tree">
+        <ul class="list-group-flush" id="tree_paragraph"></ul>
     </div>
 </div>
 <!-- Подложка под модальным окном -->
@@ -241,7 +242,6 @@
             }
 
             unsetRun(){
-                console.log("UnsetRun");
                 try {
                     this.run.classList.remove('selected');
                     this.run = undefined;
@@ -251,7 +251,6 @@
             }
 
             unsetParagraph(){
-                console.log("UnsetParagraph");
                 try {
                     this.paragraph.classList.remove('selected');
                     this.paragraph = undefined; 
@@ -281,10 +280,12 @@
 
             setActive(element){
                 if(element.classList.contains('runs')){
+                    console.log('Run');
                     this.setParagraph(element.parentNode);
                     this.setRun(element);
                 }
                 else if(element.classList.contains('paragraph')){
+                    console.log('Par');
                     this.setParagraph(element);
                 }
             }
@@ -295,8 +296,10 @@
             }
 
             deleteActive(){
-                this.deleteRun();
-                this.deleteParagraph();
+                if(this.isRun())
+                    this.deleteRun();
+                else
+                    this.deleteParagraph();
             }
 
             isRun(){
@@ -317,14 +320,16 @@
                 for(let [key, value] of Object.entries(child['style'])){
                     span.style[key] = value;
                 }
-                span.innerHTML = child['text'];
+                console.log(child);
+                span.textContent = child['text'];
                 span.setAttribute('data-invis', child['data-invis']);
+                span.setAttribute('data-name', child['data-name']);
                 SetDefaultRun(span);
             }
             return span;
         }
 
-        function ParagraphFromJSON(id, style, childs){
+        function ParagraphFromJSON(id, style, childs, name){
             var par = document.createElement('div');
             par.classList.add('paragraph');
             par.classList.add('docelement');
@@ -335,6 +340,8 @@
             for(let child of childs){
                 par.appendChild(TextFromJSON(JSON.parse(child)));
             }
+            console.log(name);
+            par.setAttribute('data-name', name);
             SetDefaultPar(par);
             return par;
         }
@@ -342,13 +349,15 @@
         function DocFromJSON(data) {
             try {
                 var jsonp = JSON.parse(data);
+                console.log(jsonp);
                 for(let element of jsonp['elements']){
                     var child = JSON.parse(element);
                     if(child['class'] == 'paragraph'){
                         var id = child['id'];
                         var style = child['style'];
                         var childs = child['childs'];
-                        document_main.appendChild(ParagraphFromJSON(id, style, childs));
+                        var name = child['data-name'];
+                        document_main.appendChild(ParagraphFromJSON(id, style, childs, name));
                     }
                 }
             } catch (error) {
@@ -379,17 +388,35 @@
                 arr.push(child.cloneNode(true));
             }
             lastVersions.push(arr);
+            console.log("Сохранено!");
             SaveNotComplete();
         }
 
-        function CreateConnect(span){
+        // function CreateConnect1(span, regmatch){
+        //     console.log(regmatch);
+        //     var name = regmatch['0'];
+        //     name = name.slice(3, name.length-3);
+        //     console.log(name);
+        //     for(let variable of document.getElementsByClassName('variable')){
+        //         var nam = variable.getElementsByClassName('variable_name')[0];
+        //         var val = variable.getElementsByClassName('variable_mean')[0];
+        //         if(nam.textContent == name){
+        //             span.textContent = span.textContent.replaceAll(regmatch['0'], val.value);
+        //             span.classList.add('variable_ref');
+        //             return true;
+        //         }
+        //     }
+        //     return false; 
+        // }
+
+        function CreateConnect(span, regmatch){
             var name = span.getAttribute('data-invis').trim();
             name = name.slice(3, name.length-3);
             for(let variable of document.getElementsByClassName('variable')){
                 var nam = variable.getElementsByClassName('variable_name')[0];
                 var val = variable.getElementsByClassName('variable_mean')[0];
-                if(nam.innerHTML == name){
-                    span.innerHTML = val.value;
+                if(nam.textContent == name){
+                    span.textContent = val.value;
                     span.classList.add('variable_ref');
                     return true;
                 }
@@ -399,14 +426,23 @@
 
         function CheckOnVariableInSpan(span){
             let regexp = new RegExp("{: .* :}")
+            var regsovpad = regexp.exec(span.getAttribute('data-invis'));
             if(regexp.test(span.getAttribute('data-invis').trim())){
-                if(!CreateConnect(span)){
+                if(!CreateConnect(span, regsovpad)){
                     span.classList.remove('variable_ref');
                 }
             }
             else{
                 span.classList.remove('variable_ref');
             }
+            // while(true){
+            //     var regsovpad = regexp.exec(span.textContent);
+            //     if(regsovpad == null)
+            //         return;
+            //     if(!CreateConnect1(span, regsovpad)){
+            //         return;
+            //     }
+            // }
         }
 
         function OnAlignButtonClick(button){
@@ -504,7 +540,7 @@
 
         function CheckNameElementFromList(name){
             for(var elem of list_saved_sp.children){
-                if(elem.firstChild.firstChild.innerHTML == name)
+                if(elem.firstChild.firstChild.textContent == name)
                     return false;
             }
             return true;
@@ -531,10 +567,10 @@
                 while(!CheckNameElementFromList("Элемент" + i)){
                     i++;
                 }
-                divSmall.innerHTML = "Элемент" + i;
+                divSmall.textContent = "Элемент" + i;
             }
             else
-                divSmall.innerHTML = name;
+                divSmall.textContent = name;
             divSmall.classList.add("list_saved_element_label");
             divSmall.contentEditable = true;
 
@@ -558,7 +594,7 @@
                 var list_element = btn_close.parentNode.parentNode.parentNode;
                 $.ajax({
                     type: "POST",
-                    url: "/savedelementdelete",
+                    url: "/document/savedelement/delete",
                     data: JSON.stringify({'id': list_element.getAttribute('data-idDB')}),
                     contentType: "application/json; charset=utf-8",
                     dataType: 'json',
@@ -633,16 +669,18 @@
             });
             doc.addEventListener('dragend', function(evt) {
                 try {
+                    SaveLastVersion();
                     if(activeElement.isRun())
                         activeElement.run.classList.remove('dragged');
                     else{
                         activeElement.paragraph.classList.remove('dragged');
                     }
+                    
                 } catch (error) {
                     list_saved.style.border = "";
                     return
                 }
-                
+                FillTree();
             });
 
             doc.addEventListener('drop', function(evt){
@@ -658,7 +696,7 @@
                     SetDefaultRun(activeElement.run);
                     var span = document.getElementById(activeElement.run.id);
                     if(span && span != activeElement.run)
-                        activeElement.run.id = "runs_"+GetId();
+                        activeElement.run.id = "r_"+GetId();
                     var spans = document_main.getElementsByClassName('runs');
                     for(let span of spans){
                         CheckOnVariableInSpan(span);
@@ -743,7 +781,7 @@
 
         function ClearArrayActive(){
             for(let active of activeElements){
-                active.unsetActive();
+                active.unsetRun();
             }
             activeElements = [];
         }
@@ -752,30 +790,31 @@
             var newActive = new ActiveElement(element);
             for(let active of activeElements){
                 if(active.isEqual(newActive)){
-                    active.unsetActive();
-                    
+                    active.unsetRun();
+                    activeElements.splice(activeElements.indexOf(active), 1);
+                    return;
                 }
-                    
             }
             activeElements.push(newActive);
+            console.log(activeElements);
         }
 
         function SetDefaultRun(run){
             if(run.style.fontSize == ""){
-                run.style.fontSize = startFontSize;
+                run.style.fontSize = String(startFontSize + 3) + 'px';
             }
             if(run.style.fontFamily == ""){
                 run.style.fontFamily = startFont;
             }
             run.onclick = function(event){
-                if(run.classList.contains('selected') && !run.classList.contains('variable_ref')){
-                    run.contentEditable = true;
-                    redSpan = run;
-                }
                 if(event.ctrlKey || event.metaKey){
                     AddActiveInArray(run);
                 }
                 else{
+                    if(run.classList.contains('selected') && !run.classList.contains('variable_ref')){
+                        run.contentEditable = true;
+                        redSpan = run;
+                    }
                     ClearArrayActive();
                     activeElement.unsetActive();
                     activeElement.setActive(run);
@@ -787,7 +826,7 @@
             run.draggable = true;
             run.contentEditable = false;
             if(!run.getAttribute('data-invis'))
-                run.setAttribute('data-invis', run.innerHTML);
+                run.setAttribute('data-invis', run.textContent);
          }
 
         function SetDefaultPar(paragraph){
@@ -865,6 +904,7 @@
             activeElement.unsetActive();
             activeElement.setActive(paragraph);
             paragraph.scrollIntoView();
+            FillTree();
         }
 
         function ButtonAddRun_Click(){
@@ -875,9 +915,9 @@
             var run = document.createElement("span");
             var par_id = activeElement.paragraph.id;
             
-            run.id = "runs_"+GetId();
-            run.innerHTML = " Какой-то текст";
-            run.setAttribute('data-invis', run.innerHTML);
+            run.id = "r_"+GetId();
+            run.textContent = " Какой-то текст";
+            run.setAttribute('data-invis', run.textContent);
             SaveLastVersion();
             SetDefaultRun(run);
             if(activeElement.isRun()){
@@ -889,12 +929,13 @@
             activeElement.unsetActive();
             activeElement.setActive(run);
             run.scrollIntoView();
+            FillTree();
         }
 
         function ApplyMenu(element){
             selectedElement.value = element.id;
             if(activeElement.isRun()){
-                fontSizeElement.value = element.style.fontSize.split("px")[0];
+                fontSizeElement.value = String(parseInt(element.style.fontSize.split("px")[0])-3);
                 font_select.value = element.style.fontFamily.replaceAll('"', '');
                 font_select.style.fontFamily = element.style.fontFamily;
                 span_value.disabled = false; 
@@ -920,7 +961,7 @@
             }
             else{
                 if(element.children.length > 0){
-                    fontSizeElement.value = element.firstElementChild.style.fontSize.split("px")[0];
+                    fontSizeElement.value = String(parseInt(element.firstElementChild.style.fontSize.split("px")[0])-3);
                     font_select.value = element.firstElementChild.style.fontFamily.replaceAll('"', '');
                     font_select.style.fontFamily = element.firstElementChild.style.fontFamily;
                     if(element.firstElementChild.style.fontWeight == "bold"){
@@ -955,10 +996,10 @@
 
         function SizeChanged(){
             if(activeElement.isRun())
-                activeElement.run.style.fontSize = fontSizeElement.value + "px";
+                activeElement.run.style.fontSize = String(parseInt(fontSizeElement.value) + 3) + "px";
             else{
                 for(let run of activeElement.paragraph.children){
-                    run.style.fontSize = fontSizeElement.value + "px";
+                    run.style.fontSize = String(parseInt(fontSizeElement.value) + 3) + "px";
                 }
             }   
         }
@@ -1018,20 +1059,20 @@
                 }
             }
             let op = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
-            return JSON.stringify({'id': "p_"+id, 'class': elem.classList[0], 'childs': chil, 'style': op});
+            return JSON.stringify({'id': "p_"+id, 'data-name': elem.getAttribute('data-name'), 'class': elem.classList[0], 'childs': chil, 'style': op});
         }
 
         function ChildrenToJSON(elem, id){
             let o = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
 
-            return JSON.stringify({'text': elem.innerHTML, 'data-invis': elem.getAttribute('data-invis'), 'class': elem.classList[0], 'id': elem.classList[0] + "_" + id, 'style': o , 'attrib': elem.id});
+            return JSON.stringify({'text': elem.textContent, 'data-invis': elem.getAttribute('data-invis'), 'data-name': elem.getAttribute('data-name'), 'class': elem.classList[0], 'id': elem.id, 'style': o , 'attrib': elem.id});
         }
 
         function ListSavedToJSON(){
             var chil = [];
             for(let list_elem of list_saved_sp.children){
                 var element = list_elem.firstChild.children[1];
-                var inner = list_elem.firstChild.children[0].innerHTML;
+                var inner = list_elem.firstChild.children[0].textContent;
                 var id = list_elem.getAttribute('data-idDB');
                 var lst = {};
                 lst['id'] = id;
@@ -1053,7 +1094,7 @@
         function VariablesToJSON(){
             var chil = [];
             for(let variable of document.getElementsByClassName('variable')){
-                var name = variable.children[0].firstElementChild.innerHTML;
+                var name = variable.children[0].firstElementChild.textContent;
                 var value = variable.children[1].firstElementChild.value;
                 var id = variable.getAttribute('data-idDB');
                 var lst = {};
@@ -1082,7 +1123,7 @@
             jsondict['sectPr'] = document.getElementById("sectPr").value;
             jsondict['list_saved'] = ListSavedToJSON();
             jsondict['variables'] = VariablesToJSON();
-            jsondict['doc_name'] = doc_name.innerHTML;
+            jsondict['doc_name'] = doc_name.textContent;
             console.log(jsondict['doc_name']);
             return jsondict;
         }
@@ -1095,13 +1136,97 @@
                     data: JSON.stringify({'id': id}),
                     contentType: "application/json; charset=utf-8",
                     dataType: 'json',
-                    success: var_element.parentNode.removeChild(var_element)
+                    success: () => {var_element.parentNode.removeChild(var_element); UpdateVariableList();}
                 });
+        }
+
+        //Функция создаёт элемент для дерева
+        function CreateTreeElement(id, name, checked){
+
+            var elem = document_main.querySelector('#'+id);
+            
+            
+            var tree_element = document.createElement('li');
+            var tree_element_checkbox = document.createElement('input');
+            var tree_element_label = document.createElement('span');
+            //Добавляем класс из бутстрапа
+            tree_element.classList.add('list-group-item');
+            tree_element.onclick = (evt) => {
+                evt.stopPropagation();
+                activeElement.unsetActive();
+                activeElement.setActive(elem);
+            }
+            //Создаём чекбокс и стилизуем его
+            tree_element_checkbox.classList.add('form-check-input');
+            tree_element_checkbox.classList.add('me-1');
+            tree_element_checkbox.type = 'checkbox';
+            tree_element_checkbox.value = id;
+            tree_element_checkbox.checked = checked;
+            tree_element_checkbox.onchange = (evt) => {
+                evt.stopPropagation();
+                var parent = tree_element_checkbox.parentElement;
+                elem.hidden = !tree_element_checkbox.checked;
+                if(parent.classList.contains('tree_element')){
+                    for(let run of parent.lastElementChild.children){
+                        run.firstElementChild.checked = tree_element_checkbox.checked;
+                    }
+                }
+            }
+            //Заполняем лейбл
+            if(elem.getAttribute('data-name') == 'undefined' || elem.getAttribute('data-name') == null){
+                elem.setAttribute('data-name', name);
+                tree_element_label.textContent = name;
+            }
+            else{
+                tree_element_label.textContent = elem.getAttribute('data-name');
+            }
+            tree_element_label.contentEditable = true;
+            tree_element_label.classList.add('tree_element_label');
+            tree_element_label.oninput = (evt) => {
+                console.log('Name changed');
+                elem.setAttribute('data-name', tree_element_label.textContent);
+            }
+            //Вставляем элементы в родителя
+            tree_element.appendChild(tree_element_checkbox);
+            tree_element.appendChild(tree_element_label);
+            return tree_element;
+        }
+
+        function ClearTree(){
+            tree_paragraph.innerHTML = "";
+        }
+
+        function FillTree(){
+            ClearTree();
+            for(let par of document_main.getElementsByClassName('paragraph')){
+                var paragraph_in_tree;
+                var paragraph_in_tree_list = document.createElement('ul');
+                
+                if(!par.hidden)
+                    paragraph_in_tree = CreateTreeElement(par.id, 'Параграф ' + tree_paragraph.children.length, true);
+                else
+                    paragraph_in_tree = CreateTreeElement(par.id, 'Параграф ' + tree_paragraph.children.length, false);
+                paragraph_in_tree_list.classList.add('list-group-flush');
+                paragraph_in_tree_list.classList.add('run_tree_list')
+                for(let run of par.getElementsByClassName('runs')){
+                    var run_tree_element;
+                    console.log(run);
+                    if(!run.hidden)
+                        run_tree_element = CreateTreeElement(run.id, 'Текст ' + paragraph_in_tree_list.children.length, true); 
+                    else
+                        run_tree_element = CreateTreeElement(run.id, 'Текст ' + paragraph_in_tree_list.children.length, true);
+                    run_tree_element.classList.add('tree_element_run');
+                    paragraph_in_tree_list.appendChild(run_tree_element);
+                }
+                paragraph_in_tree.classList.add('tree_element');
+                paragraph_in_tree.appendChild(paragraph_in_tree_list);
+                tree_paragraph.appendChild(paragraph_in_tree);
+            }
         }
 
         span_value.oninput = function(event){
             var span = activeElement.run;
-            span.innerHTML = span_value.value;
+            span.textContent = span_value.value;
             span.setAttribute('data-invis', span_value.value);
             CheckOnVariableInSpan(span);
         }
@@ -1135,6 +1260,35 @@
             activeElement.deleteActive();
         }
 
+        function splitRun(text){
+            console.log(text);
+            if(activeElement.isRun()){
+                var run_splitted = activeElement.run.textContent.split(text);
+                var run1 = activeElement.run.cloneNode(true);
+                var run2 = activeElement.run.cloneNode(true);
+                run1.textContent = text;
+                run2.textContent = run_splitted[1];
+                activeElement.run.textContent = run_splitted[0];
+                run1.setAttribute('data-invis', text);
+                run2.setAttribute('data-invis', run_splitted[1]);
+                run1.id = "r_"+GetId();
+                run2.id = "r_"+GetId();
+                run1.contentEditable = false;
+                run2.contentEditable = false;
+                SetDefaultRun(run1);
+                SetDefaultRun(run2);
+                activeElement.run.parentElement.insertBefore(run2, activeElement.run.nextElementSibling);
+                activeElement.run.parentElement.insertBefore(run1, activeElement.run.nextElementSibling);  
+            }
+        }
+
+        // function JoinRuns(){
+        //     if(activeElements.length < 1)
+        //         return;
+        //     var firstRun = activ;
+        //     for()
+        // }
+
         document.addEventListener('keydown', function(event){
                 if(event.key == 'Delete'){
                     SaveLastVersion();
@@ -1143,11 +1297,14 @@
                 if (event.code == 'KeyZ' && (event.ctrlKey || event.metaKey)) {
                     ReturnToLastVersion();
                 }
+                if (event.code == 'KeyQ' && (event.ctrlKey || event.metaKey)) {
+                    splitRun(window.getSelection().toString());
+                }
                 if (event.key == 'Enter'){
                     if(redSpan == undefined)
                         return;
                     SaveLastVersion();
-                    redSpan.setAttribute('data-invis', redSpan.innerHTML);
+                    redSpan.setAttribute('data-invis', redSpan.textContent);
                     redSpan.contentEditable = false;
                     redSpan = undefined;
                 }
@@ -1156,11 +1313,22 @@
         document.addEventListener('click', function(event){
             if(redSpan != undefined && event.target != redSpan){
                 SaveLastVersion();
-                redSpan.setAttribute('data-invis', redSpan.innerHTML);
+                redSpan.setAttribute('data-invis', redSpan.textContent);
                 redSpan.contentEditable = false;
                 redSpan = undefined;
             }
         });
+
+        function UpdateVariableList(){
+            variable_list.innerHTML = "";
+            var variables = document.getElementsByClassName('variable')
+            for(let vari of variables){
+                var opt = document.createElement('option');
+                opt.value = '{: ' + vari.firstElementChild.firstElementChild.textContent + ' :}';
+                opt.classList.add('option_variable_list');
+                variable_list.appendChild(opt);
+            }
+        }
 
         function VariableFromJSON(data) {
             var jsonp = JSON.parse(data);
@@ -1183,10 +1351,17 @@
             var name = document.createElement('span');
             name.classList.add('variable_name');
             name.contentEditable = true;
+            name.addEventListener('input', () => {
+                UpdateVariableList();
+                var spans = document_main.getElementsByClassName('runs');
+                for(let span of spans){
+                    CheckOnVariableInSpan(span);
+                }
+            });
             if(name1 != undefined)
-                name.innerHTML = name1;
+                name.textContent = name1;
             else
-                name.innerHTML = "Переменная" + tbody.children.length;
+                name.textContent = "Переменная" + tbody.children.length;
             tdn.appendChild(name);
             var meaning = document.createElement('input');
             meaning.classList.add('variable_mean');
@@ -1204,7 +1379,7 @@
                 if(var_elem.getAttribute('data-idDB') != -1){
                     $.ajax({
                         type: "POST",
-                        url: "document/variable/delete",
+                        url: "/document/variable/delete",
                         data: JSON.stringify({'id': var_elem.getAttribute('data-idDB')}),
                         contentType: "application/json; charset=utf-8",
                         dataType: 'json',
@@ -1223,6 +1398,7 @@
             tr.appendChild(tdb);
             SetDefaultVariable(tr);
             tbody.appendChild(tr);
+            UpdateVariableList();
         }
 
         variable_add_btn.addEventListener('click', function(evt){
@@ -1231,11 +1407,13 @@
 
         var activeElements = []
         var activeElement = new ActiveElement()
-        var startFontSize = "14px";
+        var startFontSize = 14;
         var startFont = "Times New Roman"
         var lastVersions = new Stack();
         var redSpan = undefined;
         var list_save = [];
+
+        console.log("{{ type }}");
         
         if("{{ type }}" == '0')
             DocFromJSON("{{ document_json|escapejs }}")
@@ -1246,9 +1424,14 @@
 
         SetDefault();
 
+        SaveLastVersion();
+
+        FillTree();
+
         setInterval(
             () => UpdateFile(), 60000
         );
+        
 
         
     </script> 

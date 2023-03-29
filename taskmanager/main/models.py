@@ -36,7 +36,7 @@ class Documents(models.Model):
 
 
 class VariableBlock(models.Model):
-    name = models.CharField('Название', max_length=100, unique=True)
+    name = models.CharField('Название', max_length=100)
     doc = models.ForeignKey(Documents, on_delete=models.CASCADE)
     meaning = models.TextField('Значение')
 
@@ -61,7 +61,7 @@ class Fonts(models.Model):
 
 class SavedElements(models.Model):
     id = models.BigAutoField(primary_key=True)
-    name = models.CharField('Название', max_length=100, unique=True)
+    name = models.CharField('Название', max_length=100)
     type = models.ForeignKey(DocType, on_delete=models.CASCADE, default=1)
     json = models.JSONField('JSON строка')
 

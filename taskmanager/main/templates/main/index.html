@@ -13,9 +13,9 @@
 {% block content %}
 
     {% if documents %}
-        <ul class="list-group list-group-horizontal" id="list_of_document">
+        <ul id="list_of_document">
             {% for el in documents %}
-            <li class="list-group-item doc_in_list" data-idDB="{{ el.id }}">
+            <li class="doc_in_list" data-idDB="{{ el.id }}">
                 <div class="btns_container">
                     <a href="/document/download?id={{ el.id }}" target="_blank" class="btn btn-labeled"><i class="fas fa-download"></i></a>
                     <a href="/document/view?id={{ el.id }}&type=0" class="btn btn-labeled"><i class="fas fa-pen"></i></a>
@@ -23,9 +23,11 @@
                 </div>
                 <div class="alert alert-warning mt-2 doc_image">        
                 </div>
-                <h4>{{ el.name }}</h4>
-                <h5>{{ el.owner }}</h5>
-                <p>{{ el.description }}</p>
+                <div class="doc_info">
+                    <h4>{{ el.name }}</h4>
+                    <h5>{{ el.owner }}</h5>
+                    <p>{{ el.description }}</p>
+                <div>
             </li>
             {% endfor %}
         </ul>

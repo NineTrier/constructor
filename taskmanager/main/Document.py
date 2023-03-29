@@ -359,11 +359,11 @@ class Paragraph(Element):
         self.childs.append(pPr)
         for child in json_stroke['childs']:
             json_childs = json.loads(child)
-            if json_childs['id'].split('_')[0] == 'runs':
+            if json_childs['class'] == 'runs':
                 run = Run(None)
                 run.from_json(json_childs)
                 self.childs.append(run)
-            elif json_childs['id'].split('_')[0] == 'hypers':
+            elif json_childs['hyperlink'] == 'hypers':
                 hyper = Hyperlink(None)
                 hyper.from_json(child)
                 self.childs.append(json_childs)
