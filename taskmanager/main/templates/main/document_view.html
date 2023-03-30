@@ -63,7 +63,7 @@
   
   <!-- Модальное окно -->
   <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog" id="modal_variable">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="exampleModalLabel">Переменные документа</h5>
@@ -325,23 +325,25 @@
                 span.textContent = child['text'];
                 span.setAttribute('data-invis', child['data-invis']);
                 span.setAttribute('data-name', child['data-name']);
+                span.hidden = child['hidden'];
                 SetDefaultRun(span);
             }
             return span;
         }
 
-        function ParagraphFromJSON(id, style, childs, name){
+        function ParagraphFromJSON(child){
             var par = document.createElement('div');
             par.classList.add('paragraph');
             par.classList.add('docelement');
-            par.id = id;
-            for(let [key, value] of Object.entries(style)){
+            par.id = child['id'];
+            for(let [key, value] of Object.entries(child['style'])){
                 par.style[key] = value;
             }
-            for(let child of childs){
-                par.appendChild(TextFromJSON(JSON.parse(child)));
+            for(let child1 of child['childs']){
+                par.appendChild(TextFromJSON(JSON.parse(child1)));
             }
-            par.setAttribute('data-name', name);
+            par.setAttribute('data-name', child['data-name'] );
+            par.hidden = child['hidden'];
             SetDefaultPar(par);
             return par;
         }
@@ -349,14 +351,12 @@
         function DocFromJSON(data) {
             try {
                 var jsonp = JSON.parse(data);
+                console.log(jsonp);
                 for(let element of jsonp['elements']){
                     var child = JSON.parse(element);
+                    console.log(child);
                     if(child['class'] == 'paragraph'){
-                        var id = child['id'];
-                        var style = child['style'];
-                        var childs = child['childs'];
-                        var name = child['data-name'];
-                        document_main.appendChild(ParagraphFromJSON(id, style, childs, name));
+                        document_main.appendChild(ParagraphFromJSON(child));
                     }
                 }
             } catch (error) {
@@ -370,10 +370,7 @@
                 var child = JSON.parse(value);
                 child = JSON.parse(child);
                 if(child['class'] == 'paragraph'){
-                    var id = child['id'];
-                    var style = child['style'];
-                    var childs = child['childs'];
-                    SaveElementToList(ParagraphFromJSON(id, style, childs), key.split(':')[0], key.split(':')[1]);
+                    SaveElementToList(ParagraphFromJSON(child), key.split(':')[0], key.split(':')[1]);
                 }
                 else if(child['class'] == 'runs'){
                     SaveElementToList(TextFromJSON(child), key.split(':')[0], key.split(':')[1]);
@@ -1061,13 +1058,13 @@
                 }
             }
             let op = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
-            return JSON.stringify({'id': "p_"+id, 'data-name': elem.getAttribute('data-name'), 'class': 'paragraph', 'childs': chil, 'style': op});
+            return JSON.stringify({'id': "p_"+id, 'data-name': elem.getAttribute('data-name'), 'class': 'paragraph', 'childs': chil, 'style': op, 'hidden': elem.hidden});
         }
 
         function ChildrenToJSON(elem, id){
             let o = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
 
-            return JSON.stringify({'text': elem.textContent, 'data-invis': elem.getAttribute('data-invis'), 'data-name': elem.getAttribute('data-name'), 'class': elem.classList[0], 'id': elem.id, 'style': o , 'attrib': elem.id});
+            return JSON.stringify({'text': elem.textContent, 'data-invis': elem.getAttribute('data-invis'), 'data-name': elem.getAttribute('data-name'), 'class': elem.classList[0], 'id': elem.id, 'style': o , 'attrib': elem.id, 'hidden': elem.hidden});
         }
 
         function SavedElementToJSON(list_elem, id1){

@@ -45,7 +45,7 @@ class WordAPI:
     def get_elements_by_tag(self, tag):
         elements = []
         try:
-            run = self.doc.paragraphs[0].add_run()
+            run = self.doc.add_paragraph().add_run()
             for bad in run._r.xpath(f"//{tag}"):
                 elements.append(bad)
             return elements
@@ -54,12 +54,17 @@ class WordAPI:
 
     def create_new_doc(self, lxmlBody):
         try:
-            body = self.get_elements_by_tag("w:body")[0]
+            print("#######################################################")
             print(lxmlBody)
+            print("#######################################################")
+            body = self.get_elements_by_tag("w:body")[0]
+            print(body)
             for bad in body:
                 body.remove(bad)
             for par in lxmlBody:
-                body.append(par.to_lxml())
+                res, el = par.to_lxml()
+                if(res):
+                    body.append(el)
         except Exception as exc:
             print(exc, "create_new_doc")
 

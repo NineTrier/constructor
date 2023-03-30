@@ -320,6 +320,7 @@ class Paragraph(Element):
     def __init__(self, elem):
         self.id = ""
         self.tag = 'p'
+        self.hidden = False
         if elem is None:
             self.pr = Properties(None)
             self.attrib = {}
@@ -336,6 +337,8 @@ class Paragraph(Element):
         return text
 
     def to_lxml(self):
+        if self.hidden:
+            return False, None
         p = create_element("w:p")
         for k in list(self.attrib.keys()):
             create_attribute(p, f"{k}", self.attrib[k])
@@ -344,13 +347,15 @@ class Paragraph(Element):
                 p.append(child.to_lxml())
             except Exception as exc:
                 print(exc, "Paragraph to lxml", child)
-        return p
+        return True, p
 
     def from_json(self, json1):
         if type(json1) == str:
             json_stroke = json.loads(json1)
         else:
             json_stroke = json1
+        print(json_stroke)
+        self.hidden = json_stroke['hidden']
         self.childs = []
         pPr = Properties(None)
         pPr.tag = 'pPr'

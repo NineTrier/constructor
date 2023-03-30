@@ -187,19 +187,32 @@ def ViewDocument(request):
     file_path = Doc.file
     print(file_path)
     file_path = os.path.join(settings.MEDIA_ROOT, str(file_path))
-    document = Document(file_path)
-    context = {
+    if(request.GET.get('type') == '1'):
+        document = Document(file_path)
+        context = {
+            'title': 'Просмотр документа',
+            'id_doc': fileid,
+            'document': [(child, child.id) for child in document.childs],
+            'name_of_document': Doc.name,
+            'sectPr': document.childs[-1],
+            'fonts': Fonts.objects.order_by('id'),
+            'saved_elements': json.dumps({f"{el.name}:{el.id}": json.dumps(el.json) for el in SavedElements.objects.filter(type=Doc.type)}),
+            'variable': json.dumps({var.id: f"{var.name}:{var.meaning}" for var in VariableBlock.objects.filter(doc=Doc.id)}),
+            'document_json': json.dumps(Doc.json),
+            'type': request.GET.get('type')
+        }
+    else:
+        context = {
         'title': 'Просмотр документа',
         'id_doc': fileid,
-        'document': [(child, child.id) for child in document.childs],
         'name_of_document': Doc.name,
-        'sectPr': document.childs[-1],
         'fonts': Fonts.objects.order_by('id'),
         'saved_elements': json.dumps({f"{el.name}:{el.id}": json.dumps(el.json) for el in SavedElements.objects.filter(type=Doc.type)}),
         'variable': json.dumps({var.id: f"{var.name}:{var.meaning}" for var in VariableBlock.objects.filter(doc=Doc.id)}),
         'document_json': json.dumps(Doc.json),
         'type': request.GET.get('type')
     }
+        
     return render(request, 'main/document_view.html', context)
 
 
@@ -222,7 +235,7 @@ def UpdateDocument(request):
     fileid = request.GET.get('id')
     doc = Documents.objects.filter(id=fileid)[0]
     file_path = os.path.join(settings.MEDIA_ROOT, str(doc.file))
-    document = Document(file_path)
+    document = Document()
     request_data = request.body
     stroke = json.loads(request_data)
     doc.json = stroke

@@ -9,6 +9,10 @@
     --button-menu-width: 25px;
 }
 
+#modal_variable{
+    max-width: 600px;
+}
+
 .btn_menu{
     max-width: var(--button-menu-width);
 }
