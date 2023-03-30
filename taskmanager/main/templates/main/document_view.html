@@ -70,6 +70,7 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
         </div>
         <div class="modal-body">
+            <span id="variable_error_message"></span>
             <div class="list-container" id="table_oknapolya">
                 <table class="table table-hover">
                   <thead>
@@ -83,6 +84,7 @@
                   </tbody>
                 </table>
                 <button id="variable_add_btn">Добавить</button>
+                <button id="save_variable_btn">Сохранить</button>
             </div>
         </div>
         <div class="modal-footer">
@@ -320,7 +322,6 @@
                 for(let [key, value] of Object.entries(child['style'])){
                     span.style[key] = value;
                 }
-                console.log(child);
                 span.textContent = child['text'];
                 span.setAttribute('data-invis', child['data-invis']);
                 span.setAttribute('data-name', child['data-name']);
@@ -340,7 +341,6 @@
             for(let child of childs){
                 par.appendChild(TextFromJSON(JSON.parse(child)));
             }
-            console.log(name);
             par.setAttribute('data-name', name);
             SetDefaultPar(par);
             return par;
@@ -349,7 +349,6 @@
         function DocFromJSON(data) {
             try {
                 var jsonp = JSON.parse(data);
-                console.log(jsonp);
                 for(let element of jsonp['elements']){
                     var child = JSON.parse(element);
                     if(child['class'] == 'paragraph'){
@@ -369,6 +368,7 @@
             var jsonp = JSON.parse(data);
             for(let [key, value] of Object.entries(jsonp)){
                 var child = JSON.parse(value);
+                child = JSON.parse(child);
                 if(child['class'] == 'paragraph'){
                     var id = child['id'];
                     var style = child['style'];
@@ -631,9 +631,8 @@
                 evt.dataTransfer.setData("id", evt.target.id);
             });
             li.appendChild(divBig);
-
-            
             list.appendChild(li);
+            
         }
 
         function SetDefault(){
@@ -690,6 +689,8 @@
                         SaveElementToList(activeElement.run, undefined, undefined);
                     else
                         SaveElementToList(activeElement.paragraph, undefined, undefined);
+                    SaveListSaved();
+                    list_saved.style.border = "";
                     return;
                 }
                 if(activeElement.isRun()){
@@ -714,6 +715,7 @@
             });
 
             doc.addEventListener('dragleave', function(evt){
+                console.log(list_saved);
                 list_saved.style.border = "";
             });
 
@@ -796,7 +798,6 @@
                 }
             }
             activeElements.push(newActive);
-            console.log(activeElements);
         }
 
         function SetDefaultRun(run){
@@ -872,6 +873,7 @@
                 }
                 SetDefault();
             }
+            FillTree();
         }
 
         function GetId(){
@@ -1059,7 +1061,7 @@
                 }
             }
             let op = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
-            return JSON.stringify({'id': "p_"+id, 'data-name': elem.getAttribute('data-name'), 'class': elem.classList[0], 'childs': chil, 'style': op});
+            return JSON.stringify({'id': "p_"+id, 'data-name': elem.getAttribute('data-name'), 'class': 'paragraph', 'childs': chil, 'style': op});
         }
 
         function ChildrenToJSON(elem, id){
@@ -1068,41 +1070,48 @@
             return JSON.stringify({'text': elem.textContent, 'data-invis': elem.getAttribute('data-invis'), 'data-name': elem.getAttribute('data-name'), 'class': elem.classList[0], 'id': elem.id, 'style': o , 'attrib': elem.id});
         }
 
+        function SavedElementToJSON(list_elem, id1){
+            var element = list_elem.firstChild.children[1];
+            var inner = list_elem.firstChild.children[0].textContent;
+            var id = list_elem.getAttribute('data-idDB');
+            var lst = {};
+            lst['id'] = id;
+            lst['name'] = inner;
+            if(element.classList.contains("paragraph")){
+                lst['json'] = ParagraphToJSON(element, id1);
+            }
+            else if(element.classList.contains("tables")){
+                lst['json'] = TableToJSON(element, id1);
+            }
+            else if(element.classList.contains("runs")){
+                lst['json'] = ChildrenToJSON(element, id1);
+            }
+            return lst;
+        }
+
         function ListSavedToJSON(){
             var chil = [];
-            for(let list_elem of list_saved_sp.children){
-                var element = list_elem.firstChild.children[1];
-                var inner = list_elem.firstChild.children[0].textContent;
-                var id = list_elem.getAttribute('data-idDB');
-                var lst = {};
-                lst['id'] = id;
-                lst['name'] = inner;
-                if(element.classList.contains("paragraph")){
-                    lst['json'] = ParagraphToJSON(element, chil.length);
-                }
-                else if(element.classList.contains("tables")){
-                    lst['json'] = TableToJSON(element, chil.length);
-                }
-                else if(element.classList.contains("runs")){
-                    lst['json'] = ChildrenToJSON(element, chil.length);
-                }
-                chil.push(lst);
-            }
+            for(let list_elem of list_saved_sp.children)
+                chil.push(SavedElementToJSON(list_elem, chil.length));
             return chil;
+        }
+
+        function VariableToJSON(variable){
+            var name = variable.children[0].firstElementChild.textContent;
+            var value = variable.children[1].firstElementChild.value;
+            var id = variable.getAttribute('data-idDB');
+            var lst = {};
+            lst['id'] = id;
+            lst['name'] = name;
+            lst['value'] = value;
+            lst['id_doc'] = "{{ id_doc }}";
+            return lst;
         }
 
         function VariablesToJSON(){
             var chil = [];
-            for(let variable of document.getElementsByClassName('variable')){
-                var name = variable.children[0].firstElementChild.textContent;
-                var value = variable.children[1].firstElementChild.value;
-                var id = variable.getAttribute('data-idDB');
-                var lst = {};
-                lst['id'] = id;
-                lst['name'] = name;
-                lst['value'] = value;
-                chil.push(lst);
-            }
+            for(let variable of document.getElementsByClassName('variable'))
+                chil.push(VariableToJSON(variable));
             return chil;
         }
 
@@ -1121,31 +1130,28 @@
             }
             jsondict['elements'] = chil;
             jsondict['sectPr'] = document.getElementById("sectPr").value;
-            jsondict['list_saved'] = ListSavedToJSON();
-            jsondict['variables'] = VariablesToJSON();
             jsondict['doc_name'] = doc_name.textContent;
-            console.log(jsondict['doc_name']);
             return jsondict;
         }
 
-        function DeleteVariable(id){
-            var var_element = document.getElementById("variable_cont:"+id);
-                $.ajax({
-                    type: "POST",
-                    url: "document/variable/delete",
-                    data: JSON.stringify({'id': id}),
-                    contentType: "application/json; charset=utf-8",
-                    dataType: 'json',
-                    success: () => {var_element.parentNode.removeChild(var_element); UpdateVariableList();}
-                });
+        //Функция удаляет переменную из базы данных при помощи POST-запроса
+        function DeleteVariable(variable){
+            $.ajax({
+                type: "POST",
+                url: "/document/variable/delete",
+                data: JSON.stringify({'id': variable.getAttribute('data-idDB')}),
+                contentType: "application/json; charset=utf-8",
+                dataType: 'json',
+                success: function(res, status, xhr){
+                    variable.parentNode.removeChild(variable);
+                    UpdateVariableList(); 
+                }
+            });
         }
 
         //Функция создаёт элемент для дерева
         function CreateTreeElement(id, name, checked){
-
-            var elem = document_main.querySelector('#'+id);
-            
-            
+            var elem = document_main.querySelector('#'+id);         
             var tree_element = document.createElement('li');
             var tree_element_checkbox = document.createElement('input');
             var tree_element_label = document.createElement('span');
@@ -1183,7 +1189,6 @@
             tree_element_label.contentEditable = true;
             tree_element_label.classList.add('tree_element_label');
             tree_element_label.oninput = (evt) => {
-                console.log('Name changed');
                 elem.setAttribute('data-name', tree_element_label.textContent);
             }
             //Вставляем элементы в родителя
@@ -1210,7 +1215,6 @@
                 paragraph_in_tree_list.classList.add('run_tree_list')
                 for(let run of par.getElementsByClassName('runs')){
                     var run_tree_element;
-                    console.log(run);
                     if(!run.hidden)
                         run_tree_element = CreateTreeElement(run.id, 'Текст ' + paragraph_in_tree_list.children.length, true); 
                     else
@@ -1234,13 +1238,19 @@
         function SaveComplete(){
             console.log("Сохранение прошло успешно");
             save_complete.style.display = "flex";
+            if("{{ type }}" == "1"){
+                document.location.href = "/"
+            }
         }
 
         function SaveNotComplete(){
             save_complete.style.display = "none";
+            
         }
 
         function UpdateFile(){
+            SaveListSaved();
+            SaveVariables();
             $.ajax({
                 type: "POST",
                 url: "/document/update?id={{ id_doc }}",
@@ -1261,7 +1271,6 @@
         }
 
         function splitRun(text){
-            console.log(text);
             if(activeElement.isRun()){
                 var run_splitted = activeElement.run.textContent.split(text);
                 var run1 = activeElement.run.cloneNode(true);
@@ -1293,6 +1302,7 @@
                 if(event.key == 'Delete'){
                     SaveLastVersion();
                     activeElement.deleteActive();
+                    FillTree();
                 }
                 if (event.code == 'KeyZ' && (event.ctrlKey || event.metaKey)) {
                     ReturnToLastVersion();
@@ -1376,20 +1386,7 @@
             btn_close.classList.add('variable_close');
             btn_close.onclick = function(evt){
                 var var_elem = btn_close.parentElement.parentElement;
-                if(var_elem.getAttribute('data-idDB') != -1){
-                    $.ajax({
-                        type: "POST",
-                        url: "/document/variable/delete",
-                        data: JSON.stringify({'id': var_elem.getAttribute('data-idDB')}),
-                        contentType: "application/json; charset=utf-8",
-                        dataType: 'json',
-                        success: var_elem.parentNode.removeChild(var_elem)
-                    });
-                
-                }
-                else{
-                    var_elem.parentNode.removeChild(var_elem);
-                }
+                DeleteVariable(var_elem);
             }
             tdb.appendChild(btn_close)
             
@@ -1401,9 +1398,61 @@
             UpdateVariableList();
         }
 
-        variable_add_btn.addEventListener('click', function(evt){
+        function SaveVariable(variable){
+            $.ajax({
+                type: "POST",
+                url: "/document/variable/create",
+                data: JSON.stringify(VariableToJSON(variable)),
+                contentType: "application/json; charset=utf-8",
+                dataType: 'json',
+                success: function(res, status, xhr){
+                    switch (xhr.status){
+                        case 200:
+                            variable.setAttribute('data-idDB', xhr.getResponseHeader('id'));
+                            variable.style.backgroundColor = "white";
+                            break;
+                        case 304:
+                            console.log(variable);
+                            variable.style.backgroundColor = "red";
+                            variable_error_message.innerHTML = xhr.getResponseHeader('MessageOfError');
+                            break;
+                    }
+                }
+            });
+        }
+
+        function SaveSavedElement(list_elem){
+            $.ajax({
+                type: "POST",
+                url: "/document/savedelement/create",
+                data: JSON.stringify(SavedElementToJSON(list_elem, 0)),
+                contentType: "application/json; charset=utf-8",
+                dataType: 'json',
+                success: function(res, status, xhr){
+                    list_elem.setAttribute('data-idDB', xhr.getResponseHeader('id'));
+
+                }
+            });
+        }
+
+        function SaveListSaved(){
+            for(let list_elem of list_saved_sp.children)
+                SaveSavedElement(list_elem);
+        }
+
+        function SaveVariables(){
+            for(let variable of document.getElementsByClassName('variable'))
+                SaveVariable(variable);
+        }
+
+        variable_add_btn.addEventListener('click', (evt)=>{
             CreateNewVariable(undefined, undefined, undefined);
         });
+
+        save_variable_btn.addEventListener('click', (evt)=>{
+            SaveVariables();
+        });
+        
 
         var activeElements = []
         var activeElement = new ActiveElement()

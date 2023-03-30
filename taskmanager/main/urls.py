@@ -15,6 +15,8 @@ urlpatterns = [
     path('document/update', views.UpdateDocument),
     path('document/new', views.create_New_Document, name='newdocuments'),
     path('document/savedelement/delete', views.DeleteSavedElement),
+    path('document/savedelement/create', views.SaveSavedElement),
     path('document/variable/delete', views.DeleteVariable),
+    path('document/variable/create', views.SaveVariable),
     path('document/delete', views.DeleteDocument)
 ]

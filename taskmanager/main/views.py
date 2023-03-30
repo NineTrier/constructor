@@ -2,11 +2,11 @@ import json
 
 from django.shortcuts import render, redirect
 from django.views.generic import CreateView
-from .models import Documents, Fonts, SavedElements, VariableBlock
+from .models import Documents, Fonts, SavedElements, VariableBlock, DocType
 from .forms import DocumentForm
 import os
 from django.conf import settings
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse, Http404, HttpResponseNotModified
 from docx import Document
 from .Document import Document
 
@@ -119,7 +119,7 @@ def DeleteSavedElement(request):
 
 @csrf_exempt
 def DeleteVariable(request):
-    response = redirect('/')
+    response = HttpResponse()
     request_data = request.body
     stroke = json.loads(request_data)
     if stroke['id'] == '-1':
@@ -128,10 +128,53 @@ def DeleteVariable(request):
     return response
 
 @csrf_exempt
+def SaveVariable(request):
+    request_data = request.body
+    stroke = json.loads(request_data)
+    variable = VariableBlock.objects.filter(name=stroke['name'], doc_id=stroke['id_doc'])
+    if len(variable) > 0 and stroke['id'] == '-1':
+        response = HttpResponseNotModified()
+        response['MessageOfError'] = 'Can not add new variable. Check name of variable and rename.'
+        response['TypeOfError'] = '1'
+        return response
+    if len(variable) == 1 and stroke['id'] != str(variable[0].id):
+        response = HttpResponseNotModified()
+        response['MessageOfError'] = 'Can not add new variable. Check name of variable and rename.'
+        response['TypeOfError'] = '2'
+        return response
+    response = HttpResponse()
+    if stroke['id'] == '-1':
+        variable = VariableBlock()
+    else:
+        variable = VariableBlock.objects.filter(id=stroke['id'])[0]
+    variable.name = stroke['name']
+    variable.meaning = stroke['value']
+    variable.doc_id = stroke['id_doc']
+    variable.save()
+    response['id'] = variable.id
+    return response
+
+@csrf_exempt
+def SaveSavedElement(request):
+    response = HttpResponse()
+    request_data = request.body
+    stroke = json.loads(request_data)
+    print(stroke)
+    if stroke['id'] == '-1':
+        saved_element = SavedElements()
+    else:
+        saved_element = SavedElements.objects.filter(id=stroke['id'])[0]
+    saved_element.name = stroke['name']
+    saved_element.json = stroke['json']
+    saved_element.save()
+    response['id'] = saved_element.id
+    return response
+
+@csrf_exempt
 def DeleteDocument(request):
     response = redirect('/')
     request_data = request.body
-    stroke = json.loads(request_data)
+    stroke = json.loads(request_data) 
     if stroke['id'] == '-1':
         return response
     Documents.objects.filter(id=stroke['id']).delete()
@@ -162,7 +205,6 @@ def ViewDocument(request):
 
 def SavedElementFromJSON(json_stroke):
     for list_elem in json_stroke:
-        print(list_elem)
         name, id_elem, element = list_elem['name'], list_elem['id'], list_elem['json']
         if id_elem == '-1':
             saved = SavedElements()
@@ -174,23 +216,6 @@ def SavedElementFromJSON(json_stroke):
             saved.name = name
             saved.json = json.loads(element)
             saved.save()
-
-def VariablesFromJSON(json_stroke, id_doc):
-    for variable in json_stroke:
-        print(variable)
-        name, id_elem, value = variable['name'], variable['id'], variable['value']
-        if id_elem == '-1':
-            var = VariableBlock()
-            var.name = name
-            var.meaning = value
-            var.doc_id = id_doc
-            var.save()
-        else:
-            var = VariableBlock.objects.get(id=id_elem)
-            var.name = name
-            var.meaning = value
-            var.save()
-
 
 @csrf_exempt
 def UpdateDocument(request):
@@ -204,8 +229,6 @@ def UpdateDocument(request):
     doc.name = stroke['doc_name']
     doc.save()
     print(stroke)
-    SavedElementFromJSON(stroke["list_saved"])
-    VariablesFromJSON(stroke["variables"], fileid)
     document.from_json(stroke)
     document.save(file_path)
     response = redirect('/')

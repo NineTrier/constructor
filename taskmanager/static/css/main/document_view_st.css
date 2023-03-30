@@ -285,3 +285,7 @@ td.paragraph{
 .run_tree_list{
     margin-top: 5px;
 }
+
+#variable_error_message{
+    color: red;
+}
