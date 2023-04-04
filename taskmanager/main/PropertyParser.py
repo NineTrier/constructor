@@ -142,23 +142,23 @@ class Indent(Property):
         css = """"""
         for k, v in self.attrib.items():
             if k == "w:left":
-                css += f"margin-left: {float(v) / 17.7}px;\n"
+                css += f"margin-left: {float(v) / 567}cm;\n"
             elif k == "w:right":  # Отступ до параграфа
-                css += f"margin-right: {float(v) / 17.7}px;\n"
+                css += f"margin-right: {float(v) / 567}cm;\n"
             elif k == "w:firstLine":  # Отступ после параграфа
-                css += f"text-indent: {float(v) / 17.7}px;\n"
+                css += f"text-indent: {float(v) / 567}cm;\n"
         return css
 
     def from_json(self, json: dict):
         for k, v in json.items():
             if k == "marginLeft":
-                self.attrib["w:left"] = f"{int(float(v.split('px')[0]) * 17.7)}"
+                self.attrib["w:left"] = f"{int(float(v.split('cm')[0]) * 567)}"
                 self.enabled = True
             elif k == "marginRight":
-                self.attrib['w:right'] = f"{int(float(v.split('px')[0]) * 17.7)}"
+                self.attrib['w:right'] = f"{int(float(v.split('cm')[0]) * 567)}"
                 self.enabled = True
             elif k == "textIndent":
-                self.attrib['w:firstLine'] = f"{int(float(v.split('px')[0]) * 17.7)}"
+                self.attrib['w:firstLine'] = f"{int(float(v.split('cm')[0]) * 567)}"
                 self.enabled = True
 
 

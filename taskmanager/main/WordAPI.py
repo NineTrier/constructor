@@ -54,11 +54,7 @@ class WordAPI:
 
     def create_new_doc(self, lxmlBody):
         try:
-            print("#######################################################")
-            print(lxmlBody)
-            print("#######################################################")
             body = self.get_elements_by_tag("w:body")[0]
-            print(body)
             for bad in body:
                 body.remove(bad)
             for par in lxmlBody:

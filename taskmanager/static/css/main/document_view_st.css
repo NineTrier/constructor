@@ -42,7 +42,6 @@ body {
 #menu a {
   text-decoration: none;
   outline: none;
-  display: block;
   transition: .3s ease-in-out;
 }
 
@@ -57,6 +56,8 @@ body {
     background-color: var(--color-document);
 	max-width: 100%;
 	padding: 10px;
+    line-height: 1;
+    text-indent: 0cm;
 }
 
 .paragraph:hover{
@@ -112,12 +113,6 @@ body {
 #selectedElement{
     max-width: 50px;
     display: none;
-}
-
-#fontSizeElement{
-    max-width: 60px;
-    background-color: var(--color-secondary);
-    border: 1px solid var(--color-secondary);
 }
 
 #span_value{
@@ -292,4 +287,70 @@ td.paragraph{
 
 #variable_error_message{
     color: red;
+}
+
+#firstIndentDiv{
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+#intervalDiv{
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.inputNumberMenu{
+    max-width: 40px;
+    background-color: var(--color-secondary);
+    border: 1px solid var(--color-secondary);
+    padding: 5px 5px;
+    text-align: center;
+}
+
+input[type="number"]::-webkit-inner-spin-button{
+    display: none;
+}
+
+.inputButtons{
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-evenly;
+    padding-right: 1px;
+}
+
+.inputNumber{
+    display: flex;
+    flex-direction: row;
+    margin-right: 3px;
+}
+
+.inputNumber:hover > .inputButtons{
+    display: flex;
+}
+
+.inputButton{
+    display: flex;
+    width: 10px;
+    height: 10px;
+    padding: 0px;
+    align-items: center;
+}
+
+#context_menu{
+    display:none;
+    position: absolute;
+    z-index: 1000;
+}
+
+#modal_radioGroup_body{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.ulContainerRadioGroup{
+    min-height: 100px;
 }
