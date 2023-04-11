@@ -124,7 +124,7 @@ class Spacing(Property):
                 self.attrib['w:after'] = f"{int(float(v.split('em')[0]) * 240)}"
                 self.enabled = True
             elif k == "lineHeight":
-                self.attrib['w:line'] = f"{int(float(v.split('em')[0]) * 240)}"
+                self.attrib['w:line'] = f"{int(float(v) * 240)}"
                 self.attrib['w:lineRule'] = "auto"
                 self.enabled = True
 

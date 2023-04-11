@@ -137,7 +137,7 @@
                 <ul class="list-group" id="modal_radioGroup_list">
 
                 </ul>
-                <button onclick="addRadioGroup();">Добавить радиогруппу</button>
+                
             </div>
             <div>
                 <ul class="list-group" id="modal_radioGroup_treeElements_list">
@@ -146,6 +146,7 @@
             </div>
         </div>
         <div class="modal-footer">
+            <button onclick="addRadioGroup();">Добавить радиогруппу</button>
         </div>
       </div>
     </div>
@@ -229,8 +230,8 @@
             </div>
             <input type="hidden" id="sectPr" value="{{ sectPr.to_css }}"/>
     </div>
-    <div id="document_tree">
-        <ul class="list-group-flush" id="tree_paragraph"></ul>
+    <div id="tree_container">
+        <ul class="list-group-flush" id="document_tree"></ul>
     </div>
 </div>
 <!-- Подложка под модальным окном -->
@@ -421,6 +422,25 @@
                 return;
             }
         }
+
+        function RadioGroupsFromJSON(data){
+            var jsonp = JSON.parse(data);
+            console.log(jsonp);
+            if(!jsonp['radioGroups'])
+                return;
+            for(let key of jsonp['radioGroups']['childs']){
+                console.log(key);
+                var radioGroup = createRadioGroup(key['name'], key['color']);
+                modal_radioGroup_list.appendChild(radioGroup);
+                for(let child of key['childs']){
+                    console.log(child);
+                    var treeElementInRadio = document.querySelector('.TreeElementInModalList[data-idElement="'+child['data-idElement']+'"]');
+                    ElementInRadioGroup(child['data-idElement'], radioGroup.firstElementChild.lastElementChild.id);
+                    radioGroup.firstElementChild.lastElementChild.firstElementChild.appendChild(treeElementInRadio);
+                }
+                //InputColor(radioGroup.firstElementChild.firstElementChild.lastElementChild);
+            }
+        }
         
         function ListSavedFromJSON(data) {
             var jsonp = JSON.parse(data);
@@ -446,23 +466,6 @@
             console.log("Сохранено!");
             SaveNotComplete();
         }
-
-        // function CreateConnect1(span, regmatch){
-        //     console.log(regmatch);
-        //     var name = regmatch['0'];
-        //     name = name.slice(3, name.length-3);
-        //     console.log(name);
-        //     for(let variable of document.getElementsByClassName('variable')){
-        //         var nam = variable.getElementsByClassName('variable_name')[0];
-        //         var val = variable.getElementsByClassName('variable_mean')[0];
-        //         if(nam.textContent == name){
-        //             span.textContent = span.textContent.replaceAll(regmatch['0'], val.value);
-        //             span.classList.add('variable_ref');
-        //             return true;
-        //         }
-        //     }
-        //     return false; 
-        // }
 
         function CreateConnect(span, regmatch){
             var name = span.getAttribute('data-invis').trim();
@@ -734,7 +737,6 @@
                     list_saved.style.border = "";
                     return
                 }
-                FillTree();
             });
 
             doc.addEventListener('drop', function(evt){
@@ -928,7 +930,7 @@
                 }
                 SetDefault();
             }
-            FillTree();
+            FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
         }
 
         function GetId(){
@@ -960,8 +962,7 @@
             SaveLastVersion();
             activeElement.unsetActive();
             activeElement.setActive(paragraph);
-            paragraph.scrollIntoView();
-            FillTree();
+            FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
         }
 
         function ButtonAddRun_Click(){
@@ -985,8 +986,7 @@
             }
             activeElement.unsetActive();
             activeElement.setActive(run);
-            run.scrollIntoView();
-            FillTree();
+            FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
         }
 
         function ApplyStyleText(element){
@@ -1027,6 +1027,18 @@
             }
         }
 
+        function ApplyInterval(element){
+            console.log(element.style.lineHeight)
+            if(element.style.lineHeight){
+                IntervalElement.value = Number(element.style.lineHeight);
+            }
+            else{
+                IntervalElement.value = 1;
+                element.style.lineHeight = 1;
+            }
+        }
+
+
 
         function ApplyMenu(element){
             selectedElement.value = element.id;
@@ -1046,6 +1058,7 @@
                 span_value.disabled = true; 
                 ApplyAlign(activeElement.paragraph);
                 ApplyIndent(activeElement.paragraph);
+                ApplyInterval(activeElement.paragraph);
             }
         }
 
@@ -1081,21 +1094,49 @@
             activeElement.paragraph.style.lineHeight = Number(interval);
         }
 
-        function createRadioGroup(){
+        function InputColor(colorInput){
+            console.log('Ввели');
+            for(let child of colorInput.parentNode.nextElementSibling.firstElementChild.children){
+                document.querySelector('.tree_element[data-idElement="'+ child.getAttribute('data-idElement') +'"]').style.backgroundColor = colorInput.value;
+            }
+        }
+
+        function createRadioGroup(name, color1){
             var li = document.createElement('li');
             var div = document.createElement('div');
             var divul = document.createElement('div');
+            var divTextColor = document.createElement('div');
+            var color = document.createElement('input');
             var span = document.createElement('span');
             var ul = document.createElement('ul');
 
+            divTextColor.classList.add('containerTextColorRadioGroup');
+            color.type = 'color';
+            console.log(color1);
+            if(color1){
+                color.value = color1;
+            }
+            else
+                color.value = '#97c0ff';
+
+            color.oninput = (evt)=>{
+                InputColor(color);
+            }
             ul.classList.add('list-group');
             divul.id = 'radioGroup' + modal_radioGroup_list.children.length;
             li.classList.add('list-group-item');
-            span.textContent = "РадиоГруппа" + modal_radioGroup_list.children.length;
+            li.classList.add('radioGroups');
+            span.contentEditable = true;
+            if(name)
+                span.textContent = name;
+            else
+                span.textContent = "РадиоГруппа" + modal_radioGroup_list.children.length;
             divul.classList.add('ulContainerRadioGroup');
             
 
-            div.appendChild(span);
+            divTextColor.appendChild(span);
+            divTextColor.appendChild(color);
+            div.appendChild(divTextColor);
             divul.appendChild(ul);
             div.appendChild(divul);
             li.appendChild(div)
@@ -1138,7 +1179,7 @@
                 }
             }
             let op = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
-            return JSON.stringify({'id': "tbl_"+id, 'childs': trs, 'style': op, 'tableGrid': grid});
+            return JSON.stringify({'id': elem.id, 'childs': trs, 'style': op, 'tableGrid': grid});
         }
 
         function ParagraphToJSON(elem, id){
@@ -1149,7 +1190,7 @@
                 }
             }
             let op = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
-            return JSON.stringify({'id': "p_"+id, 'data-name': elem.getAttribute('data-name'), 'class': 'paragraph', 'childs': chil, 'style': op, 'hidden': elem.hidden});
+            return JSON.stringify({'id': elem.id, 'data-name': elem.getAttribute('data-name'), 'class': 'paragraph', 'childs': chil, 'style': op, 'hidden': elem.hidden});
         }
 
         function ChildrenToJSON(elem, id){
@@ -1203,6 +1244,38 @@
             return chil;
         }
 
+        function RadioGroupMemberToJSON(child){
+            var lst = {};
+            lst['data-idElement'] = child.getAttribute('data-idElement');
+            return lst;
+        }
+
+        function RadioGroupToJSON(radioGroup){
+            var lst = {};
+            var childs = [];
+
+            lst['name'] = radioGroup.firstElementChild.firstElementChild.firstElementChild.textContent;
+            lst['color'] = radioGroup.firstElementChild.firstElementChild.lastElementChild.value;
+            for(let child of radioGroup.firstElementChild.lastElementChild.firstElementChild.children){
+                console.log(child);
+                childs.push(RadioGroupMemberToJSON(child))
+            }
+            lst['childs'] = childs;
+            return lst;
+        }
+
+        function RadioGroupsToJSON(){
+            var lst = {};
+            var childs = [];
+
+            for(let radioGroup of document.querySelectorAll('.radioGroups')){
+                console.log(radioGroup);
+                childs.push(RadioGroupToJSON(radioGroup));
+            }
+            lst['childs'] = childs;
+            return lst;
+        }
+
         function CreateJSON(){
             activeElement.unsetActive();
             body = document.getElementsByClassName("document")[0];
@@ -1219,6 +1292,7 @@
             jsondict['elements'] = chil;
             jsondict['sectPr'] = document.getElementById("sectPr").value;
             jsondict['doc_name'] = doc_name.textContent;
+            jsondict['radioGroups'] = RadioGroupsToJSON();
             return jsondict;
         }
 
@@ -1237,135 +1311,146 @@
             });
         }
 
-        function CreateTreeElementInModalList(id){
-            var li = document.createElement('li');
-            var span = document.createElement('span');
-            var name = document.querySelector('#'+id).getAttribute('data-name');
-            span.textContent = name;
-            li.setAttribute('data-idElement', id);
-            li.classList.add('list-group-item');
-            li.classList.add('TreeElementInModalList');
-            li.draggable = true;
-
-            li.appendChild(span);
-            return li;
-        }
-
-        function UpdateTreeElementInModalList(id){
-            var li = document.querySelector('.TreeElementInModalList[data-idElement="'+id+'"]');
-            var name = document.querySelector('#'+id).getAttribute('data-name');
-            li.firstElementChild.textContent = name;
-        }
-
-        function AddTreeElementInModalList(id){
-            if(document.querySelector('.TreeElementInModalList[data-idElement="'+id+'"]'))
-                UpdateTreeElementInModalList(id);
-            else
-                modal_radioGroup_treeElements_list.appendChild(CreateTreeElementInModalList(id));
+        function RadioInputChanged(evt){
+            console.log('Its Radio');
+            for(let other of document.querySelectorAll('input[name="'+ evt.target.name +'"]')){
+                console.log(other);
+                var elem = document_main.querySelector('#'+other.parentElement.getAttribute('data-idElement')); 
+                elem.hidden = !other.checked;
+                if(other.parentElement.classList.contains('tree_element')){
+                    for(let run of other.parentElement.lastElementChild.children){
+                        console.log(other)
+                        run.firstElementChild.disabled = !other.parentElement.firstElementChild.checked;
+                        run.firstElementChild.readonly = !other.parentElement.firstElementChild.checked;
+                    }
+                }
+            }
         }
 
         //Функция создаёт элемент для дерева
-        function CreateTreeElement(id, name, checked){
-            var elem = document_main.querySelector('#'+id);         
+        function CreateTreeElement(element, name){       
             var tree_element = document.createElement('li');
             var tree_element_checkbox = document.createElement('input');
             var tree_element_label = document.createElement('span');
             //Добавляем класс из бутстрапа
             tree_element.classList.add('list-group-item');
             tree_element.classList.add('tree_element');
-            tree_element.setAttribute('data-idElement', id);
+            tree_element.setAttribute('data-idElement', element.id);
             tree_element.onclick = (evt) => {
                 evt.stopPropagation();
+                var element = document_main.querySelector('#' + tree_element.getAttribute('data-idElement'));
                 activeElement.unsetActive();
-                activeElement.setActive(elem);
+                activeElement.setActive(element);
             }
             //Создаём чекбокс и стилизуем его
             tree_element_checkbox.classList.add('form-check-input');
             tree_element_checkbox.classList.add('me-1');
-            console.log(id);
-
-            if(document.querySelector('.TreeElementInModalList[data-idElement="'+ id +'"]') && document.querySelector('.TreeElementInModalList[data-idElement="'+ id +'"]').classList.contains('radioted')){
-                tree_element_checkbox.type = 'radio'
-                tree_element_checkbox.name = document.querySelector('.TreeElementInModalList[data-idElement="'+ id +'"]').parentElement.id;
-            }
-            else{
-                tree_element_checkbox.type = 'checkbox';
-                tree_element_checkbox.name = '';
-            }
-            tree_element_checkbox.value = id;
-            tree_element_checkbox.checked = checked;
+            tree_element_checkbox.type = 'checkbox';
+            tree_element_checkbox.name = '';
+            tree_element_checkbox.value = element.id;
+            tree_element_checkbox.checked = !element.hidden;
             tree_element_checkbox.onchange = (evt) => {
                 evt.stopPropagation();
-                console.log(evt.target);
-                var elem = document_main.querySelector('#'+id);  
-                var parent = tree_element_checkbox.parentElement;
-                elem.hidden = !tree_element_checkbox.checked;
-                if(parent.classList.contains('tree_element')){
-                    for(let run of parent.lastElementChild.children){
-                        run.firstElementChild.checked = tree_element_checkbox.checked;
+                var element = document_main.querySelector('#' + evt.target.parentElement.getAttribute('data-idElement'));
+                element.hidden = !evt.target.checked;
+                if(evt.target.parentElement.classList.contains('tree_element')){
+                    for(let run of evt.target.parentElement.lastElementChild.children){
+                        run.firstElementChild.disabled = !evt.target.checked;
+                        run.firstElementChild.readonly = !evt.target.checked;
                     }
                 }
-                if(tree_element_checkbox.type == 'radio'){
-                    console.log('Its Radio');
-                    for(let other of document.querySelectorAll('input[name="'+ tree_element_checkbox.name +'"]')){
-                        elem = document_main.querySelector('#'+other.parentElement.getAttribute('data-idElement')); 
-                        elem.hidden = !other.checked;
-                        if(other.parentElement.classList.contains('tree_element')){
-                            for(let run of other.parentElement.lastElementChild.children){
-                                run.firstElementChild.checked = other.checked;
-                            }
-                        }
-                    }
+                if(evt.target.type == 'radio'){
+                    RadioInputChanged(evt);
                 }
             }
             //Заполняем лейбл
-            if(elem.getAttribute('data-name') == 'undefined' || elem.getAttribute('data-name') == null){
-                elem.setAttribute('data-name', name);
+            if(element.getAttribute('data-name') == 'undefined' || element.getAttribute('data-name') == null){
+                element.setAttribute('data-name', name); 
                 tree_element_label.textContent = name;
             }
             else{
-                tree_element_label.textContent = elem.getAttribute('data-name');
+                tree_element_label.textContent = name;
             }
             tree_element_label.contentEditable = true;
             tree_element_label.classList.add('tree_element_label');
             tree_element_label.oninput = (evt) => {
-                elem.setAttribute('data-name', tree_element_label.textContent);
+                var element = document_main.querySelector('#' + evt.target.parentElement.getAttribute('data-idElement'));
+                element.setAttribute('data-name', tree_element_label.textContent);
+                UpdateTreeElementInRadio(tree_element);
             }
             //Вставляем элементы в родителя
             tree_element.appendChild(tree_element_checkbox);
             tree_element.appendChild(tree_element_label);
-            AddTreeElementInModalList(id);
+
             return tree_element;
         }
 
-        function ClearTree(){
-            tree_paragraph.innerHTML = "";
+        function UpdateTreeElement(tree_element){
+            var element = document_main.querySelector('#'+tree_element.getAttribute('data-idElement'));
+            tree_element.children[0].checked = !element.hidden;
+            tree_element.children[1].textContent = element.getAttribute('data-name');
         }
 
-        function FillTree(){
-            ClearTree();
-            for(let par of document_main.getElementsByClassName('paragraph')){
-                var paragraph_in_tree;
-                var paragraph_in_tree_list = document.createElement('ul');
-
-                if(!par.hidden)
-                    paragraph_in_tree = CreateTreeElement(par.id, 'Параграф ' + tree_paragraph.children.length, true);
-                else
-                    paragraph_in_tree = CreateTreeElement(par.id, 'Параграф ' + tree_paragraph.children.length, false);
-                paragraph_in_tree_list.classList.add('list-group-flush');
-                paragraph_in_tree_list.classList.add('run_tree_list')
-                for(let run of par.getElementsByClassName('runs')){
-                    var run_tree_element;
-                    if(!run.hidden)
-                        run_tree_element = CreateTreeElement(run.id, 'Текст ' + paragraph_in_tree_list.children.length, true); 
-                    else
-                        run_tree_element = CreateTreeElement(run.id, 'Текст ' + paragraph_in_tree_list.children.length, false);
-                    run_tree_element.classList.add('tree_element_run');
-                    paragraph_in_tree_list.appendChild(run_tree_element);
-                }
-                paragraph_in_tree.appendChild(paragraph_in_tree_list);
-                tree_paragraph.appendChild(paragraph_in_tree);
+        function DeleteTreeElement(element){
+            var tree_element = document.querySelector('.tree_element[data-idElement="'+ element.id +'"]')
+            if(tree_element){
+                tree_element.parentElement.removeChild(tree_element);
             }
+        }
+
+        function FillTree(parent, childs){
+            for(let child of childs){
+                var element = document.querySelector('.tree_element[data-idElement="'+ child.id +'"]')
+                if(!element){
+                    if(!child.getAttribute('data-name'))
+                        var tree_element = CreateTreeElement(child, 'Элемент ' + child.id);
+                    else
+                        var tree_element = CreateTreeElement(child, child.getAttribute('data-name'));
+                    if(child.children.length > 0){
+                        var ul = document.createElement('ul');
+                        ul.classList.add('list-group-flush');
+                        FillTree(ul, child.children);
+                        tree_element.appendChild(ul);
+                    }
+                    parent.appendChild(tree_element);
+                    modal_radioGroup_treeElements_list.appendChild(CreateTreeElementInRadio(child.id));
+                }
+                else{
+                    UpdateTreeElement(element);
+                    if(child.children.length > 0){
+                        var ul = element.querySelector('ul');
+                        if(!ul){
+                            ul = document.createElement('ul');
+                            ul.classList.add('list-group-flush');
+                            element.appendChild(ul);
+                        }
+                        FillTree(ul, child.children);
+                    }
+                }
+            }
+        }
+
+        function CreateTreeElementInRadio(id){
+            var li = document.createElement('li');
+            var span = document.createElement('span');
+            span.textContent = document.querySelector('#'+id).getAttribute('data-name');
+            li.setAttribute('data-idElement', id);
+            li.classList.add('list-group-item');
+            li.classList.add('TreeElementInModalList');
+            li.draggable = true;
+            li.appendChild(span);
+            return li;
+        }
+
+        function UpdateTreeElementInRadio(id){
+            var treeElementInRadio = document.querySelector('.TreeElementInModalList[data-idElement="'+ id +'"]');
+            var treeElement = document.querySelector('.tree_element[data-idElement="'+ id +'"]')
+            treeElementInRadio.firstElementChild.textContent = treeElement.children[1].textContent;
+        }
+
+        function DeleteTreeElementInRadio(id){
+            var treeElementInRadio = document.querySelector('.TreeElementInModalList[data-idElement="'+ id +'"]');
+            treeElementInRadio.parentElement.removeChild(treeElementInRadio);
         }
 
         span_value.oninput = function(event){
@@ -1441,8 +1526,11 @@
         document.addEventListener('keydown', function(event){
                 if(event.key == 'Delete'){
                     SaveLastVersion();
+                    if(activeElement.isRun())
+                        DeleteTreeElement(activeElement.run);
+                    else
+                    DeleteTreeElement(activeElement.paragraph);
                     activeElement.deleteActive();
-                    FillTree();
                 }
                 if (event.code == 'KeyZ' && (event.ctrlKey || event.metaKey)) {
                     ReturnToLastVersion();
@@ -1613,16 +1701,17 @@
         });
 
         groupRadioModal.addEventListener('dragstart', (evt)=>{
-            console.log(evt.target.getAttribute('data-idElement'));
             evt.dataTransfer.setData("Text", evt.target.getAttribute('data-idElement'));    
-            console.log(evt.dataTransfer);
         });
 
         function ElementInRadioGroup(id_element, id_radioGroup){ 
             var element = document.querySelector('.tree_element[data-idElement="'+ id_element +'"]');
             var radioGroup = document.querySelector('#'+id_radioGroup);
+            console.log(id_element, element);
             element.firstElementChild.type = 'radio';
             element.firstElementChild.name = id_radioGroup;
+            console.log(radioGroup)
+            element.style.backgroundColor = radioGroup.previousElementSibling.lastElementChild.value;
         }
 
         function ElementDeleteFromRadioGroup(id_element, id_radioGroup){
@@ -1630,6 +1719,7 @@
             var radioGroup = document.querySelector('#'+id_radioGroup);
             element.firstElementChild.type = 'checkbox';
             element.firstElementChild.name = '';
+            element.style.backgroundColor = element.parentNode.style.backgroundColor;
         }
 
         groupRadioModal.addEventListener('drop', (evt)=>{
@@ -1638,17 +1728,17 @@
             var element = document.querySelector('.TreeElementInModalList[data-idElement="'+id+'"]');
             console.log(evt.target);
             if(evt.target.classList.contains('ulContainerRadioGroup')){
-                evt.target.appendChild(element);
+                evt.target.firstElementChild.appendChild(element);
                 element.classList.add('radioted');
                 ElementInRadioGroup(element.getAttribute('data-idElement'), evt.target.id);
             }  
             else if(evt.target.parentElement.classList.contains('ulContainerRadioGroup')){
-                evt.target.parentElement.appendChild(element);
+                evt.target.parentElement.firstElementChild.appendChild(element);
                 element.classList.add('radioted');
                 ElementInRadioGroup(element.getAttribute('data-idElement'), evt.target.parentElement.id);
             }
             else if(evt.target.parentElement.parentElement.classList.contains('ulContainerRadioGroup')){
-                evt.target.parentElement.parentElement.appendChild(element);
+                evt.target.parentElement.parentElement.firstElementChild.appendChild(element);
                 element.classList.add('radioted');
                 ElementInRadioGroup(element.getAttribute('data-idElement'), evt.target.parentElement.parentElement.id);
             }
@@ -1681,6 +1771,7 @@
         var lastVersions = new Stack();
         var redSpan = undefined;
         var list_save = [];
+        // var mainTree = new Tree();
 
         console.log("{{ type }}");
         
@@ -1695,10 +1786,12 @@
 
         SaveLastVersion();
 
-        FillTree();
+        FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
+
+        RadioGroupsFromJSON("{{ document_json|escapejs }}")
 
         setInterval(
-            () => UpdateFile(), 60000
+            () => UpdateFile(), 600000
         );
         
 
