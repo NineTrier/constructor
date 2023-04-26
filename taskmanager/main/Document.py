@@ -271,6 +271,7 @@ class Run(Element):
     def __init__(self, elem):
         self.id = ""
         self.tag = 'r'
+        self.hidden = False
         if elem is None:
             self.pr = Properties(None)
             self.attrib = {}
@@ -288,6 +289,8 @@ class Run(Element):
         return t
 
     def to_lxml(self):
+        if self.hidden:
+            return False, None
         r = create_element("w:r")
         for k in list(self.attrib.keys()):
             create_attribute(r, f"{k}", self.attrib[k])
@@ -296,7 +299,7 @@ class Run(Element):
                 r.append(child.to_lxml())
             except Exception as exc:
                 print(exc, "Run to lxml", child)
-        return r
+        return True, r
 
     def from_json(self, json1: dict):
         if type(json1) == str:
@@ -304,6 +307,7 @@ class Run(Element):
         else:
             json_stroke = json1
         self.childs = []
+        self.hidden = json_stroke['hidden']
         rPr = Properties(None)
         rPr.tag = 'rPr'
         rPr.id = f'rPr_{len(self.childs)}'
@@ -344,7 +348,12 @@ class Paragraph(Element):
             create_attribute(p, f"{k}", self.attrib[k])
         for child in self.childs:
             try:
-                p.append(child.to_lxml())
+                if child.tag == 'r':
+                    yes, element = child.to_lxml()
+                    if yes:
+                        p.append(element)
+                else:
+                    p.append(child.to_lxml())
             except Exception as exc:
                 print(exc, "Paragraph to lxml", child)
         return True, p

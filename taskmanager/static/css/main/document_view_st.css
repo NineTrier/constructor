@@ -1,8 +1,8 @@
 :root{
     --color-primary: #F2F2F2;
     --color-third: #dcd9d9;
-    --color-secondary:#97c0ff;
-    --color-accent: #6f95ff;
+    --color-secondary:#b2c0d4;
+    --color-accent: #a5bcfc;
     --color-document: #ffffff;
 
     --document-size: 790.6px;
@@ -71,6 +71,7 @@ body {
 .main{
     display: flex;
     flex-direction: row;
+    justify-content: space-between;
 }
 
 #leftMenu{
@@ -82,6 +83,11 @@ body {
 	background-color: var(--color-secondary);
 	padding: 10px;
     margin-left: 10px;
+    border-radius: 15px;
+}
+
+#leftMenu > *{
+    margin-top: 10px;
 }
 
 #leftMenu button{
@@ -132,7 +138,7 @@ body {
 }
 
 .selected{
-    border: 1px solid rgb(170, 170, 170);
+    border: 1px solid rgb(63, 63, 63);
 }
 
 td{
@@ -248,11 +254,20 @@ td.paragraph{
     max-width: 100px;
 }
 
-#tree_container{
+#rightMenu{
     min-width: 350px;
     margin-left: 20px;
+    margin-right: 10px;
     padding: 15px;
     background-color: var(--color-secondary);
+    border-radius: 15px;
+    position: sticky;
+	top: 135px;
+    height: 100%;
+}
+
+#rightMenu ul{
+    border-radius: 15px;
 }
 
 #tree_paragraph{
@@ -267,14 +282,15 @@ td.paragraph{
     padding: 10px;
     z-index: 10;
     margin-bottom: 10px;
-}
-
-.tree_element:hover{
-    background-color: var(--color-third);
+    border-radius: 15px;
 }
 
 .tree_element_label{
     margin-left:10px;
+}
+
+.tree_element_label + ul{
+    margin-top: 10px;
 }
 
 
@@ -352,6 +368,71 @@ input[type="number"]::-webkit-inner-spin-button{
 .containerTextColorRadioGroup{
     display: flex;
     flex-direction: row;
+    justify-content: space-between;
+    margin-bottom: 10px;
 }
 
+#rightRadioMenu{
+    overflow: auto;
+    background-color: var(--color-secondary);
+    padding: 0px;
+    height: 510px;
+}
+
+#leftRadioMenu{
+    overflow: auto;
+    padding: 0px;
+    margin-right: 50px;
+    height: 510px;
+}
+
+#modal_radioGroup_body ul{
+    border-radius: 5px;
+}
+
+.TreeElementInModalList{
+    margin: 3px 10px 3px 10px;
+    border-radius: 5px;
+    max-width: 200px;
+}
+
+#modal_radioGroup_treeElements_list{
+    height: 500px;
+}
+
+#modal_radioGroup_list{
+    height: 500px;
+}
+
+#modal_radioGroup_list > li{
+    margin-top: 7px;
+    border-radius: 5px;
+}
+
+#document_tree{
+    overflow: auto;
+    height: 500px;
+    background-color: var(--color-secondary);
+    padding:10px;
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+    margin-left: 6px;
+}
+  
+::-webkit-scrollbar-track {
+    -webkit-box-shadow: 5px 5px 5px -5px rgba(34, 60, 80, 0.2) inset;
+    background-color: #f9f9fd;
+    border-radius: 10px;  
+}
+  
+::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+    background: linear-gradient(180deg, var(--color-secondary), var(--color-accent));
+}
+
+#errorWindowModal{
+    top: 100px;
+}
 

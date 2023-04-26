@@ -134,13 +134,13 @@ def SaveVariable(request):
     variable = VariableBlock.objects.filter(name=stroke['name'], doc_id=stroke['id_doc'])
     if len(variable) > 0 and stroke['id'] == '-1':
         response = HttpResponseNotModified()
-        response['MessageOfError'] = 'Can not add new variable. Check name of variable and rename.'
-        response['TypeOfError'] = '1'
+        response['MessageOfError'] = 'Не удалось создать переменную. Переменная с таким именем существует.'.encode('utf-8')
+        response['TypeOfError'] = 'Ошибка переменных'.encode('utf-8')
         return response
     if len(variable) == 1 and stroke['id'] != str(variable[0].id):
         response = HttpResponseNotModified()
-        response['MessageOfError'] = 'Can not add new variable. Check name of variable and rename.'
-        response['TypeOfError'] = '2'
+        response['MessageOfError'] = 'Не удалось переименовать переменную. Переменная с таким именем существует.'.encode('utf-8')
+        response['TypeOfError'] = 'Ошибка переменных'.encode('utf-8')
         return response
     response = HttpResponse()
     if stroke['id'] == '-1':
@@ -233,18 +233,23 @@ def SavedElementFromJSON(json_stroke):
 @csrf_exempt
 def UpdateDocument(request):
     fileid = request.GET.get('id')
-    doc = Documents.objects.filter(id=fileid)[0]
+    doc = Documents.objects.get(id=fileid)
     file_path = os.path.join(settings.MEDIA_ROOT, str(doc.file))
     document = Document()
     request_data = request.body
     stroke = json.loads(request_data)
+    print(stroke)
     doc.json = stroke
     doc.name = stroke['doc_name']
-    doc.save()
-    print(stroke)
+    print(doc)
+    if not doc.save():
+        response = HttpResponseNotModified()
+        response['MessageOfError'] = "Документ не сохранён. Попробуйте позже.".encode('utf-8')
+        response['TypeOfError'] = "Документ не сохранён".encode('utf-8')
+        return response
     document.from_json(stroke)
     document.save(file_path)
-    response = redirect('/')
+    response = HttpResponse()
     return response
 
 

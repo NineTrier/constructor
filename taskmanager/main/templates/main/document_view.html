@@ -88,12 +88,9 @@
                 </div>
             </div>
         </div>
-        
     </div>
-    
 </div>
   
-  <!-- Модальное окно -->
   <div class="modal fade" id="variableModal" tabindex="-1" aria-labelledby="variableModalLabel" aria-hidden="true">
     <div class="modal-dialog" id="modal_variable">
       <div class="modal-content">
@@ -102,7 +99,6 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
         </div>
         <div class="modal-body">
-            <span id="variable_error_message"></span>
             <div class="list-container" id="table_oknapolya">
                 <table class="table table-hover">
                   <thead>
@@ -115,11 +111,12 @@
                   <tbody>
                   </tbody>
                 </table>
-                <button id="variable_add_btn">Добавить</button>
-                <button id="save_variable_btn">Сохранить</button>
+                
             </div>
         </div>
         <div class="modal-footer">
+            <button id="variable_add_btn">Добавить</button>
+            <button id="save_variable_btn">Сохранить</button>
         </div>
       </div>
     </div>
@@ -133,20 +130,37 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
         </div>
         <div class="modal-body" id="modal_radioGroup_body">
-            <div>
-                <ul class="list-group" id="modal_radioGroup_list">
-
-                </ul>
-                
+            <div class="container" id="leftRadioMenu">
+                <ul class="list-group" id="modal_radioGroup_list"></ul>
             </div>
-            <div>
-                <ul class="list-group" id="modal_radioGroup_treeElements_list">
-
-                </ul>
+            <div class="vr"></div>
+            <div class="container" id="rightRadioMenu">
+                <ul class="list-group" id="modal_radioGroup_treeElements_list"></ul>
             </div>
         </div>
         <div class="modal-footer">
             <button onclick="addRadioGroup();">Добавить радиогруппу</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="errorWindowModal" tabindex="-1" aria-labelledby="errorWindowModalLabel" aria-hidden="true">
+    <div class="modal-dialog" id="modal_error">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="errorWindowModalLabel">Ошибка</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+        </div>
+        <div class="modal-body" id="modal_errorWindowModal_body">
+            <h2 id="TypeOfError">
+
+            </h2>
+            <h6 id="TextOfError">
+
+            </h6>
+        </div>
+        <div class="modal-footer">
         </div>
       </div>
     </div>
@@ -227,10 +241,10 @@
                     {% endif %}
                 {% endfor %}
             {% endif %}
-            </div>
-            <input type="hidden" id="sectPr" value="{{ sectPr.to_css }}"/>
+        </div>
+        <input type="hidden" id="sectPr" value="{{ sectPr.to_css }}"/>
     </div>
-    <div id="tree_container">
+    <div id="rightMenu">
         <ul class="list-group-flush" id="document_tree"></ul>
     </div>
 </div>
@@ -284,6 +298,7 @@
                 try {
                     this.run = element;
                     this.run.classList.add('selected');
+                    document.querySelector('.tree_element[data-idElement="'+ element.id +'"]').classList.add('selected');
                     ApplyMenu(this.run);
                 } catch (error) {
                     console.log("Текстовый элемент не существует", error);
@@ -296,6 +311,7 @@
                     this.paragraph = element;
                     this.paragraph.classList.add('selected');
                     ApplyMenu(this.paragraph);
+                    document.querySelector('.tree_element[data-idElement="'+ element.id +'"]').classList.add('selected');
                 } catch (error) {
                     console.log("Параграф не существует", error);
                     return;
@@ -304,6 +320,7 @@
 
             unsetRun(){
                 try {
+                    document.querySelector('.tree_element[data-idElement="'+ this.run.id +'"]').classList.remove('selected');
                     this.run.classList.remove('selected');
                     this.run = undefined;
                 } catch (error) {
@@ -313,6 +330,7 @@
 
             unsetParagraph(){
                 try {
+                    document.querySelector('.tree_element[data-idElement="'+ this.paragraph.id +'"]').classList.remove('selected');
                     this.paragraph.classList.remove('selected');
                     this.paragraph = undefined; 
                 } catch (error) {
@@ -341,12 +359,10 @@
 
             setActive(element){
                 if(element.classList.contains('runs')){
-                    console.log('Run');
                     this.setParagraph(element.parentNode);
-                    this.setRun(element);
+                    this.setRun(element);   
                 }
                 else if(element.classList.contains('paragraph')){
-                    console.log('Par');
                     this.setParagraph(element);
                 }
             }
@@ -410,10 +426,8 @@
         function DocFromJSON(data) {
             try {
                 var jsonp = JSON.parse(data);
-                console.log(jsonp);
                 for(let element of jsonp['elements']){
                     var child = JSON.parse(element);
-                    console.log(child);
                     if(child['class'] == 'paragraph'){
                         document_main.appendChild(ParagraphFromJSON(child));
                     }
@@ -425,15 +439,12 @@
 
         function RadioGroupsFromJSON(data){
             var jsonp = JSON.parse(data);
-            console.log(jsonp);
             if(!jsonp['radioGroups'])
                 return;
             for(let key of jsonp['radioGroups']['childs']){
-                console.log(key);
                 var radioGroup = createRadioGroup(key['name'], key['color']);
                 modal_radioGroup_list.appendChild(radioGroup);
                 for(let child of key['childs']){
-                    console.log(child);
                     var treeElementInRadio = document.querySelector('.TreeElementInModalList[data-idElement="'+child['data-idElement']+'"]');
                     ElementInRadioGroup(child['data-idElement'], radioGroup.firstElementChild.lastElementChild.id);
                     radioGroup.firstElementChild.lastElementChild.firstElementChild.appendChild(treeElementInRadio);
@@ -463,7 +474,6 @@
                 arr.push(child.cloneNode(true));
             }
             lastVersions.push(arr);
-            console.log("Сохранено!");
             SaveNotComplete();
         }
 
@@ -474,7 +484,7 @@
                 var nam = variable.getElementsByClassName('variable_name')[0];
                 var val = variable.getElementsByClassName('variable_mean')[0];
                 if(nam.textContent == name){
-                    span.textContent = val.value;
+                    span.textContent = " " + val.value + " ";
                     span.classList.add('variable_ref');
                     return true;
                 }
@@ -772,7 +782,6 @@
             });
 
             doc.addEventListener('dragleave', function(evt){
-                console.log(list_saved);
                 list_saved.style.border = "";
             });
 
@@ -878,6 +887,7 @@
                     activeElement.setActive(run);
                     AddActiveInArray(run);
                 }
+
             }
             run.classList.add("runs");
             run.classList.add("docelement");
@@ -1017,7 +1027,6 @@
         }
 
         function ApplyIndent(element){
-            console.log(element.style.textIndent)
             if(element.style.textIndent){
                 IndentElement.value = Number(element.style.textIndent.split('cm')[0]);
             }
@@ -1028,7 +1037,6 @@
         }
 
         function ApplyInterval(element){
-            console.log(element.style.lineHeight)
             if(element.style.lineHeight){
                 IntervalElement.value = Number(element.style.lineHeight);
             }
@@ -1095,7 +1103,6 @@
         }
 
         function InputColor(colorInput){
-            console.log('Ввели');
             for(let child of colorInput.parentNode.nextElementSibling.firstElementChild.children){
                 document.querySelector('.tree_element[data-idElement="'+ child.getAttribute('data-idElement') +'"]').style.backgroundColor = colorInput.value;
             }
@@ -1112,7 +1119,6 @@
 
             divTextColor.classList.add('containerTextColorRadioGroup');
             color.type = 'color';
-            console.log(color1);
             if(color1){
                 color.value = color1;
             }
@@ -1257,7 +1263,6 @@
             lst['name'] = radioGroup.firstElementChild.firstElementChild.firstElementChild.textContent;
             lst['color'] = radioGroup.firstElementChild.firstElementChild.lastElementChild.value;
             for(let child of radioGroup.firstElementChild.lastElementChild.firstElementChild.children){
-                console.log(child);
                 childs.push(RadioGroupMemberToJSON(child))
             }
             lst['childs'] = childs;
@@ -1269,7 +1274,6 @@
             var childs = [];
 
             for(let radioGroup of document.querySelectorAll('.radioGroups')){
-                console.log(radioGroup);
                 childs.push(RadioGroupToJSON(radioGroup));
             }
             lst['childs'] = childs;
@@ -1312,14 +1316,11 @@
         }
 
         function RadioInputChanged(evt){
-            console.log('Its Radio');
             for(let other of document.querySelectorAll('input[name="'+ evt.target.name +'"]')){
-                console.log(other);
                 var elem = document_main.querySelector('#'+other.parentElement.getAttribute('data-idElement')); 
                 elem.hidden = !other.checked;
                 if(other.parentElement.classList.contains('tree_element')){
                     for(let run of other.parentElement.lastElementChild.children){
-                        console.log(other)
                         run.firstElementChild.disabled = !other.parentElement.firstElementChild.checked;
                         run.firstElementChild.readonly = !other.parentElement.firstElementChild.checked;
                     }
@@ -1482,7 +1483,19 @@
                 data: JSON.stringify(CreateJSON()),
                 contentType: "application/json; charset=utf-8",
                 dataType: 'json',
-                success: SaveComplete()
+                success: function(res, status, xhr){
+                    switch (xhr.status){
+                        case 200:
+                            SaveComplete()
+                            break;
+                        case 304:
+                            TextOfError.textContent = decodeURIComponent(escape(xhr.getResponseHeader('MessageOfError')));
+                            TypeOfError.textContent = decodeURIComponent(escape(xhr.getResponseHeader('TypeOfError')));
+                            errorModal.toggle();
+                            break;
+                    }
+                    
+                } 
             });
         }
 
@@ -1554,7 +1567,6 @@
 
         function ShowContextMenu(event){
             event.preventDefault();
-            console.log(event.target);
             if(context_menu.style.display == 'block')
                 HideContextMenu();
             else{
@@ -1659,9 +1671,10 @@
                             variable.style.backgroundColor = "white";
                             break;
                         case 304:
-                            console.log(variable);
                             variable.style.backgroundColor = "red";
-                            variable_error_message.innerHTML = xhr.getResponseHeader('MessageOfError');
+                            TextOfError.textContent = decodeURIComponent(escape(xhr.getResponseHeader('MessageOfError')));
+                            TypeOfError.textContent = decodeURIComponent(escape(xhr.getResponseHeader('TypeOfError')));
+                            errorModal.toggle();
                             break;
                     }
                 }
@@ -1683,13 +1696,24 @@
         }
 
         function SaveListSaved(){
-            for(let list_elem of list_saved_sp.children)
-                SaveSavedElement(list_elem);
+            try {
+                for(let list_elem of list_saved_sp.children)
+                    SaveSavedElement(list_elem);
+                return true;  
+            } catch (error) {
+                return false;
+            }
         }
 
         function SaveVariables(){
-            for(let variable of document.getElementsByClassName('variable'))
-                SaveVariable(variable);
+            try {
+                for(let variable of document.getElementsByClassName('variable'))
+                    SaveVariable(variable);
+                return true;
+            } catch (error) {
+                return false;
+            }
+            
         }
 
         variable_add_btn.addEventListener('click', (evt)=>{
@@ -1707,16 +1731,13 @@
         function ElementInRadioGroup(id_element, id_radioGroup){ 
             var element = document.querySelector('.tree_element[data-idElement="'+ id_element +'"]');
             var radioGroup = document.querySelector('#'+id_radioGroup);
-            console.log(id_element, element);
             element.firstElementChild.type = 'radio';
             element.firstElementChild.name = id_radioGroup;
-            console.log(radioGroup)
             element.style.backgroundColor = radioGroup.previousElementSibling.lastElementChild.value;
         }
 
-        function ElementDeleteFromRadioGroup(id_element, id_radioGroup){
+        function ElementDeleteFromRadioGroup(id_element){
             var element = document.querySelector('.tree_element[data-idElement="'+ id_element +'"]');
-            var radioGroup = document.querySelector('#'+id_radioGroup);
             element.firstElementChild.type = 'checkbox';
             element.firstElementChild.name = '';
             element.style.backgroundColor = element.parentNode.style.backgroundColor;
@@ -1726,36 +1747,24 @@
             evt.preventDefault();
             var id = evt.dataTransfer.getData("Text");
             var element = document.querySelector('.TreeElementInModalList[data-idElement="'+id+'"]');
-            console.log(evt.target);
-            if(evt.target.classList.contains('ulContainerRadioGroup')){
-                evt.target.firstElementChild.appendChild(element);
+            var radioGroup = evt.target.closest('.radioGroups');
+            var treeElementList = evt.target.closest('#rightRadioMenu');
+            var treeElement = evt.target.closest('.TreeElementInModalList')
+            if(radioGroup){
+                if(treeElement)
+                    radioGroup.querySelector('ul').insertBefore(element, treeElement);
+                else
+                    radioGroup.querySelector('ul').appendChild(element);
                 element.classList.add('radioted');
-                ElementInRadioGroup(element.getAttribute('data-idElement'), evt.target.id);
+                ElementInRadioGroup(element.getAttribute('data-idElement'), radioGroup.querySelector('.ulContainerRadioGroup').id);
             }  
-            else if(evt.target.parentElement.classList.contains('ulContainerRadioGroup')){
-                evt.target.parentElement.firstElementChild.appendChild(element);
-                element.classList.add('radioted');
-                ElementInRadioGroup(element.getAttribute('data-idElement'), evt.target.parentElement.id);
-            }
-            else if(evt.target.parentElement.parentElement.classList.contains('ulContainerRadioGroup')){
-                evt.target.parentElement.parentElement.firstElementChild.appendChild(element);
-                element.classList.add('radioted');
-                ElementInRadioGroup(element.getAttribute('data-idElement'), evt.target.parentElement.parentElement.id);
-            }
-            else if(evt.target.id == 'modal_radioGroup_treeElements_list'){
-                evt.target.appendChild(element);
+            else if(treeElementList){
+                if(treeElement)
+                    treeElementList.querySelector('ul').insertBefore(element, treeElement);
+                else
+                    treeElementList.querySelector('ul').appendChild(element);
                 element.classList.remove('radioted');
-                ElementDeleteFromRadioGroup(element.getAttribute('data-idElement'), evt.target.id);
-            }
-            else if(evt.target.parentElement.id == 'modal_radioGroup_treeElements_list'){
-                evt.target.parentElement.appendChild(element);
-                element.classList.remove('radioted');
-                ElementDeleteFromRadioGroup(element.getAttribute('data-idElement'), evt.target.parentElement.id);
-            }
-            else if(evt.target.parentElement.parentElement.id == 'modal_radioGroup_treeElements_list'){
-                evt.target.parentElement.parentElement.appendChild(element);
-                element.classList.remove('radioted');
-                ElementDeleteFromRadioGroup(element.getAttribute('data-idElement'), evt.target.parentElement.parentElement.id);
+                ElementDeleteFromRadioGroup(element.getAttribute('data-idElement'));
             }
         });
 
@@ -1771,9 +1780,10 @@
         var lastVersions = new Stack();
         var redSpan = undefined;
         var list_save = [];
+        var errorModal = new bootstrap.Modal(document.getElementById('errorWindowModal'), {
+            keyboard: false
+        })
         // var mainTree = new Tree();
-
-        console.log("{{ type }}");
         
         if("{{ type }}" == '0')
             DocFromJSON("{{ document_json|escapejs }}")
@@ -1790,9 +1800,9 @@
 
         RadioGroupsFromJSON("{{ document_json|escapejs }}")
 
-        setInterval(
-            () => UpdateFile(), 600000
-        );
+        // setInterval(
+        //     () => UpdateFile(), 600000
+        // );
         
 
         

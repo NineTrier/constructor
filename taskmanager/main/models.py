@@ -30,6 +30,13 @@ class Documents(models.Model):
     def __str__(self):
         return f"{self.name} от {self.owner}"
 
+    def save(self, *args, **kwargs):
+        try:
+            super().save(*args, **kwargs)  # Call the "real" save() method.
+            return True
+        except:
+            return False
+
     class Meta:
         verbose_name = 'Документ'
         verbose_name_plural = 'Документы'
