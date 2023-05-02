@@ -28,6 +28,18 @@
               <a class="me-3 py-2 text-dark text-decoration-none" href="{% url 'documents' %}">Загрузить новый документ</a>
               <a class="me-3 py-2 text-dark text-decoration-none" href="{% url 'newdocuments' %}">Создать документ</a>
           </nav>
+          <div id="profile_menu">
+            {% if user.is_authenticated %}
+                <a class="btn btn-labeled position-relative" id="bell"><i class="fa-regular fa-bell fa-lg"></i>
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="NotificationCounter">
+                    </span></a>
+                <img id="img_profile">
+                <a href="/accounts/profile/{{ user.id }}" class="btn btn-labeled">{{ profile }}</a>
+                <a href="/accounts/logout/" class="btn btn-labeled"><i class="fa-solid fa-right-from-bracket" style="color:red"></i></a>
+            {% else %}
+                <a href="/accounts/login/" class="btn btn-labeled"><i class="fa-solid fa-door-open"></i></a>
+            {% endif %}
+        </div>
         </div>
     </header>
     <div>
