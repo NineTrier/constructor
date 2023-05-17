@@ -1,17 +1,16 @@
 from django.db import models
 from django.contrib.auth.models import User
-from user_manager.models import Profile
+from user_manager.models import Profile, Organisation
 
 
 def user_directory_path(instance, filename):
-    return f'user_{instance.user.id}/{filename}'
+    return f'documents/user_{instance.user.id}/{filename}'
 
 
 class DocType(models.Model):
     id = models.BigIntegerField(primary_key=True)
     name = models.CharField('Название', max_length=100, null=True, blank=True)
     author = models.ForeignKey(Profile, on_delete=models.CASCADE, null=True, blank=True)
-
     def __str__(self):
         return f"{self.name}"
 
@@ -23,12 +22,12 @@ class DocType(models.Model):
 # Класс документы для базы данных
 class Documents(models.Model):
     name = models.CharField('Название', max_length=100, null=True, blank=True)
-    owner = models.CharField('Владелец', max_length=100, null=True, blank=True)
     type = models.ForeignKey(DocType, on_delete=models.CASCADE, default=1, null=True, blank=True)
     description = models.TextField('Описание', null=True, blank=True)
-    file = models.FileField(upload_to='documents/', null=True, blank=True)
+    file = models.FileField(upload_to=user_directory_path, null=True, blank=True)
     json = models.JSONField('JSON строка', default=dict, null=True, blank=True)
-    author = models.ForeignKey(Profile, on_delete=models.CASCADE, null=True, blank=True)
+    owner = models.ForeignKey(Profile, on_delete=models.CASCADE, null=True, blank=True)
+    documentOfOrganisation = models.BooleanField(default=False, null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} от {self.owner}"
@@ -49,8 +48,7 @@ class VariableBlock(models.Model):
     name = models.CharField('Название', max_length=100, null=True, blank=True)
     doc = models.ForeignKey(Documents, on_delete=models.CASCADE, null=True, blank=True)
     meaning = models.TextField('Значение', null=True, blank=True)
-    author = models.ForeignKey(Profile, on_delete=models.CASCADE, null=True, blank=True)
-
+    
     def __str__(self):
         return f"{self.name}"
 

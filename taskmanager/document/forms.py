@@ -1,31 +1,33 @@
-from .models import Documents
-from django.forms import ModelForm, TextInput, Textarea, FileField, ClearableFileInput
+from .models import Documents, DocType
+from django import forms
 
 
-class DocumentForm(ModelForm):
+class DocumentForm(forms.ModelForm):
     class Meta:
         model = Documents
-        fields = ["name", "owner", "description", "file"]
+        fields = ["name", "owner", "description", "file", "type", "documentOfOrganisation"]
+        Organisation = forms.ModelChoiceField(queryset=DocType.objects.all(), empty_label=None, to_field_name="type")
+        
         widgets = {
-            "name": TextInput(attrs={
+            "name": forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Введите название',
                 'value': "Документ1",
             }),
-            "owner": TextInput(attrs={
+            "owner": forms.Select(attrs={
                 'class': 'form-control',
                 'placeholder': 'Введите автора',
-                'value': 'Александр',
             }),
-            "description": Textarea(attrs={
+            "description": forms.Textarea(attrs={
                 'class': 'form-control',
                 'placeholder': 'Введите описание',
                 'required': False,
             }),
-            "file": ClearableFileInput(attrs={
+            "file": forms.ClearableFileInput(attrs={
                 'class': 'form-control',
                 'name': 'myfile1',
                 'type': 'file',
                 'id': 'inputFile',
-            })
+            }),
+            "documentOfOrganisation": forms.CheckboxInput()
         }

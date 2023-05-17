@@ -8,6 +8,7 @@ from django.views.generic.list import ListView
 from django.views.generic.edit import CreateView
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib.auth import views, models
+from django.contrib.auth.forms import UserCreationForm
 from .forms import UserLoginForm, ProfileForm
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse, Http404, HttpResponseNotModified
@@ -26,17 +27,21 @@ class Login(views.LoginView):
     def get_success_url(self):
         user = models.User.objects.filter(username=self.get_form_kwargs()['data']['username'])[0]
         profile_of_user = Profile.objects.filter(user=user)
-        if not profile_of_user:
-            profile_of_user = Profile()
-            profile_of_user.user = user
-            profile_of_user.firstName = user.first_name
-            profile_of_user.lastName = user.last_name
-            profile_of_user.middleName = ""
-            profile_of_user.organisation = Organisation.objects.get(id=1)
-            profile_of_user.save()
-            return f'/accounts/change_profile/{user.id}/'
-        return '/tasks/show/'
+        # if not profile_of_user:
+        #     profile_of_user = Profile()
+        #     profile_of_user.user = user
+        #     profile_of_user.firstName = user.first_name
+        #     profile_of_user.lastName = user.last_name
+        #     profile_of_user.middleName = ""
+        #     profile_of_user.organisation = Organisation.objects.get(id=1)
+        #     profile_of_user.save()
+        #     return f'/accounts/change_profile/{user.id}/'
+        return '/'
 
+class SignUpView(CreateView):
+    form_class = UserCreationForm
+    success_url = reverse_lazy('login')
+    template_name = 'signup.html'
 
 class Logout(views.LogoutView):
 

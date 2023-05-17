@@ -1,0 +1,68 @@
+{% extends  'base.html' %}
+{% block connection %}
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/database_manager/database_manager.css' %}">
+{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="header-bar">
+        <h1>Создать SQL-переменную</h1>
+    </div>
+    <div class="fieldWrapper">
+        {{ form.name.errors }}
+        <label for="{{ form.name.id_for_label }}">Название:</label>
+        {{ form.name }}
+    </div>
+    <div>
+        <p>Соберите SQL-запрос с использованием уже готовых поисковых переменных по типу:</p>
+        <p>SELECT [Имя столбца в базе даных] FROM [Таблица в базе данных] [Если есть необходимость объединяйте таблицы при помощи INNER JOIN] WHERE {: ID поисковой переменной из списка ниже :}</p>
+        <p>Пример:</p>
+        <p>SELECT Name FROM participant INNER JOIN case ON participant.case = case.objectid INNER JOIN subject ON subject.objectid = participant.subject WHERE {: 3 :} AND participant.category = 'B9C219FE6B5D4FCE85FFBF28AA892EFC'</p>
+    </div>
+    <div class="fieldWrapper">
+        {{ form.sql.errors }}
+        <label id="label_sql" for="{{ form.sql.id_for_label }}">SQL-запрос:</label>
+        {{ form.sql }}  
+    </div>
+    
+    <div>
+        <ul id="sql_variable_set_id">
+            {% for sql_variable in sql_variables_set %}
+            <li value="{{ sql_variable.id }}">{{ sql_variable.id }}. {{ sql_variable }}</option>
+            {% endfor %}
+        </ul>
+        <datalist id="datalist_sql_variables_set">
+            {% for sql_variable in sql_variables_set %}
+            <option value="{{ sql_variable.id }}. {{ sql_variable }}">
+            {% endfor %}
+        </datalist>
+    </div>
+    <button class="btn btn-primary btn-lg" onclick="SaveVariable();" type="submit">Сохранить</button>
+</div>
+
+{% endblock %}
+
+{% block script %}
+
+<script language="JavaScript">
+    function SaveVariable(task){
+        $.ajax({
+            type: "POST",
+            url: "{% url 'save_var' %}",
+            data: JSON.stringify({'name': document.querySelector('#name').value, 'sql': document.querySelector('#sql').value}),
+            contentType: "application/json; charset=utf-8",
+            success: function(res, status, xhr){
+                switch(xhr.status){
+                    case 200:
+                        location.href="/database/setting_database"
+                        break;
+                    case 304:
+                        break;
+                }
+            }
+        });
+    }
+
+</script>
+
+{% endblock %}

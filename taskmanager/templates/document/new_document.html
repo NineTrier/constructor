@@ -8,11 +8,34 @@
     <h1>{{ title }}</h1>
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        {{ form.name }}<br>
-        {{ form.owner }}<br>
-        {{ form.description }}<br>
+        <div class="fieldWrapper">
+            {{ form.name.errors }}
+            <label for="{{ form.name.id_for_label }}">Название:</label>
+            {{ form.name }}
+        </div>
+        <div class="fieldWrapper">
+            {{ form.type.errors }}
+            <label for="{{ form.type.id_for_label }}">Тип документа:</label>
+            {{ form.type }}
+        </div>
+        {% if profile.canAddOrganisationDocument %}
+        <div class="fieldWrapper">
+            {{ form.documentOfOrganisation.errors }}
+            <label for="{{ form.documentOfOrganisation.id_for_label }}">Документ для организации:</label>
+            {{ form.documentOfOrganisation }}
+        </div>
+        {% endif %}
+        <div class="fieldWrapper">
+            {{ form.description.errors }}
+            <label for="{{ form.description.id_for_label }}">Описание:</label>
+            {{ form.description }}
+        </div>
+        <!-- <div class="fieldWrapper">
+            {{ form.file.errors }}
+            <label for="{{ form.file.id_for_label }}">Файл:</label>
+            {{ form.file }}
+        </div> -->
         <button type="submit" class="btn btn-success">Создать</button>
-        <span>{{ error }}</span>
     </form>
 {% endblock %}
 

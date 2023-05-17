@@ -1,0 +1,218 @@
+{% extends  'base.html' %}
+{% block connection %}
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/database_manager/database_manager.css' %}">
+{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="header-bar mt-2">
+        <h1>Переменные из базы данных</h1>
+    </div>
+    <div id="bigDiv">
+        <h3>{{ profile.organisation }}</h3>
+        <div id="divConnection">
+            <select id="id_connection">
+                {% for connection in connections %}
+                <option value="{{ connection.id }}">{{ connection }}</option>
+                {% endfor %}
+            </select>
+            <a class="btn btn-primary" href="{% url 'create_connection' %}">Создать подключение</a>
+            <a class="btn btn-primary" onclick="TestConnection();">Тест подключения</a>
+        </div>
+        <div class="divSQLVariableContainer">
+            <h4>Переменные SQL-параметры</h4>
+            <ul id="divSQLVariableSet">
+            {% for var in sql_variables_set %}
+                <li class="sql_variable_set" data-idVar="{{ var.id }}">
+                    <span>Название переменной:</span>
+                    <input class="sql_variable_name" value="{{ var.name }}" readonly="true">
+                    <span>Название столбца:</span>
+                    <input class="sql_variable_sql" value="{{ var.sql }}" readonly="true">
+                    <input class="sql_variable_value">
+                    <div>
+                        <a class="btn btn-labeled btn_pen" onclick="MakeUpdatable(event);"><i class="fa-solid fa-pen"></i></a>
+                        <a class="btn btn-labeled btn_pen" onclick="DeleteVar(event);"><i class="fa-solid fa-trash" style="color: #ff0000;"></i></a>
+                    </div>
+                    <div hidden="true">
+                        <a class="btn btn-labeled btn_check" onclick="AcceptChange(event);"><i class="fa-solid fa-check" style="color: #0ed100;"></i></a>
+                        <a class="btn btn-labeled btn_x" onclick="" ><i class="fa-solid fa-xmark" style="color: #ff0000;"></i></a>
+                    </div>
+                </li>
+            {% endfor %}
+            </ul>
+            <a class="btn btn-primary" href="{% url 'create_sql_variable_set' %}">Добавить переменную</a>
+        </div>
+        <div id="divSQLVariable">
+            <div class="divSQLVariableContainer">
+                <h4>Переменные SQL-запросы</h4>
+                <ul id="divSQLVariableGet">
+                {% for var in sql_variables_get %}
+                    <li class="sql_variable_get" data-idVar="{{ var.id }}" data-idSet="{% for varSetGet in set_get %}{% if varSetGet.variableGet == var %}{{ varSetGet.variableSet.id }};{% endif %}{% endfor %}">
+                        <input class="sql_variable_name" value="{{ var.name }}" readonly="true">
+                        <input class="sql_variable_sql" readonly="true" value="{{ var.sql }}">
+                        <input readonly="true" class="sql_variable_value">
+                        <div>
+                            <a class="btn btn-labeled btn_pen" onclick="MakeUpdatable(event);"><i class="fa-solid fa-pen"></i></a>
+                            <a class="btn btn-labeled btn_pen" onclick="DeleteVar(event);"><i class="fa-solid fa-trash" style="color: #ff0000;"></i></a>
+                        </div>
+                        <div hidden="true">
+                            <a class="btn btn-labeled btn_check" onclick="AcceptChange(event);"><i class="fa-solid fa-check" style="color: #0ed100;"></i></a>
+                            <a class="btn btn-labeled btn_x" onclick="" ><i class="fa-solid fa-xmark" style="color: #ff0000;"></i></a>
+                        </div>
+                    </li>
+                {% endfor %}
+                </ul>
+                <a class="btn btn-primary" href="{% url 'create_sql_variable_get' %}">Добавить переменную</a>
+            </div>
+            
+        </div>
+        <a class="btn btn-success" onclick="TestGetFromDB();">Тест</a>
+    </div>
+    
+</div>
+
+{% endblock %}
+
+{% block script %}
+
+<script language="JavaScript">
+
+    function DeleteVar(event){
+        var btn = event.target.closest('.btn');
+        var json = JSON.stringify({'id': btn.parentElement.parentElement.getAttribute('data-idVar')});
+        var url;
+        if(btn.parentElement.closest('.sql_variable_set')){
+            url = "{% url 'delete_set' %}"
+        }
+        else if(btn.parentElement.closest('.sql_variable_get')){
+            url = "{% url 'delete_get' %}"
+        }
+        $.ajax({
+            type: "POST",
+            url: url,
+            data: json,
+            contentType: "application/json; charset=utf-8",
+            success: function(res, status, xhr){
+                switch(xhr.status){
+                    case 200:
+                        btn.parentElement.parentElement.parentElement.removeChild(btn.parentElement.parentElement)
+                        break;
+                    case 304:
+                        break;
+                }
+            }
+        });
+    }
+
+    function MakeUpdatable(event){
+        var btn = event.target.closest('.btn');
+        btn.parentElement.nextElementSibling.hidden = false;
+        console.log(btn.parentElement)
+        btn.parentElement.hidden = true;
+        btn.parentElement.parentElement.querySelector('.sql_variable_name').removeAttribute('readonly');
+        btn.parentElement.parentElement.querySelector('.sql_variable_sql').removeAttribute('readonly');
+    }
+
+    function AcceptChange(event){
+        var btn = event.target.closest('.btn');
+        btn.parentElement.previousElementSibling.hidden = false;
+        console.log(btn.parentElement)
+        btn.parentElement.hidden = true;
+        btn.parentElement.parentElement.querySelector('.sql_variable_name').setAttribute('readonly', 'true');
+        btn.parentElement.parentElement.querySelector('.sql_variable_sql').setAttribute('readonly', 'true');
+        
+        var json = JSON.stringify({'id': btn.parentElement.parentElement.getAttribute('data-idVar'), 'name': btn.parentElement.parentElement.querySelector('.sql_variable_name').value, 'sql': btn.parentElement.parentElement.querySelector('.sql_variable_sql').value});
+        var url;
+        if(btn.parentElement.closest('.sql_variable_set')){
+            url = "{% url 'update_set' %}"
+        }
+        else if(btn.parentElement.closest('.sql_variable_get')){
+            url = "{% url 'update_get' %}"
+        }
+        $.ajax({
+            type: "POST",
+            url: url,
+            data: json,
+            contentType: "application/json; charset=utf-8",
+            success: function(res, status, xhr){
+                switch(xhr.status){
+                    case 200:
+                        break;
+                    case 304:
+                        break;
+                }
+            }
+        });
+    }
+
+    function TestConnection(){
+        $.ajax({
+            type: "POST",
+            url: "{% url 'test_connection' %}",
+            data: JSON.stringify({'con_id': document.querySelector('#id_connection').value}),
+            contentType: "application/json; charset=utf-8",
+            success: function(res, status, xhr){
+                switch(xhr.status){
+                    case 200:
+                        console.log(xhr)
+                        console.log(xhr.getResponseHeader('connection'))
+                        if(xhr.getResponseHeader('connection') == '1'){
+                            alert('Подключение успешно!');
+                        }
+                        else{
+                            alert('Подключение не удалось, проверьте настройки соединения');
+                        }
+                        break;
+                    case 304:
+                        break;
+                }
+            }
+        });
+    }
+
+    function GetVariables(){
+        var json_stroke = []
+        for(let variable of document.querySelector('#divSQLVariableGet').children){
+            var set_ids = []
+            for(let varSetId of variable.getAttribute('data-idSet').split(';')){
+                try {
+                    set_ids.push({'id': varSetId, 'value': document.querySelector('.sql_variable_set[data-idVar="'+ varSetId +'"] > .sql_variable_value').value});
+                } catch (error) {
+                    continue;
+                }
+            }
+            json_stroke.push({'get_id': variable.getAttribute('data-idVar'), 'set_ids': set_ids})
+        }
+        return json_stroke
+    }
+
+    function TestGetFromDB(){
+        $.ajax({
+            type: "POST",
+            url: "{% url 'test_get' %}",
+            data: JSON.stringify({'con_id': document.querySelector('#id_connection').value, 'variables': GetVariables()}),
+            contentType: "application/json; charset=utf-8",
+            success: function(res, status, xhr){
+                switch(xhr.status){
+                    case 200:
+                        var res = decodeURIComponent(escape(xhr.getResponseHeader('result')))
+                        for(let r of res.split(';')){
+                            try {
+                                var id = r.split(':')[0]
+                                var val = r.split(':')[1]
+                                document.querySelector('.sql_variable_get[data-idVar="'+ id +'"] > .sql_variable_value').value = val
+                            } catch (error) {
+                                continue;
+                            }
+                            
+                        }
+                        break;
+                    case 304:
+                        break;
+                }
+            }
+        });
+    }
+</script>
+
+{% endblock %}

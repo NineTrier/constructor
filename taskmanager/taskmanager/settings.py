@@ -13,6 +13,11 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 from pathlib import Path
 import os
 
+import wsgiref.util
+wsgiref.util._hoppish = {
+
+}.__contains__
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -25,7 +30,9 @@ SECRET_KEY = 'django-insecure-gts#l3w%h$rmgpe48ymx9&%+mjwet(bqnu1$)k$gk6)k!twaht
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["10.104.223.95"]
+ALLOWED_HOSTS = ["*"]
+
+CSRF_TRUSTED_ORIGINS = ['https://c843-90-189-6-250.ngrok-free.app']
 
 
 # Application definition
@@ -39,7 +46,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'main',
     'document',
-    'user_manager'
+    'user_manager',
+    'database_manager'
 ]
 
 MIDDLEWARE = [
@@ -147,3 +155,5 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+os.environ['path'] = 'C:/oracle/instantclient_21_6'

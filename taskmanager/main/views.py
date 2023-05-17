@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from document.models import Documents
+from user_manager.models import Profile
 
 # Главная страница веб-сервиса
 def index(request):
@@ -8,6 +9,8 @@ def index(request):
         'title': 'Главная страница сайта',
         'documents': documents,
     }
+    if request.user.is_authenticated:
+        context['profile'] = Profile.objects.filter(user=request.user)[0]
     return render(request, 'main/index.html', context)
 
 

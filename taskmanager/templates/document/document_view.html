@@ -665,7 +665,6 @@
                     url: "/document/savedelement/delete",
                     data: JSON.stringify({'id': list_element.getAttribute('data-idDB')}),
                     contentType: "application/json; charset=utf-8",
-                    dataType: 'json',
                     success: list_element.parentNode.removeChild(list_element)
                 });
             }
@@ -1307,7 +1306,6 @@
                 url: "/document/variable/delete",
                 data: JSON.stringify({'id': variable.getAttribute('data-idDB')}),
                 contentType: "application/json; charset=utf-8",
-                dataType: 'json',
                 success: function(res, status, xhr){
                     variable.parentNode.removeChild(variable);
                     UpdateVariableList(); 
@@ -1482,7 +1480,6 @@
                 url: "/document/update?id={{ id_doc }}",
                 data: JSON.stringify(CreateJSON()),
                 contentType: "application/json; charset=utf-8",
-                dataType: 'json',
                 success: function(res, status, xhr){
                     switch (xhr.status){
                         case 200:
@@ -1663,7 +1660,6 @@
                 url: "/document/variable/create",
                 data: JSON.stringify(VariableToJSON(variable)),
                 contentType: "application/json; charset=utf-8",
-                dataType: 'json',
                 success: function(res, status, xhr){
                     switch (xhr.status){
                         case 200:
@@ -1687,7 +1683,6 @@
                 url: "/document/savedelement/create",
                 data: JSON.stringify(SavedElementToJSON(list_elem, 0)),
                 contentType: "application/json; charset=utf-8",
-                dataType: 'json',
                 success: function(res, status, xhr){
                     list_elem.setAttribute('data-idDB', xhr.getResponseHeader('id'));
 

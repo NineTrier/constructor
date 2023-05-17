@@ -3,7 +3,9 @@ import json
 from django.shortcuts import render, redirect
 from django.views.generic import CreateView
 from .models import Documents, Fonts, SavedElements, VariableBlock, DocType
+from database_manager.models import VariableSQLGet, VariableSQLSet, VariableSQLGet_Variable, VariableSQLSet_Variable, VariableSQLSet_VariableSQLGet
 from .forms import DocumentForm
+from django.core.files.storage import FileSystemStorage
 import os
 from django.conf import settings
 from django.http import HttpResponse, Http404, HttpResponseNotModified
@@ -13,6 +15,7 @@ from .Document import Document
 from django.views.decorators.csrf import csrf_exempt
 from transliterate import translit
 from transliterate.decorators import transliterate_function
+from user_manager.models import Profile, user_directory_path
 
 
 # Класс, который помогает создавать новый записи в базу данных Documents
@@ -21,16 +24,39 @@ class DocumentCreate(CreateView):
     model = Documents
     form_class = DocumentForm
 
-    extra_context = {'documents': Documents.objects.all()}
-
     template_name = 'document/document_create.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super(DocumentCreate, self).get_context_data(**kwargs)
+        if self.request.user.is_authenticated:
+            context['profile'] = Profile.objects.filter(user=self.request.user)[0]
+        context['documents'] = Documents.objects.all()
+        return context
+    
+    def post(self, request, *args, **kwargs):
+        print(request.POST)
+        print(request.FILES)
+        document = Documents()
+        document.name = request.POST['name']
+        document.description = request.POST['description']
+        document.type = DocType.objects.get(id=request.POST['type'])
+        document.owner = Profile.objects.filter(user=request.user)[0]
+        file = request.FILES.get('file')
+        fs = FileSystemStorage(location=f"{settings.MEDIA_ROOT}/documents/user_{request.user.id}/")
+        fs.save(translit_russian(file.name), file)
+        file_url = f"documents/user_{request.user.id}/{translit_russian(file.name)}"
+        print(file_url)
+        document.file = file_url
+        document.save()
+        print("###############", document.id)
+        response = redirect(f"/document/view?id={document.id}&type=1")
+        return response
 
-    def get_success_url(self):
-        return f"/document/view?id={self.object.id}&type=1"
 
 def translit_russian(text):
     try:
         translited = translit(text, reversed=True)
+        translited = str(translited).replace(' ', '_')
         return translited
     except:
         return text
@@ -38,11 +64,13 @@ def translit_russian(text):
 
 def create_New_Document(request):
     if request.method == 'POST':
+        print(request.POST)
         document = Documents()
         document.name = request.POST['name']
         document.description = request.POST['description']
-        document.owner = request.POST['owner']
-        document.file = f"documents\\{translit_russian(document.name)}{translit_russian(document.owner)}.docx"
+        document.type = DocType.objects.get(id=request.POST['type'])
+        document.owner = Profile.objects.filter(user=request.user)[0]
+        document.file = f"documents/user_{request.user.id}/{translit_russian(document.name)}{translit_russian(document.owner)}.docx"
         file_path = os.path.join(settings.MEDIA_ROOT, str(document.file))
         file_path_blank = os.path.join(settings.MEDIA_ROOT, f"documents\\blank.docx")
         doc_file = Document(file_path_blank)
@@ -54,30 +82,9 @@ def create_New_Document(request):
     context = {
         'form': form,
     }
+    if request.user.is_authenticated:
+        context['profile'] = Profile.objects.filter(user=request.user)[0]
     return render(request, 'document/new_document.html', context)
-
-
-# def uploadRed(request):
-#     filepath = request.GET.get('filename')
-#     filepath = os.path.normpath(filepath)
-#     print(filepath)
-#     name = "".join(filepath.split('\\')[-1].split('.')[:-1])
-#     print(name)
-#     file_path = os.path.join(settings.MEDIA_ROOT, str(filepath.split('\\')[-1]))
-#     doc = Documents(name=name, owner="Александр", description="Описание", file=file_path)
-#     doc.save()
-#     docToSave = Document(filepath)
-#     docToSave.save(file_path)
-#     file_path = os.path.join(settings.MEDIA_ROOT, str(filepath))
-#     if os.path.exists(file_path):
-#         frm = Formatter(file_path, path_to_save=str(settings.MEDIA_ROOT) + '/documents/Редактированные')
-#         frm.Redact()
-#         if os.path.exists(frm.path):
-#             with open(frm.path, 'rb') as fh:
-#                 response = HttpResponse(fh.read(), content_type="application/vnd.ms-word")
-#                 response['Content-Disposition'] = 'inline; filename=' + os.path.basename(frm.path)
-#                 return response
-#     raise Http404
 
 
 # Функция, которая позволяет скачать файл, загруженный на сервер
@@ -90,21 +97,6 @@ def download(request):
             response['Content-Disposition'] = 'inline; filename=' + os.path.basename(file_path)
             return response
     raise Http404
-
-
-# # Функция позволяет скачать изменённый при помощи летней программы файл
-# def change_doc(request):
-#     filepath = Documents.objects.filter(name=request.GET.get('filename'))[0].file
-#     file_path = os.path.join(settings.MEDIA_ROOT, str(filepath))
-#     if os.path.exists(file_path):
-#         frm = Formatter(file_path, path_to_save=str(settings.MEDIA_ROOT)+'/documents/Редактированные')
-#         frm.Redact()
-#         if os.path.exists(frm.path):
-#             with open(frm.path, 'rb') as fh:
-#                 response = HttpResponse(fh.read(), content_type="application/vnd.ms-word")
-#                 response['Content-Disposition'] = 'inline; filename=' + os.path.basename(frm.path)
-#                 return response
-#     raise Http404
 
 @csrf_exempt
 def DeleteSavedElement(request):
@@ -198,7 +190,10 @@ def ViewDocument(request):
             'saved_elements': json.dumps({f"{el.name}:{el.id}": json.dumps(el.json) for el in SavedElements.objects.all()}),
             'variable': json.dumps({var.id: f"{var.name}:{var.meaning}" for var in VariableBlock.objects.filter(doc=Doc.id)}),
             'document_json': json.dumps(Doc.json),
-            'type': request.GET.get('type')
+            'type': request.GET.get('type'),
+            'sql_var_set': VariableSQLSet.objects.all(),
+            'sql_var_get': VariableSQLGet.objects.all(),
+            'sql_var_get_set': VariableSQLSet_VariableSQLGet.objects.all()
         }
     else:
         context = {
@@ -209,10 +204,16 @@ def ViewDocument(request):
         'saved_elements': json.dumps({f"{el.name}:{el.id}": json.dumps(el.json) for el in SavedElements.objects.all()}),
         'variable': json.dumps({var.id: f"{var.name}:{var.meaning}" for var in VariableBlock.objects.filter(doc=Doc.id)}),
         'document_json': json.dumps(Doc.json),
-        'type': request.GET.get('type')
+        'type': request.GET.get('type'),
+        'sql_var_set': VariableSQLSet.objects.all(),
+        'sql_var_get': VariableSQLGet.objects.all(),
+        'sql_var_get_set': VariableSQLSet_VariableSQLGet.objects.all()
     }
+    
+    if request.user.is_authenticated:
+        context['profile'] = Profile.objects.filter(user=request.user)[0]
         
-    return render(request, 'document/document_view.html', context)
+    return render(request, 'document/document_view_v2.html', context)
 
 
 def SavedElementFromJSON(json_stroke):

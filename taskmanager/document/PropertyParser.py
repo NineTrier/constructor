@@ -172,7 +172,11 @@ class FontFamily(Property):
             self.enabled = True
 
     def to_css(self) -> str:
-        return f"""font-family:{self.attrib['w:ascii']};"""
+        print(self.attrib)
+        if('w:ascii' in self.attrib):
+            return f"""font-family:{self.attrib['w:ascii']};"""
+        else:
+            return ""
 
     def from_json(self, json: dict):
         for k, v in json.items():
