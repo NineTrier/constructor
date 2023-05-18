@@ -8,7 +8,7 @@ def user_directory_path(instance, filename):
 
 
 class DocType(models.Model):
-    id = models.BigIntegerField(primary_key=True)
+    id = models.BigAutoField(primary_key=True)
     name = models.CharField('Название', max_length=100, null=True, blank=True)
     author = models.ForeignKey(Profile, on_delete=models.CASCADE, null=True, blank=True)
     def __str__(self):
@@ -28,6 +28,9 @@ class Documents(models.Model):
     json = models.JSONField('JSON строка', default=dict, null=True, blank=True)
     owner = models.ForeignKey(Profile, on_delete=models.CASCADE, null=True, blank=True)
     documentOfOrganisation = models.BooleanField(default=False, null=True, blank=True)
+    picture = models.ImageField(null=True, blank=True, upload_to=user_directory_path)
+    lastUpdate = models.DateTimeField(auto_now=True, null=True, blank=True)
+    dateCreate = models.DateTimeField(auto_now_add=True, null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} от {self.owner}"

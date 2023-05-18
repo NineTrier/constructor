@@ -1,4 +1,9 @@
 {% extends  'base.html' %}
+
+{% block title %}
+{{ profile }}
+{% endblock %}
+
 {% block connection %}
     {% load static %}
     <link rel="stylesheet" type="text/css" href="{% static 'css/user_manager/profile.css' %}">
@@ -9,7 +14,8 @@
         <h1>Профиль</h1>
     </div>
     <div>
-        <img id="profile_img" src="{{ profile.profile_pic.url }}">
+        <img id="profile_img" src="{% if profile.profile_pic %}{{ profile.profile_pic.url }}{% endif %}">
+        
     </div>
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}

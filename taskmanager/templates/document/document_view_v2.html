@@ -2,7 +2,7 @@
 
 
 {% block title %}
-{{ title }}
+{{ Doc.name }}
 {% endblock %}
 
 {% block connection %}
@@ -25,11 +25,11 @@
 <div id="TopMenu">
     <div id="instruments_menu">
         <div id="doc_name_container">
-            <span id="doc_name" contenteditable="true">{{ name_of_document }}</span>
+            <span id="doc_name" contenteditable="true">{{ Doc.name }}</span>
         </div>
         <div id="save_complete"><i class="fa-solid fa-check"></i></div>
         <a type="submit" class="btn btn-labeled" id="updateButton"><i class="fa-solid fa-floppy-disk"></i></a>
-        <a href="/document/download?id={{ id_doc }}" target="_blank" class="btn btn-labeled" id="updateButton"><i class="fa-solid fa-download"></i></a>
+        <a href="/document/download?id={{ Doc.id }}" target="_blank" class="btn btn-labeled" id="updateButton"><i class="fa-solid fa-download"></i></a>
     </div>
     <div id="menu">
         <a type="button" class="btn btn-labeled btn_menu" onclick="ButtonAddParagraph_Click()"><i class="fa-solid fa-plus"></i></a>
@@ -99,7 +99,6 @@
             
     </div>
 </div>
-  
   <div class="modal fade" id="variableModal" tabindex="-1" aria-labelledby="variableModalLabel" aria-hidden="true">
     <div class="modal-dialog" id="modal_variable">
       <div class="modal-content">
@@ -293,10 +292,10 @@
         <h5>Дерево элементов</h5>
         <ul class="list-group-flush" id="document_tree"></ul>
     </div>
+  
 </div>
 <!-- Подложка под модальным окном -->
 <div class="overlay" id="overlay-modal"></div>
-
 {% endblock %}
 
 {% block script %}
@@ -338,6 +337,8 @@
                 element.classList.remove('selected');
                 element.classList.remove('selectedParagraph');
             }
+            document.querySelector('#context_add_menu').hidden = true;
+            document_main.appendChild(document.querySelector('#context_add_menu'));
         }
 
         async function SetNotHidden(){
@@ -1331,7 +1332,7 @@
             lst['id'] = id;
             lst['name'] = name;
             lst['value'] = value;
-            lst['id_doc'] = "{{ id_doc }}";
+            lst['id_doc'] = "{{ Doc.id }}";
             return lst;
         }
 
@@ -1566,15 +1567,46 @@
 
         function SaveNotComplete(){
             save_complete.style.display = "none";
-            
         }
 
-        function UpdateFile(){
+        async function TakeScreenShot(){
+            $(function() { 
+                html2canvas($("#document_main")[0], {
+                    x: 0,
+                    y: 0,
+                    width: 800,
+                    height: 1400,
+                    scale: 1
+                }).then((canvas) => {
+                    $.ajax({
+                        type: "POST",
+                        url: "/document/save_image",
+                        data: {img: canvas.toDataURL(), id: '{{ Doc.id }}'},
+                        success: function(res, status, xhr){
+                            switch (xhr.status){
+                                case 200:
+                                    break;
+                                case 304:
+                                    TextOfError.textContent = decodeURIComponent(escape(xhr.getResponseHeader('MessageOfError')));
+                                    TypeOfError.textContent = decodeURIComponent(escape(xhr.getResponseHeader('TypeOfError')));
+                                    errorModal.toggle();
+                                    break;
+                            }
+                            
+                        } 
+                    });
+                });
+            });
+        }
+
+        async function UpdateFile(){
+            unsetActiveElements();
             SaveListSaved();
             SaveVariables();
+            TakeScreenShot();
             $.ajax({
                 type: "POST",
-                url: "/document/update?id={{ id_doc }}",
+                url: "/document/update?id={{ Doc.id }}",
                 data: JSON.stringify(CreateJSON()),
                 contentType: "application/json; charset=utf-8",
                 success: function(res, status, xhr){
@@ -2046,7 +2078,6 @@
         groupRadioModal.addEventListener('dragover', (evt) => {
             evt.preventDefault();
         }, false);
-        
 
         var startFontSize = 14;
         var startFont = "Times New Roman"

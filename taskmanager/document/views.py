@@ -1,6 +1,7 @@
 import json
+import base64
 
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import CreateView
 from .models import Documents, Fonts, SavedElements, VariableBlock, DocType
 from database_manager.models import VariableSQLGet, VariableSQLSet, VariableSQLGet_Variable, VariableSQLSet_Variable, VariableSQLSet_VariableSQLGet
@@ -8,7 +9,7 @@ from .forms import DocumentForm
 from django.core.files.storage import FileSystemStorage
 import os
 from django.conf import settings
-from django.http import HttpResponse, Http404, HttpResponseNotModified
+from django.http import HttpResponse, Http404, HttpResponseNotModified, HttpResponseForbidden
 from docx import Document
 from .Document import Document
 
@@ -31,11 +32,10 @@ class DocumentCreate(CreateView):
         if self.request.user.is_authenticated:
             context['profile'] = Profile.objects.filter(user=self.request.user)[0]
         context['documents'] = Documents.objects.all()
+        context['title'] = "Загрузка документа"
         return context
     
     def post(self, request, *args, **kwargs):
-        print(request.POST)
-        print(request.FILES)
         document = Documents()
         document.name = request.POST['name']
         document.description = request.POST['description']
@@ -45,46 +45,67 @@ class DocumentCreate(CreateView):
         fs = FileSystemStorage(location=f"{settings.MEDIA_ROOT}/documents/user_{request.user.id}/")
         fs.save(translit_russian(file.name), file)
         file_url = f"documents/user_{request.user.id}/{translit_russian(file.name)}"
-        print(file_url)
         document.file = file_url
         document.save()
-        print("###############", document.id)
         response = redirect(f"/document/view?id={document.id}&type=1")
         return response
 
 
 def translit_russian(text):
     try:
+        print(text)
         translited = translit(text, reversed=True)
         translited = str(translited).replace(' ', '_')
+        print(translited)
         return translited
-    except:
+    except Exception as exc:
+        print(exc)
         return text
     
 
 def create_New_Document(request):
     if request.method == 'POST':
-        print(request.POST)
         document = Documents()
         document.name = request.POST['name']
         document.description = request.POST['description']
         document.type = DocType.objects.get(id=request.POST['type'])
         document.owner = Profile.objects.filter(user=request.user)[0]
-        document.file = f"documents/user_{request.user.id}/{translit_russian(document.name)}{translit_russian(document.owner)}.docx"
-        file_path = os.path.join(settings.MEDIA_ROOT, str(document.file))
-        file_path_blank = os.path.join(settings.MEDIA_ROOT, f"documents\\blank.docx")
-        doc_file = Document(file_path_blank)
-        doc_file.save(file_path)
+        document.picture = f"noimage.jpeg"
+        file_name = f"{translit_russian(document.name)}{translit_russian(document.owner.__str__())}.docx"
+        file_url = f"documents/user_{request.user.id}/{file_name}"
+        document.file = file_url
+        doc_file = Document(f"{settings.MEDIA_ROOT}/blank.docx")
+        doc_file.save(f"{settings.MEDIA_ROOT}/{file_url}")
         document.save()
-        print(document.id)
         return redirect(f"/document/view?id={document.id}&type=1")
     form = DocumentForm()
     context = {
         'form': form,
+        'title': 'Создание документа'
     }
     if request.user.is_authenticated:
         context['profile'] = Profile.objects.filter(user=request.user)[0]
     return render(request, 'document/new_document.html', context)
+
+@csrf_exempt
+def SaveCover(request):
+    try:
+        id = request.POST['id']
+        document = Documents.objects.get(id=id)
+        img = request.POST['img']
+        img = str(img).replace('data:image/png;base64,', '')
+        img = str(img).replace(' ', '+')
+        dat = base64.decodebytes(img.encode('utf-8'))
+        print(dat)
+        with open(f"{settings.MEDIA_ROOT}/documents/user_{request.user.id}/{translit_russian(document.name)}Cover.png", 'wb') as file:
+            file.write(dat)
+        file_url = f"documents/user_{request.user.id}/{translit_russian(document.name)}Cover.png"
+        document.picture = file_url
+        document.save() 
+        return HttpResponse()
+    except Exception as exc:
+        print(exc)
+        return HttpResponseNotModified()
 
 
 # Функция, которая позволяет скачать файл, загруженный на сервер
@@ -119,6 +140,34 @@ def DeleteVariable(request):
     return response
 
 @csrf_exempt
+def CreateDocType(request):
+    try:
+        response = HttpResponse()
+        request_data = request.body
+        stroke = json.loads(request_data)
+        type = DocType()
+        type.name = stroke['name']
+        type.save()
+        response['id'] = type.id
+        return response
+    except Exception as exc:
+        print(exc)
+        return HttpResponseNotModified()
+
+@csrf_exempt
+def DeleteDocType(request):
+    try:
+        response = HttpResponse()
+        request_data = request.body
+        stroke = json.loads(request_data)
+        type = DocType.objects.get(id=stroke['id'])
+        type.delete()
+        return response
+    except Exception as exc:
+        print(exc)
+        return HttpResponseNotModified()
+
+@csrf_exempt
 def SaveVariable(request):
     request_data = request.body
     stroke = json.loads(request_data)
@@ -146,11 +195,44 @@ def SaveVariable(request):
     return response
 
 @csrf_exempt
+def AddDocumentToUser(request):
+    try:
+        response = HttpResponse()
+        request_data = request.body
+        stroke = json.loads(request_data)
+        profile = Profile.objects.filter(user=request.user)[0]
+        
+        document = Documents()
+        documentToCopy = Documents.objects.get(id=stroke['id'])
+        document.name = documentToCopy.name
+        document.owner = profile
+        document.type = documentToCopy.type
+        document.description = documentToCopy.description
+        document.picture = f"noimage.jpeg"
+        document.json = documentToCopy.json
+
+        file_name = f"{translit_russian(document.name)}{translit_russian(document.owner.__str__())}.docx"
+        file_url = f"documents/user_{request.user.id}/{file_name}"
+        doc_file = Document(documentToCopy.file)
+        doc_file.save(f"{settings.MEDIA_ROOT}/{file_url}")
+        
+        document.file = file_url
+        document.documentOfOrganisation = False
+        document.save()
+        print("#########", document.id)
+        response['id'] = document.id
+        return response
+    except Exception as exc:
+        print(exc)
+        return HttpResponseNotModified()
+    
+
+
+@csrf_exempt
 def SaveSavedElement(request):
     response = HttpResponse()
     request_data = request.body
     stroke = json.loads(request_data)
-    print(stroke)
     if stroke['id'] == '-1':
         saved_element = SavedElements()
     else:
@@ -166,49 +248,43 @@ def DeleteDocument(request):
     response = redirect('/')
     request_data = request.body
     stroke = json.loads(request_data) 
+    print(stroke)
     if stroke['id'] == '-1':
         return response
-    Documents.objects.filter(id=stroke['id']).delete()
-    return response
+    document = Documents.objects.get(id=stroke['id'])
+    try:
+        os.remove(f"{settings.MEDIA_ROOT}/{document.file}")
+        os.remove(f"{settings.MEDIA_ROOT}/{document.picture}")
+        document.delete()
+        return response
+    except:
+        document.delete()
+        return response
 
 def ViewDocument(request):
     fileid = request.GET.get('id')
-    print(request.GET.get('type'))
-    Doc = Documents.objects.filter(id=fileid)[0]
+    Doc = get_object_or_404(Documents, pk=fileid)
+    if request.user != Doc.owner.user:
+        return HttpResponseForbidden()
     file_path = Doc.file
-    print(file_path)
     file_path = os.path.join(settings.MEDIA_ROOT, str(file_path))
-    if(request.GET.get('type') == '1'):
-        document = Document(file_path)
-        context = {
-            'title': 'Просмотр документа',
-            'id_doc': fileid,
-            'document': [(child, child.id) for child in document.childs],
-            'name_of_document': Doc.name,
-            'sectPr': document.childs[-1],
-            'fonts': Fonts.objects.order_by('id'),
-            'saved_elements': json.dumps({f"{el.name}:{el.id}": json.dumps(el.json) for el in SavedElements.objects.all()}),
-            'variable': json.dumps({var.id: f"{var.name}:{var.meaning}" for var in VariableBlock.objects.filter(doc=Doc.id)}),
-            'document_json': json.dumps(Doc.json),
-            'type': request.GET.get('type'),
-            'sql_var_set': VariableSQLSet.objects.all(),
-            'sql_var_get': VariableSQLGet.objects.all(),
-            'sql_var_get_set': VariableSQLSet_VariableSQLGet.objects.all()
-        }
-    else:
-        context = {
+    context = {
         'title': 'Просмотр документа',
-        'id_doc': fileid,
-        'name_of_document': Doc.name,
+        'Doc': Doc,
         'fonts': Fonts.objects.order_by('id'),
         'saved_elements': json.dumps({f"{el.name}:{el.id}": json.dumps(el.json) for el in SavedElements.objects.all()}),
         'variable': json.dumps({var.id: f"{var.name}:{var.meaning}" for var in VariableBlock.objects.filter(doc=Doc.id)}),
         'document_json': json.dumps(Doc.json),
-        'type': request.GET.get('type'),
+        'type': '0',
         'sql_var_set': VariableSQLSet.objects.all(),
         'sql_var_get': VariableSQLGet.objects.all(),
         'sql_var_get_set': VariableSQLSet_VariableSQLGet.objects.all()
     }
+    if(request.GET.get('type') == '1'):
+        document = Document(file_path)
+        context['type'] = '1'
+        context['document']= [(child, child.id) for child in document.childs]
+        context['sectPr'] = document.childs[-1]
     
     if request.user.is_authenticated:
         context['profile'] = Profile.objects.filter(user=request.user)[0]
@@ -238,10 +314,8 @@ def UpdateDocument(request):
     document = Document()
     request_data = request.body
     stroke = json.loads(request_data)
-    print(stroke)
     doc.json = stroke
     doc.name = stroke['doc_name']
-    print(doc)
     if not doc.save():
         response = HttpResponseNotModified()
         response['MessageOfError'] = "Документ не сохранён. Попробуйте позже.".encode('utf-8')

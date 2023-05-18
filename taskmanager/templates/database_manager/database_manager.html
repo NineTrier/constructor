@@ -1,4 +1,9 @@
 {% extends  'base.html' %}
+
+{% block title %}
+Работа с базой данных
+{% endblock %}
+
 {% block connection %}
     {% load static %}
     <link rel="stylesheet" type="text/css" href="{% static 'css/database_manager/database_manager.css' %}">

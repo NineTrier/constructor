@@ -1,4 +1,9 @@
 {% extends  'base.html' %}
+
+{% block title %}
+{{ profile }}
+{% endblock %}
+
 {% block connection %}
     {% load static %}
     <link rel="stylesheet" type="text/css" href="{% static 'css/user_manager/profile.css' %}">
@@ -10,7 +15,7 @@
         <h1>Профиль</h1>
     </div>
     <div class="d-flex flex-row">
-        <img id="profile_img" src="{{ profile.profile_pic.url }}">
+        <img id="profile_img" src="{% if profile.profile_pic %}{{ profile.profile_pic.url }}{% endif %}">
         <div class="card-body" style="margin-left:50px">
             <p><strong>Имя пользователя:</strong> {{ profile.user.username }}</p>
             <p><strong>Фамилия:</strong> {{ profile.firstName }}</p>

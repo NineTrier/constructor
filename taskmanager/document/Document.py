@@ -363,7 +363,6 @@ class Paragraph(Element):
             json_stroke = json.loads(json1)
         else:
             json_stroke = json1
-        print(json_stroke)
         self.hidden = json_stroke['hidden']
         self.childs = []
         pPr = Properties(None)
@@ -436,7 +435,8 @@ class Table(Element):
         tblPr.id = f'tblPr_{len(self.childs)}'
         tblPr.from_json(json_stroke['style'])
         self.childs.append(tblPr)
-        for child in json_stroke['childs']:
+        for child_str in json_stroke['childs']:
+            child = json.loads(child_str)
             if child['id'].split('_')[0] == 'tr':
                 row = TableRow(None)
                 row.from_json(child)
@@ -487,7 +487,8 @@ class TableRow(Element):
         trPr.id = f'trPr_{len(self.childs)}'
         trPr.from_json(json_stroke['style'])
         self.childs.append(trPr)
-        for child in json_stroke['childs']:
+        for child_str in json_stroke['childs']:
+            child = json.loads(child_str)
             if child['id'].split('_')[0] == 'tc':
                 col = TableCol(None)
                 col.from_json(child)

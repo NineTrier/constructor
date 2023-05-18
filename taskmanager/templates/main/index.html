@@ -11,38 +11,98 @@
 {% endblock %}
 
 {% block content %}
+<div class="main">
+    <h2>Мои документы</h2>
+    <div class="containerOfDocument">
+    {% if documentsOfUser %}
+        <ul class="list_of_document">
+            {% for el in documentsOfUser %}
+            <li onclick="{% if user == el.owner.user %}ClickOnDocument(event);{% else %}ClickOnDocumentAdd(event);{% endif %}" class="doc_in_list" data-idDB="{{ el.id }}" style="background-image: url({% if el.picture %}{{ el.picture.url }}{% else %}{{ noimage }}{% endif %});background-size: contain;">
+                <div class="doc_container">
+                    <div class="btns_container">
+                        <a href="/document/download?id={{ el.id }}" target="_blank" class="btn btn-labeled"><i class="fas fa-download"></i></a>
+                        {% if user == el.owner.user %}
+                        <a onclick="ClickOnDocument(event);" class="btn btn-labeled"><i class="fas fa-pen"></i></a>
+                        <button type="button" class="btn btn-labeled doc_del_button"><i class="fas fa-trash" style="color:red;"></i></button>
+                        {% else %}
+                        <a onclick="ClickOnDocumentAdd(event);" class="btn btn-labeled"><i class="fas fa-plus"></i></a>
+                        {% endif %}
+                    </div>
+                    <div class="doc_info">
+                        <span class="docname">{{ el.name }}</span>
+                        <span class="docowner">{{ el.owner }}</span>
+                        <span class="docdescr">{{ el.description }}</span>
+                    <div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    
+    {% else %}
+        <p>Нет записей</p>
+    {% endif %}
+    </div>
 
-    {% if documents %}
-        <ul id="list_of_document">
-            {% for el in documents %}
-            <li class="doc_in_list" data-idDB="{{ el.id }}">
-                <div class="btns_container">
-                    <a href="/document/download?id={{ el.id }}" target="_blank" class="btn btn-labeled"><i class="fas fa-download"></i></a>
-                    <a href="/document/view?id={{ el.id }}&type=0" class="btn btn-labeled"><i class="fas fa-pen"></i></a>
-                    <button type="button" class="btn btn-labeled doc_del_button"><i class="fas fa-trash" style="color:red;"></i></button>
+    <h2>Документы {{ profile.organisation }}</h2>
+    <div class="containerOfDocument">
+    {% if documentsOfOrganisation %}
+        <ul class="list_of_document">
+            {% for el in documentsOfOrganisation %}
+            <li onclick="{% if user == el.owner.user %}ClickOnDocument(event);{% else %}ClickOnDocumentAdd(event);{% endif %}" class="doc_in_list" data-idDB="{{ el.id }}" style="background-image: url({% if el.picture %}{{ el.picture.url }}{% else %}{{ noimage }}{% endif %});background-size: contain;">
+                <div class="doc_container">
+                    <div class="btns_container">
+                        <a href="/document/download?id={{ el.id }}" target="_blank" class="btn btn-labeled"><i class="fas fa-download"></i></a>
+                        {% if user == el.owner.user %}
+                        <a onclick="ClickOnDocument(event);" class="btn btn-labeled"><i class="fas fa-pen"></i></a>
+                        <button type="button" class="btn btn-labeled doc_del_button"><i class="fas fa-trash" style="color:red;"></i></button>
+                        {% else %}
+                        <a onclick="ClickOnDocumentAdd(event);" class="btn btn-labeled"><i class="fas fa-plus"></i></a>
+                        {% endif %}
+                    </div>
+                    <div class="doc_info">
+                        <span class="docname">{{ el.name }}</span>
+                        <span class="docowner">{{ el.owner }}</span>
+                        <span class="docdescr">{{ el.description }}</span>
+                    <div>
                 </div>
-                <div class="alert alert-warning mt-2 doc_image">        
-                </div>
-                <div class="doc_info">
-                    <h4>{{ el.name }}</h4>
-                    <h5>{{ el.owner }}</h5>
-                    <p>{{ el.description }}</p>
-                <div>
             </li>
             {% endfor %}
         </ul>
     {% else %}
         <p>Нет записей</p>
     {% endif %}
-        <!-- <div id="app">
-            <p>"Кукукук"</p>
-            <p>{* a *}</p>
-            <button @click="changeText()">Тык</button>
-            <p>{* value *}</p>
-        </div>
-        {% load static %}
-        <script src="{% static 'js/main.js' %}"></script> -->
+    </div>
 
+    <h2>Документы людей в {{ profile.organisation }}</h2>
+    <div class="containerOfDocument">
+    {% if documentOfAll %}
+        <ul class="list_of_document">
+            {% for el in documentOfAll %}
+            <li onclick="{% if user == el.owner.user %}ClickOnDocument(event);{% else %}ClickOnDocumentAdd(event);{% endif %}" class="doc_in_list" data-idDB="{{ el.id }}" style="background-image: url({% if el.picture %}{{ el.picture.url }}{% else %}{{ noimage }}{% endif %});background-size: contain;">
+                <div class="doc_container">
+                    <div class="btns_container">
+                        <a href="/document/download?id={{ el.id }}" target="_blank" class="btn btn-labeled"><i class="fas fa-download"></i></a>
+                        {% if user == el.owner.user %}
+                        <a onclick="ClickOnDocument(event);" class="btn btn-labeled"><i class="fas fa-pen"></i></a>
+                        <button type="button" class="btn btn-labeled doc_del_button"><i class="fas fa-trash" style="color:red;"></i></button>
+                        {% else %}
+                        <a onclick="ClickOnDocumentAdd(event);" class="btn btn-labeled"><i class="fas fa-plus"></i></a>
+                        {% endif %}
+                    </div>
+                    <div class="doc_info">
+                        <span class="docname">{{ el.name }}</span>
+                        <span class="docowner">{{ el.owner }}</span>
+                        <span class="docdescr">{{ el.description }}</span>
+                    <div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Нет записей</p>
+    {% endif %}
+</div>
+</div>
 {% endblock %}
 
 {% block script %}
@@ -50,14 +110,14 @@
         var btns_del = document.getElementsByClassName("doc_del_button");
         for(let btn of btns_del){
             btn.onclick = function(evt){
-                var spisok_element = btn.parentElement.parentElement;
+                evt.stopPropagation();
+                var spisok_element = btn.closest('.doc_in_list');
                 if(spisok_element.getAttribute('data-idDB') != -1){
                     $.ajax({
                         type: "POST",
                         url: "document/delete",
                         data: JSON.stringify({'id': spisok_element.getAttribute('data-idDB')}),
                         contentType: "application/json; charset=utf-8",
-                        dataType: 'json',
                         success: spisok_element.parentNode.removeChild(spisok_element)
                     });
                 
@@ -66,6 +126,25 @@
                     var_elem.parentNode.removeChild(spisok_element);
                 }
             }
+        }
+        function ClickOnDocument(evt){
+            const parent = evt.target.closest('.doc_in_list');
+            location.href = "/document/view?id="+ parent.getAttribute('data-idDB') +"&type=0"
+        }
+        function ClickOnDocumentAdd(evt){
+            evt.stopPropagation();
+            const parent = evt.target.closest('.doc_in_list');
+            $.ajax({
+                type: "POST",
+                url: "/document/document_add",
+                data: JSON.stringify({'id': parent.getAttribute('data-idDB')}),
+                contentType: "application/json; charset=utf-8",
+                success: function(res, status, xhr){
+                    console.log(xhr.getResponseHeader('id'))
+                    location.href = "/document/view?id="+ xhr.getResponseHeader('id') +"&type=0"
+                }
+            });
+            
         }
     </script>
 {% endblock %}

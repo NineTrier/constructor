@@ -1,7 +1,27 @@
-#list_of_document{
+:root{
+    --color-primary: #F2F2F2;
+    --color-third: #dcd9d9;
+    --color-secondary:#b2c0d4;
+    --color-accent: #a5bcfc;
+    --color-document: #ffffff;
+
+    --document-size: 790.6px;
+    --button-menu-width: 25px;
+}
+
+.list_of_document{
     overflow: auto;
     display: flex;
     flex-direction: row;
+
+}
+
+.main{
+    padding: 30px;
+}
+
+.containerOfDocument{
+    min-height: 500px;
 }
 
 .doc_in_list{
@@ -11,9 +31,28 @@
     min-width: 250px;
     max-height: 430px;
     min-height: 430px;
-    background-color: rgb(255, 215, 154);
     border-radius: 20px;
-    padding: 10px;
+    box-shadow: 5px 2px 5px 1px gray;
+}
+
+.doc_in_list:hover .doc_container{
+    background-color: rgba(133, 133, 133, 0.5);
+    display:flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* .doc_in_list span{
+    width: inherit;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+} */
+
+.doc_container{
+    border-radius: inherit;
+    display: none;
+    height: 430px;
 }
 
 .doc_image{
@@ -21,9 +60,29 @@
     max-height: 250px;
 }
 
+.docname{
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.docowner{
+    font-size: 16px;
+}
+
+.docdescr{
+    font-size: 14px;
+}
+
+.doc_image img{
+    max-height: 250px;
+    max-width: 230px;
+}
+
 .btns_container{
     display: flex;
     flex-direction: row;
+    padding-left: 10px;
+    padding-top: 10px;
 }
 
 .doc_del_button{
@@ -32,10 +91,12 @@
 }
 
 .doc_info{
-    margin-bottom: 10px;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    opacity: 1;
+    padding-left: 10px;
+    padding-right: 10px;
+    margin-bottom: 10px;
 }
 
 header{
