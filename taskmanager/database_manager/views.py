@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from .models import Connection, VariableSQLGet, VariableSQLSet, VariableSQLGet_Variable, VariableSQLSet_Variable, VariableSQLSet_VariableSQLGet
+from .models import Connection, VariableSQLGet, VariableSQLSet, VariableSQLSet_VariableSQLGet
 from django.views.generic import CreateView
 from .forms import ConnectionForm, SQLVariableFormGet, SQLVariableFormSet
 from django.contrib.auth import views, models

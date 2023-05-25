@@ -1,7 +1,7 @@
 :root{
     --color-primary: #F2F2F2;
     --color-third: #dcd9d9;
-    --color-secondary:#b2c0d4;
+    --color-secondary:#b1defc;
     --color-accent: #a5bcfc;
     --color-document: #ffffff;
 
@@ -26,7 +26,7 @@ span{
     margin: auto;
     text-align: center;
     background-color: var(--color-secondary);
-    border-radius: 10px;
+    border-radius: 30px;
     margin-bottom: 5px;
     padding: 5px;
 }
@@ -69,41 +69,41 @@ body {
     background-color: rgb(220, 220, 220);
 }
 
-.main{
+.mainDocument{
     display: flex;
     flex-direction: row;
-    justify-content: space-between;
+    justify-content: flex-start;
+    padding: 10px
 }
 
-#leftMenu{
+#rightMenu{
     height: 100%;
 	display:flex;
 	flex-direction: column;
 	position: sticky;
-	top: 135px;
-	background-color: var(--color-secondary);
+	top: 100px;
+	background-color: white;
 	padding: 10px;
-    margin-left: 10px;
-    border-radius: 15px;
+    margin-left: 5px;
 }
 
-#leftMenu > *{
+#rightMenu > *{
     margin-top: 10px;
 }
 
-#leftMenu button{
+#rightMenu button{
     width: 100%;
     height: 60px;
 }
 
-#leftMenu .list-container{
+#rightMenu .list-container{
     margin-top: 15px;
     border-radius: 5px;
 }
 
 
 #document_main{
-    height: 100%;
+    min-height: 1030px;
 	min-width: var(--document-size);
     max-width: var(--document-size);
 	display:flex;
@@ -131,7 +131,8 @@ body {
     max-width: var(--document-size);
     margin-left: 30px;
     position: sticky;
-	top: 135px;
+	top: 100px;
+    z-index: 1000;
 }
 
 .runs{
@@ -248,22 +249,23 @@ td.paragraph{
 #font_select{
     background-color: var(--color-secondary);
     border: 1px solid var(--color-secondary);
-    max-width: 100px;
+    max-width: 200px;
 }
 
-#rightMenu{
+#leftMenu{
     min-width: 350px;
-    margin-left: 20px;
-    margin-right: 10px;
     padding: 15px;
-    background-color: var(--color-secondary);
-    border-radius: 15px;
+    background-color: white;
     position: sticky;
-	top: 135px;
+	top: 100px;
     height: 100%;
 }
 
-#rightMenu ul{
+.deleteButton:hover i{
+    color: red;
+}
+
+#leftMenu ul{
     border-radius: 15px;
 }
 
@@ -282,8 +284,17 @@ td.paragraph{
     border-radius: 15px;
 }
 
+.tree_element_container{
+    display: flex;
+    align-items: center;
+}
+
 .tree_element_label{
     margin-left:10px;
+    width: 230px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .tree_element_label + ul{
@@ -294,14 +305,7 @@ td.paragraph{
 #variable_error_message{
     color: red;
 }
-
-#firstIndentDiv{
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-}
-
-#intervalDiv{
+.labeled_input{
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -409,7 +413,7 @@ input[type="number"]::-webkit-inner-spin-button{
 #document_tree{
     overflow: auto;
     height: 500px;
-    background-color: var(--color-secondary);
+    background-color: white;
     padding:10px;
 }
 
@@ -435,6 +439,7 @@ input[type="number"]::-webkit-inner-spin-button{
 
 .selectedParagraph{
     border: 1px dashed gray;
+    margin-bottom: 30px;
 }
 
 .selectedRun{
@@ -443,8 +448,8 @@ input[type="number"]::-webkit-inner-spin-button{
 
 #context_add_menu{
     position: absolute;
-    top:80%;
-    left:25%;
+    top:100%;
+    left: 0%;
     z-index: 1000;
 }
 
@@ -452,8 +457,6 @@ input[type="number"]::-webkit-inner-spin-button{
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: space-evenly;
-    min-width: 150px;
 
     border-radius: 15px;
 }
@@ -461,11 +464,34 @@ input[type="number"]::-webkit-inner-spin-button{
 
 .paragraph.docelementNotHidden[hidden]{
     display: inline!important;
-    background-color: rgb(51, 51, 51);
+    background-color: rgb(121, 121, 121);
 }
 
 .runs.docelementNotHidden[hidden]{
     display: inline!important;
-    color: gray;
+    color: rgb(211, 210, 210);
     text-decoration: line-through;
 }
+
+#fixedVariables{
+    background-color: white;
+    width: 20vw;
+    height: 50vh;
+    margin-left: 30px;
+    position: sticky;
+	top: 100px;
+    padding: 10px;
+}
+
+#fixedVariables{
+    max-height: 40vh;
+    overflow-y: auto;
+}
+
+.FixedVariableContainer{
+    display: flex;
+    flex-direction: column;
+    border-bottom: 1px solid black;
+    padding: 10px;
+}
+

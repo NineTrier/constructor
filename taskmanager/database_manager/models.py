@@ -29,14 +29,6 @@ class VariableSQLSet_VariableSQLGet(models.Model):
     variableSet = models.ForeignKey(VariableSQLSet, on_delete=models.CASCADE, null=True, blank=True)
     variableGet = models.ForeignKey(VariableSQLGet, on_delete=models.CASCADE, null=True, blank=True)
 
-class VariableSQLSet_Variable(models.Model):
-    variableSet = models.ForeignKey(VariableSQLSet, on_delete=models.CASCADE, null=True, blank=True)
-    variable = models.ForeignKey(VariableBlock, on_delete=models.CASCADE, null=True, blank=True)
-
-class VariableSQLGet_Variable(models.Model):
-    variableGet = models.ForeignKey(VariableSQLGet, on_delete=models.CASCADE, null=True, blank=True)
-    variable = models.ForeignKey(VariableBlock, on_delete=models.CASCADE, null=True, blank=True)
-
 class Connection(models.Model):
     dialect = models.CharField('Диалект SQL', max_length=100, null=True, blank=True)
     username = models.CharField('Имя пользователя', max_length=100, null=True, blank=True)

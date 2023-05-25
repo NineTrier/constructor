@@ -4,7 +4,7 @@ import base64
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import CreateView
 from .models import Documents, Fonts, SavedElements, VariableBlock, DocType
-from database_manager.models import VariableSQLGet, VariableSQLSet, VariableSQLGet_Variable, VariableSQLSet_Variable, VariableSQLSet_VariableSQLGet
+from database_manager.models import VariableSQLGet, VariableSQLSet, VariableSQLSet_VariableSQLGet
 from .forms import DocumentForm
 from django.core.files.storage import FileSystemStorage
 import os

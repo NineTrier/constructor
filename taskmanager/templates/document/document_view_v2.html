@@ -18,26 +18,28 @@
 </div>
 <div id="context_add_menu" hidden="true">
     <div>
-        <a type="button" class="btn btn-labeled" onclick="ButtonAddParagraph_Click()"><i class="fa-solid fa-plus"></i> Добавить параграф</a>
-        <a type="button" class="btn btn-labeled" onclick="ButtonAddRun_Click()"><i class="fa-solid fa-square-plus"></i> Добавить текст</a>
+        <a type="button" class="btn btn-labeled" onclick="ButtonAddParagraph_Click()"><i class="fa-solid fa-plus"></i></a>
+        <a type="button" class="btn btn-labeled" onclick="ButtonAddRun_Click()"><i class="fa-solid fa-square-plus"></i></a>
+        <a class="btn btn-labeled deleteButton"><i class="fa-solid fa-trash"></i></a>
     </div>
 </div>
 <div id="TopMenu">
-    <div id="instruments_menu">
-        <div id="doc_name_container">
-            <span id="doc_name" contenteditable="true">{{ Doc.name }}</span>
-        </div>
-        <div id="save_complete"><i class="fa-solid fa-check"></i></div>
-        <a type="submit" class="btn btn-labeled" id="updateButton"><i class="fa-solid fa-floppy-disk"></i></a>
-        <a href="/document/download?id={{ Doc.id }}" target="_blank" class="btn btn-labeled" id="updateButton"><i class="fa-solid fa-download"></i></a>
-    </div>
+    
     <div id="menu">
-        <a type="button" class="btn btn-labeled btn_menu" onclick="ButtonAddParagraph_Click()"><i class="fa-solid fa-plus"></i></a>
-        <a type="button" class="btn btn-labeled btn_menu" onclick="ButtonAddRun_Click()"><i class="fa-solid fa-square-plus"></i></a>
-        <a class="btn btn-labeled btn_menu" id="deleteButton"><i class="fa-solid fa-ban" style="color:red;"></i></a>
+        <div id="instruments_menu">
+            <div id="doc_name_container">
+                <span id="doc_name" contenteditable="true">{{ Doc.name }}</span>
+            </div>
+            <div id="save_complete"><i class="fa-solid fa-check"></i></div>
+            <a type="submit" class="btn btn-labeled" id="updateButton"><i class="fa-solid fa-floppy-disk"></i></a>
+            <a href="/document/download?id={{ Doc.id }}" target="_blank" class="btn btn-labeled" id="updateButton"><i class="fa-solid fa-download"></i></a>
+        </div>
         <div class="vr"></div>
         <div class="inputNumber">
-            <input class="inputNumberMenu" type="number" onchange="SizeChanged()" id="fontSizeElement" value="14"/>
+            <div class="labeled_input">
+                <label><i class="fa-solid fa-text-height"></i></label>
+                <input class="inputNumberMenu" type="number" onchange="SizeChanged()" id="fontSizeElement" value="14"/>
+            </div>
             <div class="inputButtons">
                 <a class="btn btn-labeled inputButton" onclick="this.parentElement.previousElementSibling.stepUp(); this.parentElement.previousElementSibling.onchange();"><i class="fa-solid fa-plus fa-2xs" ></i></a>
                 <a class="btn btn-labeled inputButton" onclick="this.parentElement.previousElementSibling.stepDown(); this.parentElement.previousElementSibling.onchange();"><i class="fa-solid fa-minus fa-2xs"></i></a>
@@ -73,7 +75,7 @@
             <label class="btn" for="bothAlign"><i class="fa-solid fa-align-justify"></i></label>
         </div>
         <div class="vr"></div>
-        <div id="firstIndentDiv">
+        <div class="labeled_input">
             <label><i class="fa-solid fa-indent"></i></label>
             <div class="inputNumber">
                 <input class="inputNumberMenu" type="number" onchange="IndentChanged()" id="IndentElement" value="0" step="0.1"/>
@@ -83,7 +85,7 @@
                 </div>
             </div>
         </div>
-        <div id="intervalDiv">
+        <div class="labeled_input">
             <label><i class="fa-solid fa-arrows-left-right-to-line fa-rotate-90"></i></label>
             <div class="inputNumber">
                 <input class="inputNumberMenu" type="number" onchange="IntervalChanged()" id="IntervalElement" value="1" step="0.1"/>
@@ -119,18 +121,20 @@
                     
                   </thead>
                   <tbody id="VariableOrganisation">
-                    <tr><td colspan="2">Для поиска:</td></tr>
+                    <tr><td colspan="3">Для поиска:</td></tr>
                     {% for var in sql_var_set %}
                         <tr class="variable sql_variable sql_variable_set" data-idVar="{{ var.id }}">
                             <td><span class="variable_name">{{ var }}</span></td>
                             <td><input class="variable_mean"></td>
+                            <td><input id="btn_thumbtack_{{ var.id }}" onchange="FixVariable(event);" type="checkbox" class="btn-check"><label class="btn btn-labeled" for="btn_thumbtack_{{ var.id }}"><i class="fa-solid fa-thumbtack"></i></label></td>
                         </tr>
                     {% endfor %}
-                    <tr><td colspan="2">Найденные значения:</td></tr>
+                    <tr><td colspan="3">Найденные значения:</td></tr>
                     {% for var in sql_var_get %}
                         <tr class="variable sql_variable sql_variable_get" data-idVar="{{ var.id }}" data-idSet="{% for varSetGet in sql_var_get_set %}{% if varSetGet.variableGet == var %}{{ varSetGet.variableSet.id }};{% endif %}{% endfor %}">
                             <td><span class="variable_name">{{ var }}</span></td>
                             <td><input class="variable_mean" readonly="true"></td>
+                            <td></td>
                         </tr>
                     {% endfor %}
                   </tbody>
@@ -151,9 +155,9 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button id="variable_add_btn">Добавить</button>
-            <button id="save_variable_btn">Сохранить</button>
-            <button onclick="GetFromDB();">Получить данные из БД</button>
+            <button id="variable_add_btn" class="btn btn-success">Добавить</button>
+            <button id="save_variable_btn" class="btn btn-success">Сохранить</button>
+            <button onclick="GetFromDB();" class="btn btn-success">Получить данные из БД</button>
         </div>
       </div>
     </div>
@@ -176,7 +180,7 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button onclick="addRadioGroup();">Добавить радиогруппу</button>
+            <button class="btn btn-success" onclick="addRadioGroup();">Добавить радиогруппу</button>
         </div>
       </div>
     </div>
@@ -204,23 +208,10 @@
   </div>
 
 
-<div class="main">
+<div class="mainDocument">
     <div id="leftMenu">
-        <div class="list-container">
-            <button type="button" class="btn btn-light" onclick="ButtonAddParagraph_Click()">Добавить параграф</button>
-        </div>
-        <div class="list-container">
-            <button type="button" class="btn btn-light" onclick="ButtonAddRun_Click()">Добавить текст</button>
-        </div>
-
-        <div class="list-container" id="list_saved">
-            <ul class="list-group" id="list_saved_sp">
-            </ul>
-        </div>
-        <!-- Кнопка-триггер модального окна -->
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#variableModal">
-            Переменные
-        </button>
+        <h5>Дерево элементов</h5>
+        <ul class="list-group-flush" id="document_tree"></ul>
     </div>
     <div>
         <input list="variable_list" value="" id="span_value" class="form-control" disabled/>
@@ -288,9 +279,26 @@
         </div>
         <input type="hidden" id="sectPr" value="{{ sectPr.to_css }}"/>
     </div>
+    
     <div id="rightMenu">
-        <h5>Дерево элементов</h5>
-        <ul class="list-group-flush" id="document_tree"></ul>
+        <a type="button" class="btn btn-labeled btn_menu" onclick="ButtonAddParagraph_Click()"><i class="fa-solid fa-plus"></i></a>
+        <a type="button" class="btn btn-labeled btn_menu" onclick="ButtonAddRun_Click()"><i class="fa-solid fa-square-plus"></i></a>
+        <a class="btn btn-labeled btn_menu deleteButton"><i class="fa-solid fa-trash"></i></a>
+
+        <!-- <div class="list-container" id="list_saved">
+            <ul class="list-group" id="list_saved_sp">
+            </ul>
+        </div> -->
+        <!-- Кнопка-триггер модального окна -->
+        <a class="btn btn-labeled" data-bs-toggle="modal" data-bs-target="#variableModal">
+            <i class="fa-solid fa-bolt"></i>
+        </a>
+    </div>
+    <div id="fixedVariables">
+        <h5>Закреплённые переменные</h5>
+        <div id="fixedVariablesList">
+
+        </div>
     </div>
   
 </div>
@@ -327,7 +335,27 @@
             }
         }
 
-        function unsetActiveElements(){
+        async function setActiveElement(element){
+            if(element.classList.contains('selected'))
+                return
+            unsetActiveElements()
+            element.classList.add('selected');
+            if(element.classList.contains('runs')){
+                element.classList.add('selectedRun');
+                element.parentElement.classList.add('selectedParagraph')
+                ParagraphBottomContextMenu(element.parentElement);
+                redSpan = element;
+                element.contentEditable = true;
+                ApplyMenu(element)
+                await setEndOfContenteditable(element);
+            }
+            else if(element.classList.contains('paragraph')){
+                var elements = element.querySelectorAll('.docelement')
+                setActiveElement(elements[elements.length-1]);
+            } 
+        }
+
+        async function unsetActiveElements(){
             for(let element of document.querySelectorAll('.selectedRun')){
                 element.classList.remove('selected');
                 element.classList.remove('selectedRun');
@@ -369,28 +397,11 @@
 
         function ParagraphBottomContextMenu(paragraph){
             var context = document.querySelector('#context_add_menu');
-            console.log(context);
             context.hidden = false;
             paragraph.appendChild(context);
         }
 
-        async function setActiveElement(element){
-            element.classList.add('selected');
-            if(element.classList.contains('runs')){
-                element.classList.add('selectedRun');
-                element.parentElement.classList.add('selectedParagraph')
-                ParagraphBottomContextMenu(element.parentElement);
-                redSpan = element;
-                element.contentEditable = true;
-                ApplyMenu(element)
-                await setEndOfContenteditable(element);
-            }
-            else if(element.classList.contains('paragraph')){
-                var elements = element.querySelectorAll('.docelement')
-                setActiveElement(elements[elements.length-1]);
-                
-            } 
-        }
+        
 
         function TextFromJSON(child){
             var span = document.createElement('span');
@@ -441,6 +452,19 @@
                     if(child['class'] == 'paragraph'){
                         document_main.appendChild(ParagraphFromJSON(child));
                     }
+                }
+            } catch (error) {
+                return;
+            }
+        }
+
+        function FixedVariablesFromJSON(data) {
+            try {
+                var jsonp = JSON.parse(data);
+                for(let element of jsonp['fixedVariable']){
+                    const variable = document.querySelector('.variable[data-idVar="'+ element['id'] +'"]')
+                    CreateFixedVariable(variable)
+                    variable.querySelector('#btn_thumbtack_'+element['id']).checked = true;
                 }
             } catch (error) {
                 return;
@@ -619,6 +643,49 @@
             }
         }
 
+        async function FixVariable(evt){
+            console.log(evt.target)
+            console.log(evt.target.closest('.variable'))
+            const variable = evt.target.closest('.variable')
+            if(evt.target.checked){
+                CreateFixedVariable(variable);
+            }
+            else{
+                DeleteFixedVariable(variable);
+            }
+        }
+
+        async function CreateFixedVariable(variable){
+            var container = document.createElement('div');
+            var name = document.createElement('span');
+            var value = document.createElement('input');
+            
+            container.classList.add('FixedVariableContainer');
+            name.classList.add('FixedVariableName');
+            name.textContent = variable.querySelector('.variable_name').textContent
+            value.value = variable.querySelector('.variable_mean').value
+            value.classList.add('FixedVariableValue');
+            value.oninput = (evt)=>{
+                variable.querySelector('.variable_mean').value = value.value
+            }
+            value.onchange = (evt)=>{
+                if(variable.classList.contains('sql_variable_set'))
+                    GetFromDB();
+                for(let span of document.getElementsByClassName('variable_ref')){
+                    CheckOnVariableInSpan(span);
+                }
+            }
+            container.setAttribute('data-idVar', variable.getAttribute('data-idVar'));
+            container.appendChild(name);
+            container.appendChild(value);
+            document.querySelector('#fixedVariablesList').appendChild(container);
+        }
+
+        async function DeleteFixedVariable(variable){
+            const fixVar = document.querySelector('.FixedVariableContainer[data-idVar="'+ variable.getAttribute('data-idVar') +'"]');
+            document.querySelector('#fixedVariablesList').removeChild(fixVar);
+        }
+
         function CheckNameElementFromList(name){
             for(var elem of list_saved_sp.children){
                 if(elem.firstChild.firstChild.textContent == name)
@@ -734,11 +801,10 @@
         }
 
         function SetDragAndDrop(){
-            var doc = document.getElementsByClassName("main")[0];
+            var doc = document.querySelector(".mainDocument");
             doc.addEventListener('dragstart', function(evt) {
                 if(!evt.target.classList.contains("docelement"))
                     return;
-                unsetActiveElements();
                 setActiveElement(evt.target);
                 evt.target.classList.add('dragged');
                 evt.dataTransfer.setData('id', evt.target.id);
@@ -888,13 +954,13 @@
                     //AddActiveInArray(run);
                 }
                 else{
-                    unsetActiveElements()
                     setActiveElement(run)
                 }
 
             }
             run.oninput = (evt)=>{
                 redSpan = run;
+                FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
             }
             run.classList.add("runs");
             run.classList.add("docelement");
@@ -932,7 +998,6 @@
             paragraph.onclick = (evt) => {
                 if(!evt.target.classList.contains('paragraph'))
                     return;
-                unsetActiveElements()
                 setActiveElement(evt.target)
             }
             paragraph.ondblclick = (evt)=>{
@@ -942,7 +1007,6 @@
                 else{
                     elements = paragraph.querySelectorAll('.docelement')
                     lastRun = paragraph.elements[elements.length-1];
-                    unsetActiveElements()
                     setActiveElement(lastRun)
                     lastRun.contentEditable = true;
                     setEndOfContenteditable(lastRun);
@@ -959,11 +1023,16 @@
                 paragraph.classList.add('docelementNotHidden');
             }
             paragraph.draggable = true;
+            if(paragraph.querySelectorAll('.docelement').length == 0){
+                AddRunTo(paragraph);
+            }
         }
 
         function SetDefaultVariable(variable){
             variable.getElementsByClassName('variable_name')[0].contentEditable = true;
             variable.getElementsByClassName('variable_mean')[0].oninput = function(){
+                var fixVar = document.querySelector('.FixedVariableContainer[data-idVar="'+ variable.getAttribute('data-idVar') +'"]')
+                fixVar.querySelector('.FixedVariableValue').value = this.value;
                 for(let span of document.getElementsByClassName('variable_ref')){
                     CheckOnVariableInSpan(span);
                 }
@@ -971,7 +1040,7 @@
             }
         }
 
-        function ReturnToLastVersion(){
+        async function ReturnToLastVersion(){
             var lastVers = lastVersions.pop();
 
             if( lastVers == undefined){
@@ -1007,50 +1076,43 @@
             return Number(splitted[splitted.length-1]) + 1
         }
 
-        function AddRunAfter(element){
+        async function AddRunAfter(element){
             var run = document.createElement("span");
             run.id = "r_"+GetId();
             run.textContent = "";
             run.setAttribute('data-invis', run.textContent);
             SaveLastVersion();
             SetDefaultRun(run);
-            element.parentElement.insertBefore(run, element.nextElementSibling);
-            unsetActiveElements()
+            await element.parentElement.insertBefore(run, element.nextElementSibling);
             setActiveElement(run)
+            FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
             return run;
-            // run.contentEditable = true;
-            // setEndOfContenteditable(run);
         }
 
-        function AddRunBefore(element){
+        async function AddRunBefore(element){
             var run = document.createElement("span");
             run.id = "r_"+GetId();
             run.textContent = "";
             run.setAttribute('data-invis', run.textContent);
             SaveLastVersion();
             SetDefaultRun(run);
-            element.parentElement.insertBefore(run, element);
-            unsetActiveElements()
+            await element.parentElement.insertBefore(run, element);
             setActiveElement(run)
+            FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
             return run;
-            // run.contentEditable = true;
-            // setEndOfContenteditable(run);
-            
         }
 
-        function AddRunTo(element){
+        async function AddRunTo(element){
             var run = document.createElement("span");
             run.id = "r_"+GetId();
             run.textContent = "";
             run.setAttribute('data-invis', run.textContent);
             SaveLastVersion();
             SetDefaultRun(run);
-            element.appendChild(run);
-            unsetActiveElements()
-            setActiveElement(run)
+            await element.appendChild(run);
+            await setActiveElement(run)
+            FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
             return run;
-            // run.contentEditable = true;
-            // setEndOfContenteditable(run);
         }
 
         function sleep(ms) {
@@ -1061,9 +1123,9 @@
             var paragraph = document.createElement("div");
             paragraph.id = "p_"+GetId();
             SetDefaultPar(paragraph);
-            element.parentElement.insertBefore(paragraph, element.nextElementSibling);
-            await sleep(100);
+            await element.parentElement.insertBefore(paragraph, element.nextElementSibling);
             await AddRunTo(paragraph);
+            FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
             return paragraph;
         }
 
@@ -1072,8 +1134,8 @@
             paragraph.id = "p_"+GetId();
             SetDefaultPar(paragraph);
             element.parentElement.insertBefore(paragraph, element);
-            await sleep(100);
             await AddRunTo(paragraph);
+            FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
             return paragraph;
         }
 
@@ -1082,8 +1144,8 @@
             paragraph.id = "p_"+GetId();
             SetDefaultPar(paragraph);
             element.appendChild(paragraph);
-            await sleep(100);
             await AddRunTo(paragraph);
+            illTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
             return paragraph;
         }
 
@@ -1094,7 +1156,7 @@
                 await AddParagraphAfter(document_main.lastChild);
             else
                 await AddParagraphAfter(activeParagraph);
-            FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
+           
         }
 
         async function ButtonAddRun_Click(){
@@ -1109,10 +1171,9 @@
                 else
                     await AddRunTo(document_main.lastElementChild);
             }
-            FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
         }
 
-        function ApplyStyleText(element){
+        async function ApplyStyleText(element){
             fontSizeElement.value = String(parseInt(element.style.fontSize.split("px")[0])-3);
             font_select.value = element.style.fontFamily.replaceAll('"', '');
             font_select.style.fontFamily = element.style.fontFamily;
@@ -1139,7 +1200,7 @@
             }
         }
 
-        function ApplyIndent(element){
+        async function ApplyIndent(element){
             if(element.style.textIndent){
                 IndentElement.value = Number(element.style.textIndent.split('cm')[0]);
             }
@@ -1149,7 +1210,7 @@
             }
         }
 
-        function ApplyInterval(element){
+        async function ApplyInterval(element){
             if(element.style.lineHeight){
                 IntervalElement.value = Number(element.style.lineHeight)-0.2;
             }
@@ -1161,14 +1222,14 @@
 
 
 
-        function ApplyMenu(element){
+        async function ApplyMenu(element){
             ApplyStyleText(document.querySelector('.selectedRun'));
             ApplyAlign(document.querySelector('.selectedParagraph'));
             ApplyIndent(document.querySelector('.selectedParagraph'));
             ApplyInterval(document.querySelector('.selectedParagraph'));
         }
 
-        function SizeChanged(){
+        async function SizeChanged(){
             if(document.querySelector('.selectedRun'))
                 document.querySelector('.selectedRun').style.fontSize = String(parseInt(fontSizeElement.value) + 3) + "px";
             else{
@@ -1176,7 +1237,7 @@
             }   
         }
 
-        function FontChanged(){
+        async function FontChanged(){
             font_select.style.fontFamily = font_select.value;
             if(document.querySelector('.selectedRun'))
                 document.querySelector('.selectedRun').style.fontFamily = font_select.value;
@@ -1185,17 +1246,17 @@
             }
         }
 
-        function IndentChanged(){
+        async function IndentChanged(){
             var indent = IndentElement.value;
             document.querySelector('.selectedParagraph').style.textIndent = Number(indent) + 'cm';
         }
 
-        function IntervalChanged(){
+        async function IntervalChanged(){
             var interval = IntervalElement.value;
             document.querySelector('.selectedParagraph').style.lineHeight = Number(interval)+0.2;
         }
 
-        function InputColor(colorInput){
+        async function InputColor(colorInput){
             for(let child of colorInput.parentNode.nextElementSibling.firstElementChild.children){
                 document.querySelector('.tree_element[data-idElement="'+ child.getAttribute('data-idElement') +'"]').style.backgroundColor = colorInput.value;
             }
@@ -1242,7 +1303,7 @@
             return li;
         }
 
-        function addRadioGroup(){
+        async function addRadioGroup(){
             modal_radioGroup_list.appendChild(createRadioGroup());
         }
 
@@ -1327,7 +1388,7 @@
         function VariableToJSON(variable){
             var name = variable.children[0].firstElementChild.textContent;
             var value = variable.children[1].firstElementChild.value;
-            var id = variable.getAttribute('data-idDB');
+            var id = variable.getAttribute('data-idVar');
             var lst = {};
             lst['id'] = id;
             lst['name'] = name;
@@ -1373,6 +1434,15 @@
             return lst;
         }
 
+        function GetFixedVariables(){
+            var childs = [];
+            for(let fixVar of document.querySelectorAll('.FixedVariableContainer')){
+                childs.push({'id': fixVar.getAttribute('data-idVar')});
+            }
+            console.log(childs);
+            return childs;
+        }
+
         function CreateJSON(){
             unsetActiveElements()
             body = document.getElementsByClassName("document")[0];
@@ -1390,15 +1460,16 @@
             jsondict['sectPr'] = document.getElementById("sectPr").value;
             jsondict['doc_name'] = doc_name.textContent;
             jsondict['radioGroups'] = RadioGroupsToJSON();
+            jsondict['fixedVariable'] = GetFixedVariables();
             return jsondict;
         }
 
         //Функция удаляет переменную из базы данных при помощи POST-запроса
-        function DeleteVariable(variable){
+        async function DeleteVariable(variable){
             $.ajax({
                 type: "POST",
                 url: "/document/variable/delete",
-                data: JSON.stringify({'id': variable.getAttribute('data-idDB')}),
+                data: JSON.stringify({'id': variable.getAttribute('data-idVar')}),
                 contentType: "application/json; charset=utf-8",
                 success: function(res, status, xhr){
                     variable.parentNode.removeChild(variable);
@@ -1407,7 +1478,7 @@
             });
         }
 
-        function RadioInputChanged(evt){
+        async function RadioInputChanged(evt){
             for(let other of document.querySelectorAll('input[name="'+ evt.target.name +'"]')){
                 var elem = document_main.querySelector('#'+other.parentElement.getAttribute('data-idElement')); 
                 elem.hidden = !other.checked;
@@ -1423,8 +1494,10 @@
         //Функция создаёт элемент для дерева
         function CreateTreeElement(element, name){       
             var tree_element = document.createElement('li');
+            var tree_element_container = document.createElement('div');
             var tree_element_checkbox = document.createElement('input');
             var tree_element_label = document.createElement('span');
+            var tree_element_btn = document.createElement('a')
             //Добавляем класс из бутстрапа
             tree_element.classList.add('list-group-item');
             tree_element.classList.add('tree_element');
@@ -1432,7 +1505,6 @@
             tree_element.onclick = (evt) => {
                 evt.stopPropagation();
                 var element = document_main.querySelector('#' + tree_element.getAttribute('data-idElement'));
-                unsetActiveElements()
                 setActiveElement(element);
             }
             //Создаём чекбокс и стилизуем его
@@ -1444,7 +1516,7 @@
             tree_element_checkbox.checked = !element.hidden;
             tree_element_checkbox.onchange = (evt) => {
                 evt.stopPropagation();
-                var element = document_main.querySelector('#' + evt.target.parentElement.getAttribute('data-idElement'));
+                var element = document_main.querySelector('#' + evt.target.closest('.tree_element').getAttribute('data-idElement'));
                 element.hidden = !evt.target.checked;
                 if(evt.target.closest('.tree_element')){
                     for(let run of evt.target.closest('.tree_element').lastElementChild.children){
@@ -1473,41 +1545,126 @@
                 element.setAttribute('data-name', tree_element_label.textContent);
                 UpdateTreeElementInRadio(tree_element);
             }
-            //Вставляем элементы в родителя
-            tree_element.appendChild(tree_element_checkbox);
-            tree_element.appendChild(tree_element_label);
 
+            if(element.querySelectorAll('.docelement').length > 0){
+                tree_element_btn.classList.add('btn');
+                tree_element_btn.classList.add('btn-labeled');
+                var i = document.createElement('i')
+                i.classList.add('fa-solid');
+                i.classList.add('fa-caret-down');
+                tree_element_btn.appendChild(i);
+                tree_element_btn.addEventListener('click', (evt)=>{
+                    evt.stopPropagation();
+                    evt.preventDefault();
+                    var elem = document.querySelector('.tree_element[data-idElement="'+ element.id +'"] ul');
+                    $('.tree_element[data-idElement="'+ element.id +'"] ul').collapse('toggle');
+                    if(tree_element_btn.querySelector('i').classList.contains('fa-caret-right')){
+                        tree_element_btn.querySelector('i').classList.remove('fa-caret-right');
+                        tree_element_btn.querySelector('i').classList.add('fa-caret-down');
+                    }
+                    else{
+                        tree_element_btn.querySelector('i').classList.remove('fa-caret-down');
+                        tree_element_btn.querySelector('i').classList.add('fa-caret-right');
+                    }
+                });
+            }
+            else{
+                tree_element_btn.style.display = 'none';
+            }
+
+            //Вставляем элементы в родителя
+            tree_element_container.classList.add('tree_element_container')
+            tree_element_container.appendChild(tree_element_checkbox);
+            tree_element_container.appendChild(tree_element_label);
+            tree_element_container.appendChild(tree_element_btn);
+            tree_element.appendChild(tree_element_container);
             return tree_element;
         }
 
-        function UpdateTreeElement(tree_element){
+        async function UpdateTreeElement(tree_element){
             var element = document_main.querySelector('#'+tree_element.getAttribute('data-idElement'));
-            tree_element.children[0].checked = !element.hidden;
-            tree_element.children[1].textContent = element.getAttribute('data-name');
+            var name = "";
+            if(element.classList.contains('paragraph')){
+                for(let run of element.querySelectorAll('.docelement')){
+                    name += run.textContent + " ";
+                }
+            }
+            else
+                name = element.textContent
+            tree_element.querySelector('input').checked = !element.hidden;
+            tree_element.querySelector('.tree_element_label').textContent = name;
+            var tree_element_btn = document.createElement('a');
+            if(element.querySelectorAll('.docelement').length > 0){
+                tree_element_btn.classList.add('btn');
+                tree_element_btn.classList.add('btn-labeled');
+                var i = document.createElement('i')
+                i.classList.add('fa-solid');
+                i.classList.add('fa-caret-down');
+                tree_element_btn.appendChild(i);
+                tree_element_btn.addEventListener('click', (evt)=>{
+                    evt.stopPropagation();
+                    evt.preventDefault();
+                    var elem = document.querySelector('.tree_element[data-idElement="'+ element.id +'"] ul');
+                    $('.tree_element[data-idElement="'+ element.id +'"] ul').collapse('toggle');
+                    if(tree_element_btn.querySelector('i').classList.contains('fa-caret-right')){
+                        tree_element_btn.querySelector('i').classList.remove('fa-caret-right');
+                        tree_element_btn.querySelector('i').classList.add('fa-caret-down');
+                    }
+                    else{
+                        tree_element_btn.querySelector('i').classList.remove('fa-caret-down');
+                        tree_element_btn.querySelector('i').classList.add('fa-caret-right');
+                    }
+                });
+            }
+            else{
+                tree_element_btn.style.display = 'none';
+            }
+            if(tree_element.querySelector('.tree_element_container .btn'))
+            tree_element.querySelector('.tree_element_container').removeChild(tree_element.querySelector('.tree_element_container .btn'))
+            tree_element.querySelector('.tree_element_container').appendChild(tree_element_btn);
         }
 
-        function DeleteTreeElement(element){
+        async function DeleteTreeElement(element){
             var tree_element = document.querySelector('.tree_element[data-idElement="'+ element.id +'"]')
             if(tree_element){
                 tree_element.parentElement.removeChild(tree_element);
             }
         }
 
-        function FillTree(parent, childs){
+        async function FillTree(parent, childs){
             for(let child of childs){
                 var element = document.querySelector('.tree_element[data-idElement="'+ child.id +'"]')
                 if(!element){
-                    if(!child.getAttribute('data-name'))
-                        var tree_element = CreateTreeElement(child, 'Элемент ' + child.id);
+                    var name = "";
+                    if(child.classList.contains('paragraph')){
+                        for(let run of child.querySelectorAll('.docelement')){
+                            name += run.textContent + " ";
+                        }
+                    }
                     else
-                        var tree_element = CreateTreeElement(child, child.getAttribute('data-name'));
+                        name = child.textContent
+                    var tree_element = CreateTreeElement(child, name)
+                    // if(!child.getAttribute('data-name'))
+                    //     var tree_element = CreateTreeElement(child, 'Элемент ' + child.id);
+                    // else
+                    //     var tree_element = CreateTreeElement(child, child.getAttribute('data-name'));
                     if(child.children.length > 0){
                         var ul = document.createElement('ul');
                         ul.classList.add('list-group-flush');
+                        ul.classList.add('collapse')
                         FillTree(ul, child.querySelectorAll('.docelement'));
                         tree_element.appendChild(ul);
                     }
-                    parent.appendChild(tree_element);
+                    if (child.nextElementSibling){
+                        var element_before_add = document.querySelector('.tree_element[data-idElement="'+ child.nextElementSibling.id +'"]')
+                        if(element_before_add)
+                            parent.insertBefore(tree_element,   element_before_add)
+                        else
+                            parent.appendChild(tree_element);
+                    }
+                    else{
+                        parent.appendChild(tree_element);
+                    }
                     modal_radioGroup_treeElements_list.appendChild(CreateTreeElementInRadio(child.id));
                 }
                 else{
@@ -1537,13 +1694,13 @@
             return li;
         }
 
-        function UpdateTreeElementInRadio(id){
+        async function UpdateTreeElementInRadio(id){
             var treeElementInRadio = document.querySelector('.TreeElementInModalList[data-idElement="'+ id +'"]');
             var treeElement = document.querySelector('.tree_element[data-idElement="'+ id +'"]')
             treeElementInRadio.firstElementChild.textContent = treeElement.children[1].textContent;
         }
 
-        function DeleteTreeElementInRadio(id){
+        async function DeleteTreeElementInRadio(id){
             var treeElementInRadio = document.querySelector('.TreeElementInModalList[data-idElement="'+ id +'"]');
             treeElementInRadio.parentElement.removeChild(treeElementInRadio);
         }
@@ -1557,7 +1714,7 @@
             CheckOnVariableInSpan(span);
         }
 
-        function SaveComplete(){
+        async function SaveComplete(){
             console.log("Сохранение прошло успешно");
             save_complete.style.display = "flex";
             if("{{ type }}" == "1"){
@@ -1565,7 +1722,7 @@
             }
         }
 
-        function SaveNotComplete(){
+        async function SaveNotComplete(){
             save_complete.style.display = "none";
         }
 
@@ -1638,6 +1795,10 @@
                 await sleep(50);
                 setActiveElement(previousPar.lastElementChild);
             }
+            else if(!previousElement){
+                let previousPar = parent.previousElementSibling;
+                setActiveElement(previousPar.lastElementChild);
+            }
             else{
                 await sleep(50);
                 setActiveElement(previousElement);
@@ -1648,12 +1809,16 @@
             UpdateFile();
         }
 
-        deleteButton.onclick = function(){
-            SaveLastVersion();
-            if(document.querySelector('.selectedRun'))
-                DeleteRun(document.querySelector('.selectedRun'));
-            else
-                return;
+        for(let btn of document.querySelectorAll('.deleteButton')){
+            btn.onclick = function(){
+                SaveLastVersion();
+                if(document.querySelector('.selectedRun')){
+                    if(confirm('Вы точно хотите удалить?'))
+                        DeleteRun(document.querySelector('.selectedRun'));
+                }
+                else
+                    return;
+            }
         }
 
         function splitRun(text){
@@ -1710,117 +1875,129 @@
             return caretPos;
         }
 
+        // Обработчик нажатий на клавиши. Горячие клавиши при наборе текста.
         document_main.addEventListener('keydown', async function(event){
                 var selectedRun = document.querySelector('.selectedRun');
-                if(event.key == 'Delete'){
-                    event.preventDefault();
-                    SaveLastVersion();
-                    if(document.querySelector('.selectedRun'))
-                        DeleteRun(document.querySelector('.selectedRun'));
-                    else
-                        return;
-                }
-                else if (event.code == 'KeyZ' && (event.ctrlKey || event.metaKey)) {
-                    event.preventDefault();
-                    ReturnToLastVersion();
-                }
-                else if (event.code == 'KeyQ' && (event.ctrlKey || event.metaKey)) {
-                    event.preventDefault();
-                    splitRun(window.getSelection().toString());
-                }
-                else if (event.key == 'Enter'){
-                    event.preventDefault();
-                    event.stopPropagation();
-                    if(redSpan == undefined)
-                        return;
-                    SaveLastVersion();
-                    redSpan.setAttribute('data-invis', redSpan.textContent);
-                    redSpan.contentEditable = false;
-                    let paragraph = AddParagraphAfter(redSpan.parentElement)
-                }
-                else if (event.keyCode == 8){
-                    event.stopPropagation();
-                    if(redSpan == undefined)
-                        return;
-                    SaveLastVersion();
-                    if(redSpan.textContent.length == 0){
-                        await DeleteRun(redSpan);
-                    }
-                    
-                }
-                else if (event.keyCode == 37 && (event.ctrlKey || event.metaKey)){
-                    event.preventDefault();
-                    event.stopPropagation();
-                    if(redSpan == undefined)
-                        return;
-                    let previousElement = redSpan.previousElementSibling;
-                    let parent = redSpan.parentElement;
-                    if(!previousElement){
-                        let previousPar = parent.previousElementSibling;
-                        if(!previousPar)
+                switch(event.keyCode){
+                    case 8: // Нажатие на Backspace
+                        event.stopPropagation();
+                        if(!redSpan)
                             return;
-                        unsetActiveElements()
-                        setActiveElement(previousPar.lastElementChild);
-                    }
-                    else{
-                        unsetActiveElements()   
-                        setActiveElement(previousElement); 
-                    }
-                }
-                else if (event.keyCode == 39 && (event.ctrlKey || event.metaKey)){
-                    event.preventDefault();
-                    event.stopPropagation();
-                    if(redSpan == undefined)
-                        return;
-                    let nextElement = redSpan.nextElementSibling;
-                    let parent = redSpan.parentElement;
-                    if(!nextElement){
-                        let nextPar = parent.nextElementSibling;
-                        if(!nextPar)
+                        SaveLastVersion();
+                        if(redSpan.textContent.length == 0){
+                            await DeleteRun(redSpan);
+                        }
+                        break;
+                    case 9:
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if(!redSpan)
                             return;
-                        unsetActiveElements()
-                        setActiveElement(nextPar.firstElementChild);
-                    }
-                    else{
-                        unsetActiveElements()   
-                        setActiveElement(nextElement); 
-                    }
-                }
-                else if (event.keyCode == 38 && (event.ctrlKey || event.metaKey)){
-                    event.preventDefault();
-                    event.stopPropagation();
-                    if(redSpan == undefined)
-                        return;
-                    let parent = redSpan.parentElement;
-                    let previousPar = parent.previousElementSibling;
-                    if(!previousPar)
-                        return;
-                    unsetActiveElements()
-                    setActiveElement(previousPar.firstElementChild);
-                }
-                else if (event.keyCode == 40 && (event.ctrlKey || event.metaKey)){
-                    event.preventDefault(); 
-                    event.stopPropagation();
-                    if(redSpan == undefined)
-                        return;
-                    let parent = redSpan.parentElement;
-                    let nextPar = parent.nextElementSibling;
-                    if(!nextPar)
-                        return;
-                    unsetActiveElements()
-                    setActiveElement(nextPar.firstElementChild);
-                }
-                else if (event.keyCode == 40 && (event.ctrlKey || event.metaKey)){
-                    event.preventDefault(); 
-                    event.stopPropagation();
-                    if(redSpan == undefined)
-                        return;
-                    let parent = redSpan.parentElement;
-                    let nextPar = parent.nextElementSibling;
-                    if(!nextPar)
-                        return;
-                    unsetActiveElements()
-                    setActiveElement(nextPar.firstElementChild);
+                        SaveLastVersion();
+                        if(!redSpan.classList.contains('variable_ref'))
+                            redSpan.setAttribute('data-invis', redSpan.textContent);
+                        redSpan.contentEditable = false;
+                        let run = AddRunAfter(redSpan);
+                        break;
+                    case 13: // Нажатие на Enter
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if(redSpan == undefined)
+                            return;
+                        SaveLastVersion();
+                        redSpan.setAttribute('data-invis', redSpan.textContent);
+                        redSpan.contentEditable = false;
+                        let paragraph = AddParagraphAfter(redSpan.parentElement)
+                        break;
+                    case 37: // Нажатие на стрелочку влево 
+                        if (event.ctrlKey || event.metaKey) { // Зажатый Ctrl
+                            event.preventDefault();
+                            event.stopPropagation();
+                            if(redSpan == undefined)
+                                return;
+                            let previousElement = redSpan.previousElementSibling;
+                            let parent = redSpan.parentElement;
+                            if(!previousElement){
+                                let previousPar = parent.previousElementSibling;
+                                if(!previousPar || !previousPar.classList.contains('docelement'))
+                                    return;
+                                setActiveElement(previousPar.lastElementChild);
+                            }
+                            else{
+                                if(!previousElement.classList.contains('docelement'))
+                                    return; 
+                                setActiveElement(previousElement); 
+                            }
+                        }
+                        break;
+                    case 38: // Нажатие на стрелочку вверх 
+                        if (event.ctrlKey || event.metaKey) { // Зажатый Ctrl
+                            event.preventDefault();
+                            event.stopPropagation();
+                            if(redSpan == undefined)
+                                return;
+                            let parent = redSpan.parentElement;
+                            let previousPar = parent.previousElementSibling;
+                            if(!previousPar || !previousPar.classList.contains('docelement'))
+                                return;
+                            setActiveElement(previousPar.firstElementChild);
+                        }
+                        break;
+                    case 39: // Нажатие на стрелочку вправо 
+                        if (event.ctrlKey || event.metaKey) { // Зажатый Ctrl
+                            event.preventDefault();
+                            event.stopPropagation();
+                            if(redSpan == undefined)
+                                return;
+                            let nextElement = redSpan.nextElementSibling;
+                            let parent = redSpan.parentElement;
+                            if(!nextElement){
+                                let nextPar = parent.nextElementSibling;
+                                if(!nextPar || !nextPar.classList.contains('docelement'))
+                                    return;
+                                setActiveElement(nextPar.firstElementChild);
+                            }
+                            else{
+                                if(!nextElement.classList.contains('docelement'))
+                                    return;
+                                setActiveElement(nextElement); 
+                            }
+                        }
+                        break;
+                    case 40: // Нажатие на стрелочку вниз 
+                        if (event.ctrlKey || event.metaKey) { // Зажатый Ctrl
+                            event.preventDefault(); 
+                            event.stopPropagation();
+                            if(redSpan == undefined)
+                                return;
+                            let parent = redSpan.parentElement;
+                            let nextPar = parent.nextElementSibling;
+                            if(!nextPar || !nextPar.classList.contains('docelement'))
+                                return;
+                            setActiveElement(nextPar.firstElementChild);
+                        }
+                        break;
+                    case 46: // Нажатие на Delete
+                        event.preventDefault();
+                        SaveLastVersion();
+                        if(document.querySelector('.selectedRun'))
+                            if(confirm('Вы точно хотите удалить?'))
+                                DeleteRun(document.querySelector('.selectedRun'));
+                        else
+                            return;
+                        break;
+                    case 81: // Нажатие на Q
+                        if (event.ctrlKey || event.metaKey) { // Зажатый Ctrl
+                            event.preventDefault();
+                            splitRun(window.getSelection().toString());
+                        }
+                        break;
+                    case 90: // Нажатие на Z
+                        if(event.ctrlKey || event.metaKey){ // Зажатый Ctrl
+                            event.preventDefault();
+                            ReturnToLastVersion();
+                        }
+                        break; 
                 }
             });
 
@@ -1868,9 +2045,9 @@
             var tr = document.createElement('tr');
             tr.classList.add('variable');
             if(id != undefined)
-                tr.setAttribute('data-idDB', id);
+                tr.setAttribute('data-idVar', id);
             else
-                tr.setAttribute('data-idDB', '-1');
+                tr.setAttribute('data-idVar', '-1');
             var tdn = document.createElement('td');
             var tdm = document.createElement('td');
             var tdb = document.createElement('td');
@@ -1896,16 +2073,47 @@
             else
                 meaning.value = "";
             tdm.appendChild(meaning);
-            var btn_close = document.createElement('button');
+            var btn_close = document.createElement('a');
             btn_close.type = 'button';
-            btn_close.classList.add('btn-close');
+            btn_close.classList.add('btn-labeled');
+            var i_trash = document.createElement('i');
+            i_trash.classList.add('fa-solid');
+            i_trash.classList.add('fa-trash');
+            i_trash.style.color = 'red';
+            btn_close.appendChild(i_trash);
             btn_close.classList.add('variable_close');
             btn_close.onclick = function(evt){
                 var var_elem = btn_close.parentElement.parentElement;
-                DeleteVariable(var_elem);
+                if(confirm('Вы точно хотите удалить?'))
+                    DeleteVariable(var_elem);
             }
-            tdb.appendChild(btn_close)
+            var thumb = document.createElement('input');
+            thumb.type = 'checkbox';
+            thumb.classList.add('btn-check');
+            thumb.classList.add('btn_thumb');
+            thumb.onclick = function(evt){
+                FixVariable(evt);
+            }
+            if(!id)
+                thumb.style.display = 'none';
+            else
+                thumb.id = 'btn_thumbtack_'+id;
+            var label = document.createElement('label');
+            var i_thumb = document.createElement('i');
+            i_thumb.classList.add('fa-solid');
+            i_thumb.classList.add('fa-thumbtack');
+            label.classList.add('btn');
+            label.classList.add('btn-labeled');
+            label.classList.add('btn_thumb_label');
+            label.appendChild(i_thumb);
+            if(!id)
+                label.style.display = 'none';
+            else
+                label.setAttribute('for', 'btn_thumbtack_'+id)
             
+            tdb.appendChild(thumb);
+            tdb.appendChild(label);
+            tdb.appendChild(btn_close)
             tr.appendChild(tdn);
             tr.appendChild(tdm);
             tr.appendChild(tdb);
@@ -1923,8 +2131,14 @@
                 success: function(res, status, xhr){
                     switch (xhr.status){
                         case 200:
-                            variable.setAttribute('data-idDB', xhr.getResponseHeader('id'));
+                            variable.setAttribute('data-idVar', xhr.getResponseHeader('id'));
                             variable.style.backgroundColor = "white";
+                            console.log(variable.querySelector('.btn_thumb'));
+                            console.log(variable.querySelector('.btn_thumb_label'));
+                            variable.querySelector('.btn_thumb').style.display = 'inline';
+                            variable.querySelector('.btn_thumb').id = 'btn_thumbtack_'+xhr.getResponseHeader('id');
+                            variable.querySelector('.btn_thumb_label').style.display = 'inline';
+                            variable.querySelector('.btn_thumb_label').setAttribute('for', 'btn_thumbtack_'+xhr.getResponseHeader('id'))
                             break;
                         case 304:
                             variable.style.backgroundColor = "red";
@@ -2013,7 +2227,6 @@
                             for(let span of document.getElementsByClassName('variable_ref')){
                                 CheckOnVariableInSpan(span);
                             }
-                            variableModal.toggle();
                             break;
                         case 304:
                             break;
@@ -2097,6 +2310,8 @@
         ListSavedFromJSON("{{ saved_elements|escapejs }}");
 
         VariableFromJSON("{{ variable|escapejs }}")
+        
+        FixedVariablesFromJSON("{{ document_json|escapejs }}")
 
         SetDefault();
 
@@ -2105,6 +2320,7 @@
         FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
 
         RadioGroupsFromJSON("{{ document_json|escapejs }}")
+        
 
         // setInterval(
         //     () => UpdateFile(), 600000

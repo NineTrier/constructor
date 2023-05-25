@@ -100,7 +100,7 @@
 }
 
 header{
-    background-color: var(--color-accent);
+    background-color: white;
     min-height: 80px;
     max-height: 80px;
     box-shadow: 1px 1px 10px #828080;
