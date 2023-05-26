@@ -2,23 +2,21 @@ from django.urls import path
 from . import views
 from .views import DocumentCreate
 
-# Все адреса веб-сервиса
+# Все адреса веб-сервиса для работы с документом
 urlpatterns = [
     # path(То что вставляется после \, То, что вызывается в данном случае, Название данного перенаправления)
-    path('upload', DocumentCreate.as_view(), name='documents'),
-    path('download', views.download),
-    # path('change', views.change_doc),
-    # path('upload_change', views.uploadRed),
-    path('view', views.ViewDocument),
-    path('update', views.UpdateDocument),
-    path('new', views.create_New_Document, name='newdocuments'),
-    path('savedelement/delete', views.DeleteSavedElement),
-    path('savedelement/create', views.SaveSavedElement),
-    path('variable/delete', views.DeleteVariable),
-    path('variable/create', views.SaveVariable),
-    path('delete', views.DeleteDocument),
-    path('save_image', views.SaveCover),
-    path('document_add', views.AddDocumentToUser),
-    path('doctype_add', views.CreateDocType),
-    path('doctype_remove', views.DeleteDocType),
+    path('upload', DocumentCreate.as_view(), name='documents'), # загрузка документа на сервер
+    path('download', views.download), # выгрузка документа
+    path('view', views.ViewDocument), # просмотр документа
+    path('update', views.UpdateDocument), # обновление документа
+    path('new', views.create_New_Document, name='newdocuments'), # создание нового документа
+    path('savedelement/delete', views.DeleteSavedElement), # удаление сохранённого элемента
+    path('savedelement/create', views.SaveSavedElement), # создание сохранённого элемента
+    path('variable/delete', views.DeleteVariable), # удаление переменной
+    path('variable/create', views.SaveVariable), # создание переменной
+    path('delete', views.DeleteDocument), # удаление документа
+    path('save_image', views.SaveCover), # сохранение обложки
+    path('document_add', views.AddDocumentToUser), # копирование документа
+    path('doctype_add', views.CreateDocType), # добавление типа документа
+    path('doctype_remove', views.DeleteDocType), # удаление типа документа
 ]

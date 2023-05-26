@@ -50,8 +50,8 @@ class DocumentCreate(CreateView):
         response = redirect(f"/document/view?id={document.id}&type=1")
         return response
 
-
 def translit_russian(text):
+    """Выполняет транслитерацию русского текста в латиницу для названий файлов"""
     try:
         print(text)
         translited = translit(text, reversed=True)
@@ -64,6 +64,7 @@ def translit_russian(text):
     
 
 def create_New_Document(request):
+    """Обработчик запроса для создания документа"""
     if request.method == 'POST':
         document = Documents()
         document.name = request.POST['name']
@@ -89,6 +90,7 @@ def create_New_Document(request):
 
 @csrf_exempt
 def SaveCover(request):
+    """Обработчик запроса для загрузки обложки"""
     try:
         id = request.POST['id']
         document = Documents.objects.get(id=id)
@@ -110,6 +112,7 @@ def SaveCover(request):
 
 # Функция, которая позволяет скачать файл, загруженный на сервер
 def download(request):
+    """Обработчик запроса для выгрузки документа"""
     filepath = Documents.objects.filter(id=request.GET.get('id'))[0].file
     file_path = os.path.join(settings.MEDIA_ROOT, str(filepath))
     if os.path.exists(file_path):
@@ -121,6 +124,7 @@ def download(request):
 
 @csrf_exempt
 def DeleteSavedElement(request):
+    """Обработчик запроса для удаления сохраненного элемента"""
     response = redirect('/')
     request_data = request.body
     stroke = json.loads(request_data)
@@ -131,6 +135,7 @@ def DeleteSavedElement(request):
 
 @csrf_exempt
 def DeleteVariable(request):
+    """Обработчик запроса для удаления переменной"""
     response = HttpResponse()
     request_data = request.body
     stroke = json.loads(request_data)
@@ -141,6 +146,7 @@ def DeleteVariable(request):
 
 @csrf_exempt
 def CreateDocType(request):
+    """Обработчик запроса для создания типа документа"""
     try:
         response = HttpResponse()
         request_data = request.body
@@ -156,6 +162,7 @@ def CreateDocType(request):
 
 @csrf_exempt
 def DeleteDocType(request):
+    """Обработчик запроса для удаления типа документа"""
     try:
         response = HttpResponse()
         request_data = request.body
@@ -169,6 +176,7 @@ def DeleteDocType(request):
 
 @csrf_exempt
 def SaveVariable(request):
+    """Обработчик запроса для сохранения переменной в базу данных"""
     request_data = request.body
     stroke = json.loads(request_data)
     variable = VariableBlock.objects.filter(name=stroke['name'], doc_id=stroke['id_doc'])
@@ -196,6 +204,7 @@ def SaveVariable(request):
 
 @csrf_exempt
 def AddDocumentToUser(request):
+    """Обработчик запроса для копирования документа пользователю"""
     try:
         response = HttpResponse()
         request_data = request.body
@@ -230,6 +239,7 @@ def AddDocumentToUser(request):
 
 @csrf_exempt
 def SaveSavedElement(request):
+    """Обработчик запроса для сохранения сохраненного элемента"""
     response = HttpResponse()
     request_data = request.body
     stroke = json.loads(request_data)
@@ -245,6 +255,7 @@ def SaveSavedElement(request):
 
 @csrf_exempt
 def DeleteDocument(request):
+    """Обработчик запроса для удаления документа из базы данных"""
     response = redirect('/')
     request_data = request.body
     stroke = json.loads(request_data) 
@@ -262,6 +273,7 @@ def DeleteDocument(request):
         return response
 
 def ViewDocument(request):
+    """Обработчик запроса для просмотра документа"""
     fileid = request.GET.get('id')
     Doc = get_object_or_404(Documents, pk=fileid)
     if request.user != Doc.owner.user:
@@ -293,6 +305,7 @@ def ViewDocument(request):
 
 
 def SavedElementFromJSON(json_stroke):
+    """Функция создаёт элементы класса SavedElements из JSON-строки"""
     for list_elem in json_stroke:
         name, id_elem, element = list_elem['name'], list_elem['id'], list_elem['json']
         if id_elem == '-1':
@@ -308,6 +321,7 @@ def SavedElementFromJSON(json_stroke):
 
 @csrf_exempt
 def UpdateDocument(request):
+    """Функция обрабатывает запрос и обновляет документ в базе данных"""
     fileid = request.GET.get('id')
     doc = Documents.objects.get(id=fileid)
     file_path = os.path.join(settings.MEDIA_ROOT, str(doc.file))

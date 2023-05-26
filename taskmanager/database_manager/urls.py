@@ -2,7 +2,7 @@ from django.urls import path
 from . import views
 from .views import CreateConnection, UpdateSQLVariableGet, DeleteSQLVariableGet, DeleteSQLVariableSet, UpdateSQLVariableSet, TestGetFromDB, setting_database, TestConnection, SaveSqlVariableGet, CreateSQLVariableGet, CreateSQLVariableSet
 
-# Все адреса веб-сервиса
+# Все адреса веб-сервиса для работы с базой данных организации
 urlpatterns = [
     # path(То что вставляется после \, То, что вызывается в данном случае, Название данного перенаправления)
     path('create/', CreateConnection.as_view(), name='create_connection'),

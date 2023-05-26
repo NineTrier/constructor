@@ -15,7 +15,7 @@ from sqlalchemy.engine import create_engine
 from sqlalchemy import inspect
 from sqlalchemy import text
 
-
+# Класс для создания подключения к базе данных
 class CreateConnection(CreateView):
     model = Connection
 
@@ -43,6 +43,7 @@ class CreateConnection(CreateView):
 
     success_url = reverse_lazy('/')
 
+# Класс для создания переменной SQL-запроса
 class CreateSQLVariableGet(CreateView):
     model = VariableSQLGet
 
@@ -65,7 +66,7 @@ class CreateSQLVariableGet(CreateView):
         response = redirect(f'/database/setting_database/')
         return response
 
-
+# Класс для создания переменной SQL-параметра
 class CreateSQLVariableSet(CreateView):
     model = VariableSQLSet
 
@@ -89,6 +90,7 @@ class CreateSQLVariableSet(CreateView):
 
 @csrf_exempt
 def SaveSqlVariableGet(request):
+    """Функция для обработки запроса по сохранению переменной SQL-Запроса"""
     request_data = request.body
     stroke = json.loads(request_data)
     sqlVariableGet = VariableSQLGet()
@@ -106,6 +108,7 @@ def SaveSqlVariableGet(request):
 
 @csrf_exempt
 def UpdateSQLVariableSet(request):
+    """Функция для обработки запроса по сохранению переменной SQL-параметра"""
     try:
         response = HttpResponse()
         request_data = request.body
@@ -124,6 +127,7 @@ def UpdateSQLVariableSet(request):
 
 @csrf_exempt
 def UpdateSQLVariableGet(request):
+    """Функция для обработки запроса по обновлению переменной SQL-Запроса"""
     try:
         response = HttpResponse()
         request_data = request.body
@@ -149,6 +153,7 @@ def UpdateSQLVariableGet(request):
 
 @csrf_exempt
 def DeleteSQLVariableGet(request):
+    """Функция для обработки запроса по удалению переменной SQL-Запроса"""
     try:
         response = HttpResponse()
         request_data = request.body
@@ -163,6 +168,7 @@ def DeleteSQLVariableGet(request):
     
 @csrf_exempt
 def DeleteSQLVariableSet(request):
+    """Функция для обработки запроса по удалению переменной SQL-параметра"""
     try:
         response = HttpResponse()
         request_data = request.body
@@ -189,6 +195,7 @@ def setting_database(request):
 
 @csrf_exempt
 def TestConnection(request):
+    """Функция для обработки запроса по тестированию подключения к базе данных"""
     try:
         request_data = request.body
         stroke = json.loads(request_data)
@@ -225,6 +232,7 @@ def TestConnection(request):
     
 @csrf_exempt
 def TestGetFromDB(request):
+    """Функция для получения данных из базы данных"""
     try:
         request_data = request.body
         stroke = json.loads(request_data)

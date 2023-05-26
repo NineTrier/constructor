@@ -309,6 +309,7 @@
 {% block script %}
     <script lang="JavaScript">
 
+        // Класс Стек для Ctrl+Z
         function Stack() {
             this.count = 0
             this.storage = {}
@@ -335,11 +336,13 @@
             }
         }
 
+        // Функция, которая выделяет элемент
         async function setActiveElement(element){
             if(element.classList.contains('selected'))
                 return
             unsetActiveElements()
             element.classList.add('selected');
+            // Если это текстовый элемент то выделяем его и ставим коретку в конец
             if(element.classList.contains('runs')){
                 element.classList.add('selectedRun');
                 element.parentElement.classList.add('selectedParagraph')
@@ -349,12 +352,14 @@
                 ApplyMenu(element)
                 await setEndOfContenteditable(element);
             }
+            // Если параграф то запускаем эту функцию с последним элементом
             else if(element.classList.contains('paragraph')){
                 var elements = element.querySelectorAll('.docelement')
                 setActiveElement(elements[elements.length-1]);
             } 
         }
 
+        // Снятие выделения всех элементов
         async function unsetActiveElements(){
             for(let element of document.querySelectorAll('.selectedRun')){
                 element.classList.remove('selected');
@@ -369,7 +374,9 @@
             document_main.appendChild(document.querySelector('#context_add_menu'));
         }
 
+        // Функция включает и отключает отображение всех элементов
         async function SetNotHidden(){
+            // Если кнопка нажата, то включаем
             if(document.querySelector('#btn_check_nothidden').checked){
                 for(element of document.querySelectorAll('.docelement')){
                     try {
@@ -382,6 +389,7 @@
                     
                 }
             }
+            // Иначе отключаем
             else{
                 for(element of document.querySelectorAll('.docelementNotHidden')){
                     try {
@@ -395,14 +403,14 @@
             }
         }
 
-        function ParagraphBottomContextMenu(paragraph){
+        // Добавления контекстного меню внизу выделенного параграфа
+        async function ParagraphBottomContextMenu(paragraph){
             var context = document.querySelector('#context_add_menu');
             context.hidden = false;
             paragraph.appendChild(context);
         }
 
-        
-
+        // Текстовые элементы из JSON
         function TextFromJSON(child){
             var span = document.createElement('span');
             if(child['class'] == 'runs'){
@@ -424,6 +432,7 @@
             return span;
         }
 
+        // Параграфы из JSON
         function ParagraphFromJSON(child){
             var par = document.createElement('div');
             par.classList.add('paragraph');
@@ -444,7 +453,8 @@
             return par;
         }
         
-        function DocFromJSON(data) {
+        // Формирует документ из JSON
+        async function DocFromJSON(data) {
             try {
                 var jsonp = JSON.parse(data);
                 for(let element of jsonp['elements']){
@@ -458,7 +468,8 @@
             }
         }
 
-        function FixedVariablesFromJSON(data) {
+        // Восстанавливает закреплённые переменные из JSON
+        async function FixedVariablesFromJSON(data) {
             try {
                 var jsonp = JSON.parse(data);
                 for(let element of jsonp['fixedVariable']){
@@ -471,7 +482,8 @@
             }
         }
 
-        function RadioGroupsFromJSON(data){
+        // Восстанавливает радиогруппы из JSON
+        async function RadioGroupsFromJSON(data){
             var jsonp = JSON.parse(data);
             if(!jsonp['radioGroups'])
                 return;
@@ -487,7 +499,8 @@
             }
         }
         
-        function ListSavedFromJSON(data) {
+        // Восстанавливает сохранённые элементы из JSON
+        async function ListSavedFromJSON(data) {
             var jsonp = JSON.parse(data);
             for(let [key, value] of Object.entries(jsonp)){
                 var child = JSON.parse(value);
@@ -502,7 +515,8 @@
 
         }
 
-        function SaveLastVersion(){
+        // Сохраняет в стек текущую версию
+        async function SaveLastVersion(){
             var arr = []
             for(let child of document.getElementsByClassName("document")[0].children){
                 arr.push(child.cloneNode(true));
@@ -511,6 +525,7 @@
             SaveNotComplete();
         }
 
+        // Создаёт соединение между переменной и текстовым элементом
         function CreateConnect(span, regmatch){
             var name = span.getAttribute('data-invis').trim();
             name = name.slice(3, name.length-3);
@@ -526,7 +541,8 @@
             return false;
         }
 
-        function CheckOnVariableInSpan(span){
+        // Проверка на то, хранит ли в себе текстовый элемент значение переменной
+        async function CheckOnVariableInSpan(span){
             let regexp = new RegExp("{: .* :}")
             var regsovpad = regexp.exec(span.getAttribute('data-invis'));
             if(regexp.test(span.getAttribute('data-invis').trim())){
@@ -539,7 +555,8 @@
             }
         }
 
-        function OnAlignButtonClick(button){
+        // Обработчик нажатия на кнопки выравнивания
+        async function OnAlignButtonClick(button){
             for(let activeElement of document.querySelectorAll('.selectedParagraph')){
                 switch(button.id){
                     case 'leftAlign':
@@ -558,7 +575,8 @@
             }
         }
 
-        function ApplyAlign(element){
+        // Нажать на кнопки выравнивания в зависимости от стилевых настроек параграфа
+        async function ApplyAlign(element){
             try{
                 switch(element.style.textAlign){
                     case 'left':
@@ -583,7 +601,8 @@
             }
         }
 
-        function SetBold(){
+        // Задать жирность шрифта текстовому элементу
+        async function SetBold(){
             if(document.querySelector('.selectedRun')){
                 for(let activeElement of document.querySelectorAll('.selectedRun')){
                     if(btn_check_bold.checked)
@@ -603,7 +622,8 @@
             }
         }
 
-        function SetItalic(){
+    // Задать курсив шрифта текстовому элементу
+        async function SetItalic(){
             if(document.querySelector('.selectedRun')){
                 for(let activeElement of document.querySelectorAll('.selectedRun')){
                     if(btn_check_italic.checked)
@@ -623,7 +643,8 @@
             }
         }
 
-        function SetUnderline(){
+        // Задать подчёркивание шрифта текстовому элементу
+        async function SetUnderline(){
             if(document.querySelector('.selectedRun')){
                 for(let activeElement of document.querySelectorAll('.selectedRun')){
                     if(btn_check_underline.checked)
@@ -643,6 +664,7 @@
             }
         }
 
+        // Закрепить переменную
         async function FixVariable(evt){
             console.log(evt.target)
             console.log(evt.target.closest('.variable'))
@@ -655,6 +677,7 @@
             }
         }
 
+        // Создать элемент закреплённой переменной
         async function CreateFixedVariable(variable){
             var container = document.createElement('div');
             var name = document.createElement('span');
@@ -675,17 +698,20 @@
                     CheckOnVariableInSpan(span);
                 }
             }
+            // Устанавливаем аттрибут для поиска
             container.setAttribute('data-idVar', variable.getAttribute('data-idVar'));
             container.appendChild(name);
             container.appendChild(value);
             document.querySelector('#fixedVariablesList').appendChild(container);
         }
 
+        // Удалить элемент закреплённой переменной
         async function DeleteFixedVariable(variable){
             const fixVar = document.querySelector('.FixedVariableContainer[data-idVar="'+ variable.getAttribute('data-idVar') +'"]');
             document.querySelector('#fixedVariablesList').removeChild(fixVar);
         }
 
+        // Проверка на уникальность имени сохранённого элемента
         function CheckNameElementFromList(name){
             for(var elem of list_saved_sp.children){
                 if(elem.firstChild.firstChild.textContent == name)
@@ -694,6 +720,7 @@
             return true;
         }
 
+        // Проверка на уникальность ID сохранённого элемента
         function CheckIdElementFromList(id){
             for(var elem of list_saved_sp.children){
                 if(elem.id == id)
@@ -702,6 +729,7 @@
             return true;
         }
 
+        // Сохранение элемента в список сохранённых элементов
         function SaveElementToList(element, name, id){
             var list = document.getElementById("list_saved_sp");
             var divSmall = document.createElement("span");
@@ -783,6 +811,7 @@
             
         }
 
+        // Задать дефолтное значение всему в документе
         function SetDefault(){
             var spans = document.querySelectorAll(".runs");
             for(let span of spans){
@@ -800,6 +829,7 @@
             SetDragAndDrop();
         }
 
+        // Задать свойства работы Drag'n'Drop в документе
         function SetDragAndDrop(){
             var doc = document.querySelector(".mainDocument");
             doc.addEventListener('dragstart', function(evt) {
@@ -821,7 +851,6 @@
             });
 
             doc.addEventListener('drop', async function(evt){
-                // pretty simple -- but not for IE :(
                 if(evt.dataTransfer.files.length > 0){
                     console.log(evt.dataTransfer.files);
                 }
@@ -877,26 +906,32 @@
 
             doc.addEventListener('dragover', function(evt) {
                 try {
-                    evt.preventDefault();
-                    const currentElement = evt.target;
-                    const draggedElement = document.querySelector('.dragged')
-                    if(evt.clientY <= 180 && evt.clientY > 170)
+                    evt.preventDefault(); // Прерываем дефолтное реагирование браузера
+                    const currentElement = evt.target; // Элемент над которым находится перетаскиваемый объект
+                    const draggedElement = document.querySelector('.dragged') // Перетаскиваемый элемент
+                    // Прокручивание на краях документа
+                    if(evt.clientY <= 180 && evt.clientY > 170) 
                         window.scrollBy(0, -100);
                     else if(evt.clientY >= 700)
                         window.scrollBy(0, 100);
-                    if(evt.target.id == "list_saved" || evt.target.id == "list_saved_sp" || evt.target.classList.contains("list_saved_element")){
+                    // Если переносим в список сохранённых элементов
+                    if(currentElement.closest("#list_saved")){
                         list_saved.style.border = "2px dashed green";
                     }
+                    // Если перетаскиваемый элемент - текстовый элемент
                     if(draggedElement.classList.contains('runs')){
+                        // Есть ли возможность перенести?
                         const isMoveable = draggedElement !== currentElement &&
                         currentElement.classList.contains('runs');
+                        // Если нет, то проверяем может это параграф где пользователь навёлся на пустую область
                         if (!isMoveable) {
+                            // Если так и сть, то вставляем в параграф
                             if(currentElement.classList.contains('paragraph')){
                                 currentElement.appendChild(draggedElement);
                             }
                             return;
                         }
-
+                        // Функция для получения элемента, перед которым вставим перетаскиваемый элемент
                         const getNextElement = (cursorPosition, currentElement) => {
                             const currentElementCoord = currentElement.getBoundingClientRect();
                             const currentElementCenter = currentElementCoord.x + currentElementCoord.width / 2;
@@ -905,15 +940,17 @@
                                 currentElement.nextElementSibling;
                             return nextElement;
                         };
-                        
+                        // Получаем такой элемент
                         const nextElement = getNextElement(evt.clientX, currentElement);
+                        // Если элемент не пустой и перетаскиваемый элемент уже не является его левым соседом или им самим
                         if (nextElement &&
                             draggedElement === nextElement.previousElementSibling ||
                             draggedElement === nextElement){return;}
+                        // То вставляем перед этим элементом перетаскиваемый элемент
                         nextElement.parentNode.insertBefore(draggedElement, nextElement);
                         
                     }
-                    else{
+                    else{ // С параграфом то же самое
                         const isMoveable = draggedElement !== currentElement &&
                         currentElement.classList.contains('paragraph');
                         if (!isMoveable) {
@@ -942,7 +979,8 @@
             });
         }
 
-        function SetDefaultRun(run){
+        // Задать начальное значение текстовому элементу
+        async function SetDefaultRun(run){
             if(run.style.fontSize == ""){
                 run.style.fontSize = String(startFontSize + 3) + 'px';
             }
@@ -973,7 +1011,8 @@
                 run.setAttribute('data-invis', run.textContent);
         }
 
-        function setEndOfContenteditable(contentEditableElement)
+        // Поставить каретку в конец SPAN с аттрибутом contenteditable
+        async function setEndOfContenteditable(contentEditableElement)
         {
             var range,selection;
             if(document.createRange)
@@ -994,7 +1033,8 @@
             }
         }
 
-        function SetDefaultPar(paragraph){
+        // Задать начальное значение параграфу
+        async function SetDefaultPar(paragraph){
             paragraph.onclick = (evt) => {
                 if(!evt.target.classList.contains('paragraph'))
                     return;
@@ -1028,7 +1068,8 @@
             }
         }
 
-        function SetDefaultVariable(variable){
+        // Задать начальное значение переменной
+        async function SetDefaultVariable(variable){
             variable.getElementsByClassName('variable_name')[0].contentEditable = true;
             variable.getElementsByClassName('variable_mean')[0].oninput = function(){
                 var fixVar = document.querySelector('.FixedVariableContainer[data-idVar="'+ variable.getAttribute('data-idVar') +'"]')
@@ -1040,6 +1081,7 @@
             }
         }
 
+        // Вернуться к предыдущей версии
         async function ReturnToLastVersion(){
             var lastVers = lastVersions.pop();
 
@@ -1059,6 +1101,7 @@
             FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
         }
 
+        // Получить сгенерированный id
         function GetId(){
             list = Array.from(document.getElementsByClassName("docelement"));
             if(list.length == 0)
@@ -1076,6 +1119,7 @@
             return Number(splitted[splitted.length-1]) + 1
         }
 
+        // Добавить текстовый элемент после element
         async function AddRunAfter(element){
             var run = document.createElement("span");
             run.id = "r_"+GetId();
@@ -1089,6 +1133,7 @@
             return run;
         }
 
+        // Добавить текстовый элемент до element
         async function AddRunBefore(element){
             var run = document.createElement("span");
             run.id = "r_"+GetId();
@@ -1102,6 +1147,7 @@
             return run;
         }
 
+        // Добавить текстовый элемент в element
         async function AddRunTo(element){
             var run = document.createElement("span");
             run.id = "r_"+GetId();
@@ -1115,10 +1161,12 @@
             return run;
         }
 
+        // Функция sleep иногда полезна
         function sleep(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
         }
 
+        // Добавить параграф после element
         async function AddParagraphAfter(element){
             var paragraph = document.createElement("div");
             paragraph.id = "p_"+GetId();
@@ -1129,6 +1177,7 @@
             return paragraph;
         }
 
+        // Добавить параграф до element
         async function AddParagraphBefore(element){
             var paragraph = document.createElement("div");
             paragraph.id = "p_"+GetId();
@@ -1139,6 +1188,7 @@
             return paragraph;
         }
 
+        // Добавить параграф в element
         async function AddParagraphTo(element){
             var paragraph = document.createElement("div");
             paragraph.id = "p_"+GetId();
@@ -1149,6 +1199,7 @@
             return paragraph;
         }
 
+        // Обработчик нажатия на кнопку добавления параграфа
         async function ButtonAddParagraph_Click(){
             var activeParagraph = document.querySelectorAll('.selectedParagraph')
             activeParagraph = activeParagraph[activeParagraph.length - 1]
@@ -1159,6 +1210,7 @@
            
         }
 
+        // Обработчик нажатия на кнопку добавления текстового элемента
         async function ButtonAddRun_Click(){
             var activeRun = document.querySelector('.selectedRun')
             var activeParagraph = document.querySelector('.selectedParagraph')
@@ -1173,6 +1225,7 @@
             }
         }
 
+        // Функция, которая применяет стилевые настройки элемента и выставляет эти значения на меню
         async function ApplyStyleText(element){
             fontSizeElement.value = String(parseInt(element.style.fontSize.split("px")[0])-3);
             font_select.value = element.style.fontFamily.replaceAll('"', '');
@@ -1200,6 +1253,7 @@
             }
         }
 
+        // Выставляет в меню настройки отступа
         async function ApplyIndent(element){
             if(element.style.textIndent){
                 IndentElement.value = Number(element.style.textIndent.split('cm')[0]);
@@ -1210,6 +1264,7 @@
             }
         }
 
+        // Выставляет в меню настройки интервала
         async function ApplyInterval(element){
             if(element.style.lineHeight){
                 IntervalElement.value = Number(element.style.lineHeight)-0.2;
@@ -1220,8 +1275,7 @@
             }
         }
 
-
-
+        // Декоратор выставления настроек в меню
         async function ApplyMenu(element){
             ApplyStyleText(document.querySelector('.selectedRun'));
             ApplyAlign(document.querySelector('.selectedParagraph'));
@@ -1229,6 +1283,7 @@
             ApplyInterval(document.querySelector('.selectedParagraph'));
         }
 
+        // События изменения размера текста в меню
         async function SizeChanged(){
             if(document.querySelector('.selectedRun'))
                 document.querySelector('.selectedRun').style.fontSize = String(parseInt(fontSizeElement.value) + 3) + "px";
@@ -1237,6 +1292,7 @@
             }   
         }
 
+        // Событие изменения шрифта в меню
         async function FontChanged(){
             font_select.style.fontFamily = font_select.value;
             if(document.querySelector('.selectedRun'))
@@ -1246,22 +1302,26 @@
             }
         }
 
+        // Событие изменения отступа
         async function IndentChanged(){
             var indent = IndentElement.value;
             document.querySelector('.selectedParagraph').style.textIndent = Number(indent) + 'cm';
         }
 
+        // Событие изменения интервала
         async function IntervalChanged(){
             var interval = IntervalElement.value;
             document.querySelector('.selectedParagraph').style.lineHeight = Number(interval)+0.2;
         }
 
+        // Событие изменения цвета радиогруппы
         async function InputColor(colorInput){
             for(let child of colorInput.parentNode.nextElementSibling.firstElementChild.children){
                 document.querySelector('.tree_element[data-idElement="'+ child.getAttribute('data-idElement') +'"]').style.backgroundColor = colorInput.value;
             }
         }
 
+        // Функция создания элемента Радиогруппа
         function createRadioGroup(name, color1){
             var li = document.createElement('li');
             var div = document.createElement('div');
@@ -1303,10 +1363,12 @@
             return li;
         }
 
+        // Функция добавления радиогруппы
         async function addRadioGroup(){
             modal_radioGroup_list.appendChild(createRadioGroup());
         }
 
+        // Функция переводит ряды таблицы в JSON
         function TableRowToJSON(elem, id){
             var tds = [];
             for(let child of elem.children){
@@ -1316,11 +1378,13 @@
             return JSON.stringify({'id': "tr_"+id, 'childs': tds, 'style': op});
         }
 
+        // Функция переводит колонки таблицы в JSON
         function TableColumnToJSON(elem, id){
             let o = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
             return JSON.stringify({'text': elem.value, 'id': "tc_" + id, 'style': o , 'paragraph': ParagraphToJSON(elem.firstElementChild, 0)});
         }
 
+        // Функция переводит таблицы в JSON
         function TableToJSON(elem, id){
             var trs = [];
             var grid;
@@ -1342,6 +1406,7 @@
             return JSON.stringify({'id': elem.id, 'childs': trs, 'style': op, 'tableGrid': grid});
         }
 
+        // Функция переводит параграф в JSON
         function ParagraphToJSON(elem, id){
             var chil = [];
             for(let child of elem.children){
@@ -1353,12 +1418,14 @@
             return JSON.stringify({'id': elem.id, 'data-name': elem.getAttribute('data-name'), 'class': 'paragraph', 'childs': chil, 'style': op, 'hidden': elem.hidden});
         }
 
+        // Функция переводит элементы внутри параграфа в JSON
         function ChildrenToJSON(elem, id){
             let o = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
 
             return JSON.stringify({'text': elem.textContent, 'data-invis': elem.getAttribute('data-invis'), 'data-name': elem.getAttribute('data-name'), 'class': elem.classList[0], 'id': elem.id, 'style': o , 'attrib': elem.id, 'hidden': elem.hidden});
         }
 
+        // Функция переводит сохранённые элементы в JSON
         function SavedElementToJSON(list_elem, id1){
             var element = list_elem.firstChild.children[1];
             var inner = list_elem.firstChild.children[0].textContent;
@@ -1378,6 +1445,7 @@
             return lst;
         }
 
+        // Функция переводит список сохранённых элементов в JSON
         function ListSavedToJSON(){
             var chil = [];
             for(let list_elem of list_saved_sp.children)
@@ -1385,6 +1453,7 @@
             return chil;
         }
 
+        // Функция переводит переменную в JSON
         function VariableToJSON(variable){
             var name = variable.children[0].firstElementChild.textContent;
             var value = variable.children[1].firstElementChild.value;
@@ -1397,6 +1466,7 @@
             return lst;
         }
 
+        // Функция переводит все переменные в JSON
         function VariablesToJSON(){
             var chil = [];
             for(let variable of document.getElementsByClassName('variable'))
@@ -1404,12 +1474,14 @@
             return chil;
         }
 
+        // Функция переводит членов радиогруппы в JSON
         function RadioGroupMemberToJSON(child){
             var lst = {};
             lst['data-idElement'] = child.getAttribute('data-idElement');
             return lst;
         }
 
+        // Функция переводит радиогруппу в JSON
         function RadioGroupToJSON(radioGroup){
             var lst = {};
             var childs = [];
@@ -1423,6 +1495,7 @@
             return lst;
         }
 
+        // Функция переводит все радиогруппы в JSON
         function RadioGroupsToJSON(){
             var lst = {};
             var childs = [];
@@ -1434,6 +1507,7 @@
             return lst;
         }
 
+        // Функция переводит закреплённые переменные в JSON
         function GetFixedVariables(){
             var childs = [];
             for(let fixVar of document.querySelectorAll('.FixedVariableContainer')){
@@ -1443,6 +1517,7 @@
             return childs;
         }
 
+        // Функция создаёт JSON всего проекта документа
         function CreateJSON(){
             unsetActiveElements()
             body = document.getElementsByClassName("document")[0];
@@ -1478,6 +1553,7 @@
             });
         }
 
+        // Функция реагирует на клик в радиогруппе
         async function RadioInputChanged(evt){
             for(let other of document.querySelectorAll('input[name="'+ evt.target.name +'"]')){
                 var elem = document_main.querySelector('#'+other.parentElement.getAttribute('data-idElement')); 
@@ -1581,6 +1657,7 @@
             return tree_element;
         }
 
+        // Функция обновляет элемент в дереве
         async function UpdateTreeElement(tree_element){
             var element = document_main.querySelector('#'+tree_element.getAttribute('data-idElement'));
             var name = "";
@@ -1624,6 +1701,7 @@
             tree_element.querySelector('.tree_element_container').appendChild(tree_element_btn);
         }
 
+        // Функция удаляет элемент в дереве
         async function DeleteTreeElement(element){
             var tree_element = document.querySelector('.tree_element[data-idElement="'+ element.id +'"]')
             if(tree_element){
@@ -1631,6 +1709,7 @@
             }
         }
 
+        // Функция заполняет дерево
         async function FillTree(parent, childs){
             for(let child of childs){
                 var element = document.querySelector('.tree_element[data-idElement="'+ child.id +'"]')
@@ -1682,6 +1761,7 @@
             }
         }
 
+        // Функция создаёт элемент в списке элементов для радиогрупп
         function CreateTreeElementInRadio(id){
             var li = document.createElement('li');
             var span = document.createElement('span');
@@ -1694,17 +1774,20 @@
             return li;
         }
 
+        // Функция обновляет элементы дерева в списке радиогрупп
         async function UpdateTreeElementInRadio(id){
             var treeElementInRadio = document.querySelector('.TreeElementInModalList[data-idElement="'+ id +'"]');
             var treeElement = document.querySelector('.tree_element[data-idElement="'+ id +'"]')
             treeElementInRadio.firstElementChild.textContent = treeElement.children[1].textContent;
         }
 
+        // Функция удаляет элементы дерева в списке радиогрупп
         async function DeleteTreeElementInRadio(id){
             var treeElementInRadio = document.querySelector('.TreeElementInModalList[data-idElement="'+ id +'"]');
             treeElementInRadio.parentElement.removeChild(treeElementInRadio);
         }
 
+        // События на изменение текста в поле изменения текста
         span_value.oninput = function(event){
             var span =  document.querySelector('.selectedRun');
             if(!span.classList.contains('variable_ref')){
@@ -1714,6 +1797,7 @@
             CheckOnVariableInSpan(span);
         }
 
+        // Функция оповещает пользователя, что сохранение прошло успешно
         async function SaveComplete(){
             console.log("Сохранение прошло успешно");
             save_complete.style.display = "flex";
@@ -1722,10 +1806,12 @@
             }
         }
 
+        // Функция оповещает, что сохранение не было
         async function SaveNotComplete(){
             save_complete.style.display = "none";
         }
 
+        // Функция берёт скриншот документа для обложки
         async function TakeScreenShot(){
             $(function() { 
                 html2canvas($("#document_main")[0], {
@@ -1756,11 +1842,11 @@
             });
         }
 
+        // Функция сохраняет документ и обновляет файл на сервере
         async function UpdateFile(){
             unsetActiveElements();
             SaveListSaved();
             SaveVariables();
-            TakeScreenShot();
             $.ajax({
                 type: "POST",
                 url: "/document/update?id={{ Doc.id }}",
@@ -1768,8 +1854,12 @@
                 contentType: "application/json; charset=utf-8",
                 success: function(res, status, xhr){
                     switch (xhr.status){
+                        // Если всё успешно сохранилось
                         case 200:
-                            SaveComplete()
+                            // Уведомляем пользователя о сохранении
+                            SaveComplete();
+                            //Делаем скриншот текущего документа для обложки
+                            TakeScreenShot();
                             break;
                         case 304:
                             TextOfError.textContent = decodeURIComponent(escape(xhr.getResponseHeader('MessageOfError')));
@@ -1780,23 +1870,28 @@
                     
                 } 
             });
+            
         }
 
+        // Функция удаляет текстовый элемент и перебрасывает на предыдущий
         async function DeleteRun(run){
             let previousElement = run.previousElementSibling;
             let parent = run.parentElement;
             unsetActiveElements();
             DeleteTreeElement(run);
             parent.removeChild(run);
+            // Если параграф пустой после удаления то удаляем его тоже а выделение перемещаем на предыдущий параграф
             if(parent.children.length == 0){
                 let previousPar = parent.previousElementSibling;
                 DeleteTreeElement(parent);
                 parent.parentElement.removeChild(parent);
-                await sleep(50);
+                await sleep(50); //Нужно небольшое ожидание, иначе не успевает удалиться элемент
                 setActiveElement(previousPar.lastElementChild);
             }
+            // Если предыдущего элемента нет, значит нужно переключиться на предыдущий параграф
             else if(!previousElement){
                 let previousPar = parent.previousElementSibling;
+                await sleep(50);
                 setActiveElement(previousPar.lastElementChild);
             }
             else{
@@ -1805,10 +1900,12 @@
             }
         }
 
+        // Обработчик нажатия на кнопку сохранения
         document.getElementById("updateButton").onclick = function(evt){
             UpdateFile();
         }
 
+        // Создание обработчиков события для всех кнопок удаления элементов
         for(let btn of document.querySelectorAll('.deleteButton')){
             btn.onclick = function(){
                 SaveLastVersion();
@@ -1821,6 +1918,7 @@
             }
         }
 
+        // Функция для разделения текстового элемента на 3 части по выделению (слева от выделенного, выделенное, справа от выделенного)
         function splitRun(text){
             var selectedRun = document.querySelector('.selectedRun');
             if(selectedRun){
@@ -1843,6 +1941,7 @@
             }
         }
 
+        // Функция для объединения текстовых элементов в одно
         // function JoinRuns(){
         //     if(activeElements.length < 1)
         //         return;
@@ -1850,6 +1949,7 @@
         //     for()
         // }
 
+        // Фукнция для получения позиции каретки
         function getCaretPosition(editableDiv) {
             var caretPos = 0,
                 sel, range;
@@ -1879,7 +1979,7 @@
         document_main.addEventListener('keydown', async function(event){
                 var selectedRun = document.querySelector('.selectedRun');
                 switch(event.keyCode){
-                    case 8: // Нажатие на Backspace
+                    case 8: // Нажатие на Backspace. Стирание текста, удаление элемента, если пустой.
                         event.stopPropagation();
                         if(!redSpan)
                             return;
@@ -1888,7 +1988,7 @@
                             await DeleteRun(redSpan);
                         }
                         break;
-                    case 9:
+                    case 9: // Нажатие на Tab. Добавление нового текстового элемента
                         event.preventDefault();
                         event.stopPropagation();
                         if(!redSpan)
@@ -1899,7 +1999,7 @@
                         redSpan.contentEditable = false;
                         let run = AddRunAfter(redSpan);
                         break;
-                    case 13: // Нажатие на Enter
+                    case 13: // Нажатие на Enter. Добавление нового параграфа
                         event.preventDefault();
                         event.stopPropagation();
                         if(redSpan == undefined)
@@ -1909,7 +2009,7 @@
                         redSpan.contentEditable = false;
                         let paragraph = AddParagraphAfter(redSpan.parentElement)
                         break;
-                    case 37: // Нажатие на стрелочку влево 
+                    case 37: // Нажатие на стрелочку влево. Переключиться на левый элемент
                         if (event.ctrlKey || event.metaKey) { // Зажатый Ctrl
                             event.preventDefault();
                             event.stopPropagation();
@@ -1930,7 +2030,7 @@
                             }
                         }
                         break;
-                    case 38: // Нажатие на стрелочку вверх 
+                    case 38: // Нажатие на стрелочку вверх. Переключение на верхний параграф
                         if (event.ctrlKey || event.metaKey) { // Зажатый Ctrl
                             event.preventDefault();
                             event.stopPropagation();
@@ -1943,7 +2043,7 @@
                             setActiveElement(previousPar.firstElementChild);
                         }
                         break;
-                    case 39: // Нажатие на стрелочку вправо 
+                    case 39: // Нажатие на стрелочку вправо. Переключение на правый элемент
                         if (event.ctrlKey || event.metaKey) { // Зажатый Ctrl
                             event.preventDefault();
                             event.stopPropagation();
@@ -1964,7 +2064,7 @@
                             }
                         }
                         break;
-                    case 40: // Нажатие на стрелочку вниз 
+                    case 40: // Нажатие на стрелочку вниз. Переключение на нижний параграф
                         if (event.ctrlKey || event.metaKey) { // Зажатый Ctrl
                             event.preventDefault(); 
                             event.stopPropagation();
@@ -1977,7 +2077,7 @@
                             setActiveElement(nextPar.firstElementChild);
                         }
                         break;
-                    case 46: // Нажатие на Delete
+                    case 46: // Нажатие на Delete. Удаление элемента
                         event.preventDefault();
                         SaveLastVersion();
                         if(document.querySelector('.selectedRun'))
@@ -1986,13 +2086,13 @@
                         else
                             return;
                         break;
-                    case 81: // Нажатие на Q
+                    case 81: // Нажатие на Q. Разделение элемента
                         if (event.ctrlKey || event.metaKey) { // Зажатый Ctrl
                             event.preventDefault();
                             splitRun(window.getSelection().toString());
                         }
                         break;
-                    case 90: // Нажатие на Z
+                    case 90: // Нажатие на Z. Возвращение к предыдущему состоянию
                         if(event.ctrlKey || event.metaKey){ // Зажатый Ctrl
                             event.preventDefault();
                             ReturnToLastVersion();
@@ -2001,10 +2101,12 @@
                 }
             });
 
+        // Функция прячет контекстное меню на правую кнопку мыши
         function HideContextMenu(){
             context_menu.style.display = 'none';
         }
 
+        // Функция отображает контекстное меню на правую кнопку мыши
         function ShowContextMenu(event){
             event.preventDefault();
             if(context_menu.style.display == 'block')
@@ -2015,13 +2117,16 @@
                 context_menu.style.top = event.pageY + "px";          
             }
         }
-
+        
+        // Ставим контекстное меню
         document.oncontextmenu = ShowContextMenu;
 
+        // Обработка нажатия на левую кнопку мыши на всей странице
         document.addEventListener('click', function(event){
             HideContextMenu();
         });
 
+        // Обновление списка быстрого доступа к переменным
         function UpdateVariableList(){
             variable_list.innerHTML = "";
             var variables = document.getElementsByClassName('variable')
@@ -2033,6 +2138,7 @@
             }
         }
 
+        // Получаем переменные из JSON
         function VariableFromJSON(data) {
             var jsonp = JSON.parse(data);
             for(let [key, value] of Object.entries(jsonp)){
@@ -2040,6 +2146,7 @@
             }
         }
 
+        // Функция создаёт элемент переменной и добавляет в список
         function CreateNewVariable(id, name1, val, table){
             var tbody = document.querySelector('#'+table);
             var tr = document.createElement('tr');
@@ -2122,6 +2229,7 @@
             UpdateVariableList();
         }
 
+        // Функция сохраняет переменную в базу данных
         function SaveVariable(variable){
             $.ajax({
                 type: "POST",
@@ -2151,6 +2259,7 @@
             });
         }
 
+        // Функция сохраняет сохранённые элементы в базу данных
         function SaveSavedElement(list_elem){
             $.ajax({
                 type: "POST",
@@ -2164,6 +2273,7 @@
             });
         }
 
+        // Функция запускает сохранения элементов в базу данных
         function SaveListSaved(){
             try {
                 for(let list_elem of list_saved_sp.children)
@@ -2174,6 +2284,7 @@
             }
         }
 
+        // Функция сохраняет все переменные из таблицы
         function SaveVariables(){
             try {
                 for(let variable of document.getElementsByClassName('variable')){
@@ -2188,6 +2299,7 @@
             
         }
 
+        // Функция создаёт JSON строку с переменными организации
         function GetVariables(){
             var json_stroke = []
             for(let variable of document.querySelectorAll('.sql_variable_get')){
@@ -2204,6 +2316,7 @@
             return json_stroke
         }
 
+        // Функция заполняет переменные организации в документе данными из базы
         function GetFromDB(){
             $.ajax({
                 type: "POST",
@@ -2235,34 +2348,40 @@
             });
         }
 
+        // Обработчик нажатия на кнопку добавления новой переменной
         variable_add_btn.addEventListener('click', (evt)=>{
             CreateNewVariable(undefined, undefined, undefined, 'VariableMy');
         });
 
+        // Обработчик нажатия на кнопку сохранения переменных в базу данных
         save_variable_btn.addEventListener('click', (evt)=>{
             SaveVariables();
             variableModal.toggle();
         });
 
+        // Обработчик начала перетаскивания элементов в меню радиогрупп
         groupRadioModal.addEventListener('dragstart', (evt)=>{
             evt.dataTransfer.setData("Text", evt.target.getAttribute('data-idElement'));    
         });
 
+        // Функция добавления элемента в радиогруппу
         function ElementInRadioGroup(id_element, id_radioGroup){ 
             var element = document.querySelector('.tree_element[data-idElement="'+ id_element +'"]');
             var radioGroup = document.querySelector('#'+id_radioGroup);
-            element.firstElementChild.type = 'radio';
-            element.firstElementChild.name = id_radioGroup;
+            element.querySelector('input').type = 'radio';
+            element.querySelector('input').name = id_radioGroup;
             element.style.backgroundColor = radioGroup.previousElementSibling.lastElementChild.value;
         }
 
+        // Функция удаления элемента из радиогруппы
         function ElementDeleteFromRadioGroup(id_element){
             var element = document.querySelector('.tree_element[data-idElement="'+ id_element +'"]');
-            element.firstElementChild.type = 'checkbox';
-            element.firstElementChild.name = '';
+            element.querySelector('input').type = 'checkbox';
+            element.querySelector('input').name = '';
             element.style.backgroundColor = element.parentNode.style.backgroundColor;
         }
 
+        // Обработчик события для окончания переноса элемента в радиогруппу
         groupRadioModal.addEventListener('drop', (evt)=>{
             evt.preventDefault();
             var id = evt.dataTransfer.getData("Text");
@@ -2270,6 +2389,7 @@
             var radioGroup = evt.target.closest('.radioGroups');
             var treeElementList = evt.target.closest('#rightRadioMenu');
             var treeElement = evt.target.closest('.TreeElementInModalList')
+            // Если перенос осуществляется в радиогруппу, то добавляем туда
             if(radioGroup){
                 if(treeElement)
                     radioGroup.querySelector('ul').insertBefore(element, treeElement);
@@ -2278,6 +2398,7 @@
                 element.classList.add('radioted');
                 ElementInRadioGroup(element.getAttribute('data-idElement'), radioGroup.querySelector('.ulContainerRadioGroup').id);
             }  
+            // Если перенос осуществляется обратно в список, то удаляем из радиогрупп
             else if(treeElementList){
                 if(treeElement)
                     treeElementList.querySelector('ul').insertBefore(element, treeElement);
@@ -2288,12 +2409,15 @@
             }
         });
 
+        // Нужна, чтобы работал drop ивент
         groupRadioModal.addEventListener('dragover', (evt) => {
             evt.preventDefault();
         }, false);
 
+        // Стартовые значения
         var startFontSize = 14;
         var startFont = "Times New Roman"
+        //Объявляем переменные
         var lastVersions = new Stack();
         var redSpan = undefined;
         var list_save = [];
