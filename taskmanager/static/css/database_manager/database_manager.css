@@ -6,3 +6,79 @@
     padding: 10px;
     margin-top: 50px;
 }
+
+.ParamBlocks{
+    margin-top: 10px;
+    margin-bottom: 10px;    
+}
+
+.operationLogic{
+    margin-top: 15px;
+    margin-bottom: 10px;  
+}
+
+.table_container{
+    margin-top: 10px;
+    margin-bottom: 10px;
+    width: 100%;
+    max-height: 400px;
+    overflow: auto;
+}
+
+.hrBig{
+    border-top:2px solid black;
+    color: black;
+    opacity: .5;
+}
+
+.SQLColumns{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+#selectContainer{
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.operationLogicContainer{
+    margin-top: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.SQLtableSelect{
+    width: 300px;
+}
+
+.SQLTableResultSelect{
+    width: 300px;
+}
+
+.radioContainer{
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+#table_view{
+    border: 1px solid black;
+}
+
+td{
+    border: 1px solid black;
+}
+
+td:hover{
+    background-color:rgba(95, 158, 160, 0.623);
+}
+
+th{
+    border: 1px solid black;
+    text-align: center;
+    margin-left: 2px;
+    margin-right: 2px;
+}

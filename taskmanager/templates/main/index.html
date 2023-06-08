@@ -12,7 +12,7 @@
 
 {% block content %}
 <div class="main">
-    <h2>Мои документы</h2>
+    <h2>Последние документы</h2>
     <div class="containerOfDocument">
     {% if documentsOfUser %}
         <ul class="list_of_document">
@@ -43,7 +43,7 @@
     {% endif %}
     </div>
 
-    <h2>Документы {{ profile.organisation }}</h2>
+    <h2>Шаблоны организации</h2>
     <div class="containerOfDocument">
     {% if documentsOfOrganisation %}
         <ul class="list_of_document">
@@ -73,7 +73,7 @@
     {% endif %}
     </div>
 
-    <h2>Документы людей в {{ profile.organisation }}</h2>
+    <h2>Личные шаблоны сотрудников</h2>
     <div class="containerOfDocument">
     {% if documentOfAll %}
         <ul class="list_of_document">
@@ -129,15 +129,16 @@
         }
         function ClickOnDocument(evt){
             const parent = evt.target.closest('.doc_in_list');
-            location.href = "/document/view?id="+ parent.getAttribute('data-idDB') +"&type=0"
+            location.href = "/document/view?id="+ parent.getAttribute('data-iddb') +"&type=0"
         }
         function ClickOnDocumentAdd(evt){
             evt.stopPropagation();
             const parent = evt.target.closest('.doc_in_list');
+            console.log(parent)
             $.ajax({
                 type: "POST",
                 url: "/document/document_add",
-                data: JSON.stringify({'id': parent.getAttribute('data-idDB')}),
+                data: JSON.stringify({'id': parent.getAttribute('data-iddb')}),
                 contentType: "application/json; charset=utf-8",
                 success: function(res, status, xhr){
                     console.log(xhr.getResponseHeader('id'))

@@ -157,3 +157,6 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 os.environ['path'] = 'C:/oracle/instantclient_21_6'
+
+DATA_UPLOAD_MAX_MEMORY_SIZE = 524288000
+DATA_DOWNLOAD_MAX_MEMORY_SIZE = 524288000

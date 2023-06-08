@@ -4,7 +4,7 @@ import base64
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import CreateView
 from .models import Documents, Fonts, SavedElements, VariableBlock, DocType
-from database_manager.models import VariableSQLGet, VariableSQLSet, VariableSQLSet_VariableSQLGet
+from database_manager.models import Connection, VariableSQLGet, VariableSQLSet, VariableSQLSet_VariableSQLGet
 from .forms import DocumentForm
 from django.core.files.storage import FileSystemStorage
 import os
@@ -213,7 +213,8 @@ def AddDocumentToUser(request):
         
         document = Documents()
         documentToCopy = Documents.objects.get(id=stroke['id'])
-        document.name = documentToCopy.name
+        print(documentToCopy)
+        document.name = documentToCopy.name[:40]
         document.owner = profile
         document.type = documentToCopy.type
         document.description = documentToCopy.description
@@ -226,11 +227,15 @@ def AddDocumentToUser(request):
         doc_file.save(f"{settings.MEDIA_ROOT}/{file_url}")
         
         document.file = file_url
+        print(document.file)
         document.documentOfOrganisation = False
-        document.save()
-        print("#########", document.id)
-        response['id'] = document.id
-        return response
+        if document.save():
+            print("#########", document.id)
+            response['id'] = document.id
+            return response
+        else:
+            print('документ не сохранен')
+            return HttpResponseNotModified()
     except Exception as exc:
         print(exc)
         return HttpResponseNotModified()
@@ -290,7 +295,8 @@ def ViewDocument(request):
         'type': '0',
         'sql_var_set': VariableSQLSet.objects.all(),
         'sql_var_get': VariableSQLGet.objects.all(),
-        'sql_var_get_set': VariableSQLSet_VariableSQLGet.objects.all()
+        'sql_var_get_set': VariableSQLSet_VariableSQLGet.objects.all(),
+        'connections': Connection.objects.all()
     }
     if(request.GET.get('type') == '1'):
         document = Document(file_path)

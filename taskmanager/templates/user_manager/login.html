@@ -14,7 +14,7 @@
     <div class="form_control">
         <form method="post">
             {% csrf_token %}
-            <h4>Авторизация</h4>
+            <h4>Вход</h4>
             <input type="hidden" name="next" value="{{ next }}">
                 {{ form.non_field_errors }}
                 <div class="fieldWrapper">

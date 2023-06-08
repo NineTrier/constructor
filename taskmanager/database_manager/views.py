@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from .models import Connection, VariableSQLGet, VariableSQLSet, VariableSQLSet_VariableSQLGet
+from .models import Dialect, Connection, VariableSQLGet, VariableSQLSet, VariableSQLSet_VariableSQLGet
 from django.views.generic import CreateView
 from .forms import ConnectionForm, SQLVariableFormGet, SQLVariableFormSet
 from django.contrib.auth import views, models
@@ -31,13 +31,15 @@ class CreateConnection(CreateView):
     def post(self, request, *args, **kwargs):
         print(request.POST)
         connection = Connection()
-        connection.dialect = request.POST['dialect']
+        connection.name = request.POST['name']
+        connection.dialect = Dialect.objects.get(id=request.POST['dialect'])
         connection.username = request.POST['username']
         connection.password = request.POST['password']
         connection.host = request.POST['host']
         connection.port = request.POST['port']
         connection.service = request.POST['service']
         connection.save()
+        get_all_table(conn_id=connection.id)
         response = redirect(f'/database/setting_database/')
         return response
 
@@ -53,6 +55,7 @@ class CreateSQLVariableGet(CreateView):
     def get_context_data(self, *args, **kwargs):
         context = super(CreateSQLVariableGet, self).get_context_data(*args, **kwargs)
         context['sql_variables_set'] = VariableSQLSet.objects.all()
+        context['conn'] = Connection.objects.get(id=self.kwargs['pk'])
         if self.request.user.is_authenticated:
             context['profile'] = Profile.objects.filter(user=self.request.user)[0]
         return context
@@ -62,6 +65,7 @@ class CreateSQLVariableGet(CreateView):
         sqlVariable = VariableSQLGet()
         sqlVariable.name = request.POST['name']
         sqlVariable.sql = request.POST['sql']
+        sqlVariable.connection = Connection.objects.get(id=request.POST['connection'])
         sqlVariable.save()
         response = redirect(f'/database/setting_database/')
         return response
@@ -75,6 +79,7 @@ class CreateSQLVariableSet(CreateView):
 
     def get_context_data(self, *args, **kwargs):
         context = super(CreateSQLVariableSet, self).get_context_data(*args, **kwargs)
+        context['conn'] = Connection.objects.get(id=self.kwargs['pk'])
         if self.request.user.is_authenticated:
             context['profile'] = Profile.objects.filter(user=self.request.user)[0]
         return context
@@ -84,6 +89,7 @@ class CreateSQLVariableSet(CreateView):
         sqlVariable = VariableSQLSet()
         sqlVariable.name = request.POST['name']
         sqlVariable.sql = request.POST['sql']
+        sqlVariable.connection = Connection.objects.get(id=request.POST['connection'])
         sqlVariable.save()
         response = redirect(f'/database/setting_database/')
         return response
@@ -96,6 +102,7 @@ def SaveSqlVariableGet(request):
     sqlVariableGet = VariableSQLGet()
     sqlVariableGet.name = stroke['name']
     sqlVariableGet.sql = stroke['sql']
+    sqlVariableGet.connection = Connection.objects.get(id=stroke['connection'])
     sqlVariableGet.save()
     for regexp in re.findall(r'{: \d{1,5} :}', stroke['sql']):
         print(VariableSQLSet.objects.get(id=re.search(r'\d{1,5}', regexp)[0]))
@@ -201,33 +208,35 @@ def TestConnection(request):
         stroke = json.loads(request_data)
         print(stroke)
         conn = Connection.objects.get(id=stroke['con_id'])
-        ENGINE_PATH_WIN_AUTH = conn.dialect + '+' + 'cx_oracle' + '://' + conn.username + ':' + conn.password +'@' + conn.host + ':' + conn.port + '/?service_name=' + conn.service
+        if conn.dialect.id == 1:
+            ENGINE_PATH_WIN_AUTH = conn.dialect.name + '+' + conn.dialect.driver + '://' + conn.username + ':' + conn.password +'@' + conn.host + ':' + conn.port + '/?service_name=' + conn.service
+        else:
+            ENGINE_PATH_WIN_AUTH = conn.dialect.name + '+' + conn.dialect.driver + '://' + conn.username + ':' + conn.password +'@' + conn.host + ':' + conn.port + '/' + conn.service
         engine = create_engine(ENGINE_PATH_WIN_AUTH, pool_size=50, pool_pre_ping=True)
         
         connect = engine.connect()
         try:
             response = HttpResponse()
-            sql = text("SELECT Name FROM participant INNER JOIN case on participant.case = case.objectid inner join subject on "
-           "participant.subject = subject.objectid WHERE NUMAPPEAL = '04АП-1234/22'")
+            if conn.dialect.id == 1:
+                sql = text("SELECT 1 FROM DUAL")
+            else:
+                sql = text("SELECT 1")
             result = connect.execute(sql)
             for i, row in enumerate(result):
                 print(row)  
-            response['connection'] = '1'
-            
-            print(response.has_header)
             connect.close()
+            response['connection'] = json.dumps({'connection':'1'})
             return response
         except Exception as exc:
             response = HttpResponseNotModified()
             print(exc)
-            response['connection'] = '0'
-            print(response.has_header)
             connect.close()
+            response['connection'] = json.dumps({'connection':'0'})
             return response
     except Exception as exc:
         print(exc)
         response = HttpResponseNotModified()
-        response['connection'] = '0'
+        response['connection'] = json.dumps({'connection':'0'})
         return response
     
 @csrf_exempt
@@ -238,7 +247,10 @@ def TestGetFromDB(request):
         stroke = json.loads(request_data)
         print(stroke)
         conn = Connection.objects.get(id=stroke['con_id'])
-        ENGINE_PATH_WIN_AUTH = conn.dialect + '+' + 'cx_oracle' + '://' + conn.username + ':' + conn.password +'@' + conn.host + ':' + conn.port + '/?service_name=' + conn.service
+        if conn.dialect.id == 1:
+            ENGINE_PATH_WIN_AUTH = conn.dialect.name + '+' + conn.dialect.driver + '://' + conn.username + ':' + conn.password +'@' + conn.host + ':' + conn.port + '/?service_name=' + conn.service
+        else:
+            ENGINE_PATH_WIN_AUTH = conn.dialect.name + '+' + conn.dialect.driver + '://' + conn.username + ':' + conn.password +'@' + conn.host + ':' + conn.port + '/' + conn.service
         engine = create_engine(ENGINE_PATH_WIN_AUTH, pool_size=50, pool_pre_ping=True)
         connect = engine.connect()
         res = ""
@@ -262,3 +274,132 @@ def TestGetFromDB(request):
         print(exc)
         response = HttpResponseNotModified()
         return response
+
+@csrf_exempt 
+def GetFromDBByTable(request):
+    request_data = request.body
+    stroke = json.loads(request_data)
+    print(stroke)
+    if('where' in stroke):
+        return GetFromDBByTableWithWhere(stroke)
+    else:
+        return GetFromDBByTableWithoutWhere(stroke)
+
+
+def GetFromDBByTableWithoutWhere(stroke):
+    """Функция для получения данных из базы данных"""
+    try:
+        conn = Connection.objects.get(id=stroke['conn_id'])
+        if conn.dialect.id == 1:
+            ENGINE_PATH_WIN_AUTH = conn.dialect.name + '+' + conn.dialect.driver + '://' + conn.username + ':' + conn.password +'@' + conn.host + ':' + conn.port + '/?service_name=' + conn.service
+        else:
+            ENGINE_PATH_WIN_AUTH = conn.dialect.name + '+' + conn.dialect.driver + '://' + conn.username + ':' + conn.password +'@' + conn.host + ':' + conn.port + '/' + conn.service
+        engine = create_engine(ENGINE_PATH_WIN_AUTH, pool_size=50, pool_pre_ping=True)
+        connect = engine.connect()
+        tables = json.loads(conn.tables)
+        colnames = []
+        for table in stroke['tables']:
+            for col in tables[table]['columns']:
+                colnames.append(col['name'])
+
+        print(colnames)
+        res = []
+        response = HttpResponse()
+        if conn.dialect.id == 1:
+            result = connect.execute(text(f"SELECT * FROM {stroke['tableSQL']} WHERE ROWNUM <= 10"))
+        else:
+            result = connect.execute(text(f"SELECT * FROM {stroke['tableSQL']} LIMIT 10"))
+        for row in result:
+            print(row)
+            oneRow = {}
+            for i, col in enumerate(row):
+                oneRow[colnames[i]] = str(col)
+            res.append(oneRow)
+        response['result'] = json.dumps({'rows': res})
+        connect.close()
+        return response
+    except Exception as exc:
+        print(exc)
+        response = HttpResponseNotModified()
+        return response
+
+def GetFromDBByTableWithWhere(stroke):
+    """Функция для получения данных из базы данных"""
+    try:
+        conn = Connection.objects.get(id=stroke['conn_id'])
+        if conn.dialect.id == 1:
+            ENGINE_PATH_WIN_AUTH = conn.dialect.name + '+' + conn.dialect.driver + '://' + conn.username + ':' + conn.password +'@' + conn.host + ':' + conn.port + '/?service_name=' + conn.service
+        else:
+            ENGINE_PATH_WIN_AUTH = conn.dialect.name + '+' + conn.dialect.driver + '://' + conn.username + ':' + conn.password +'@' + conn.host + ':' + conn.port + '/' + conn.service
+        engine = create_engine(ENGINE_PATH_WIN_AUTH, pool_size=50, pool_pre_ping=True)
+        connect = engine.connect()
+        tables = json.loads(conn.tables)
+        colnames = []
+        for table in stroke['tables']:
+            for col in tables[table]['columns']:
+                colnames.append(col['name'])
+
+        print(colnames)
+        res = []
+        response = HttpResponse()
+        if conn.dialect.id == 1:
+            sqlRequest = f"SELECT * FROM {stroke['tableSQL']} WHERE {stroke['where']} AND ROWNUM <= 10"
+        else:
+            sqlRequest = f"SELECT * FROM {stroke['tableSQL']} WHERE {stroke['where']} LIMIT 10"
+        for key, value in stroke['sqlset'].items():
+            sqlRequest = sqlRequest.replace('{: '+ key +' :}', f"{VariableSQLSet.objects.get(id=key).sql}='{value}'")
+        print(sqlRequest)
+        result = connect.execute(text(sqlRequest))
+        for row in result:
+            print(row)
+            oneRow = {}
+            for i, col in enumerate(row):
+                oneRow[colnames[i]] = str(col)
+            res.append(oneRow)
+        response['result'] = json.dumps({'rows': res})
+        connect.close()
+        return response
+    except Exception as exc:
+        print(exc)
+        response = HttpResponseNotModified()
+        return response
+
+@csrf_exempt
+def update_table(request):
+    try:
+        request_data = request.body
+        stroke = json.loads(request_data)
+        print(stroke)
+        get_all_table(stroke['con_id'])
+        response = HttpResponse()
+        return response
+    except Exception as exc:
+        print(exc)
+        response = HttpResponseNotModified()
+        return response
+
+
+def get_all_table(conn_id):
+    try:
+        conn = Connection.objects.get(id=conn_id)
+        if conn.dialect.id == 1:
+            ENGINE_PATH_WIN_AUTH = conn.dialect.name + '+' + conn.dialect.driver + '://' + conn.username + ':' + conn.password +'@' + conn.host + ':' + conn.port + '/?service_name=' + conn.service
+        else:
+            ENGINE_PATH_WIN_AUTH = conn.dialect.name + '+' + conn.dialect.driver + '://' + conn.username + ':' + conn.password +'@' + conn.host + ':' + conn.port + '/' + conn.service
+        engine = create_engine(ENGINE_PATH_WIN_AUTH, pool_size=50, pool_pre_ping=True)
+        inspector = inspect(engine)
+        tables = {}
+        for table_name in inspector.get_table_names():
+            columns = []
+            print(table_name)
+            for column in inspector.get_columns(table_name):
+                columns.append({'name': f"{table_name}.{column['name']}", 'type': str(column['type'])})
+            fks = []
+            for fk in inspector.get_foreign_keys(table_name):
+                fks.append({'constrained_column': f"{table_name}.{fk['constrained_columns'][0]}", 'referr_table': fk['referred_table'], 'referr_column': f"{fk['referred_table']}.{fk['referred_columns'][0]}"})
+            tables[table_name] = {"columns": columns, "fks": fks}
+        print(tables)
+        conn.tables = json.dumps(tables)
+        conn.save()
+    except Exception as exc:
+        print(exc)

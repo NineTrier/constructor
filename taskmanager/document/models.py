@@ -84,3 +84,9 @@ class SavedElements(models.Model):
     class Meta:
         verbose_name = 'Сохраненный элемент'
         verbose_name_plural = 'Сохраненные элементы'
+
+
+class Document_ParentDocument(models.Model):
+    document = models.ForeignKey(Documents, on_delete=models.CASCADE, null=True, blank=True, related_name='document')
+    parent = models.ForeignKey(Documents, on_delete=models.CASCADE, null=True, blank=True, related_name='parent_document')
+    parentDocumentChanged = models.BooleanField(default=False, null=True, blank=True)

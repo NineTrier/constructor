@@ -13,7 +13,7 @@
 {% block content %}
 <div class="context-menu" id="context_menu">
     <div class="list-group">
-        <a class="list-group-item list-group-item-action" data-bs-toggle="modal" data-bs-target="#groupRadioModal" id="btnRadioGroup">Объединить в радиогруппу</a>
+        <a class="list-group-item list-group-item-action" data-bs-toggle="modal" data-bs-target="#groupRadioModal" id="btnRadioGroup">Объединить в альтернативу</a>
     </div>
 </div>
 <div id="context_add_menu" hidden="true">
@@ -111,6 +111,14 @@
         <div class="modal-body">
             <div class="list-container" id="table_oknapolya">
                 <h5>Переменные организации</h5>
+                <div class="fieldWrapper">
+                    <label for="connection_select">База данных:</label>
+                    <select id="connection_select" onchange="SelectDataBaseChanged();">
+                        {% for connection in connections %}
+                            <option value="{{ connection.id }}">{{ connection.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
                 <table class="table table-hover">
                   <thead>
                     <tr>
@@ -123,18 +131,18 @@
                   <tbody id="VariableOrganisation">
                     <tr><td colspan="3">Для поиска:</td></tr>
                     {% for var in sql_var_set %}
-                        <tr class="variable sql_variable sql_variable_set" data-idVar="{{ var.id }}">
+                        <tr class="variable sql_variable sql_variable_set" data-idVar="s:{{ var.id }}" data-idCon="{{ var.connection.id }}">
                             <td><span class="variable_name">{{ var }}</span></td>
                             <td><input class="variable_mean"></td>
-                            <td><input id="btn_thumbtack_{{ var.id }}" onchange="FixVariable(event);" type="checkbox" class="btn-check"><label class="btn btn-labeled" for="btn_thumbtack_{{ var.id }}"><i class="fa-solid fa-thumbtack"></i></label></td>
+                            <td><input id="btn_thumbtack_s:{{ var.id }}" onchange="FixVariable(event);" type="checkbox" class="btn-check"><label class="btn btn-labeled" for="btn_thumbtack_s:{{ var.id }}"><i class="fa-solid fa-thumbtack"></i></label></td>
                         </tr>
                     {% endfor %}
                     <tr><td colspan="3">Найденные значения:</td></tr>
                     {% for var in sql_var_get %}
-                        <tr class="variable sql_variable sql_variable_get" data-idVar="{{ var.id }}" data-idSet="{% for varSetGet in sql_var_get_set %}{% if varSetGet.variableGet == var %}{{ varSetGet.variableSet.id }};{% endif %}{% endfor %}">
+                        <tr class="variable sql_variable sql_variable_get" data-idVar="g:{{ var.id }}" data-idCon="{{ var.connection.id }}" data-idSet="{% for varSetGet in sql_var_get_set %}{% if varSetGet.variableGet == var %}{{ varSetGet.variableSet.id }};{% endif %}{% endfor %}">
                             <td><span class="variable_name">{{ var }}</span></td>
-                            <td><input class="variable_mean" readonly="true"></td>
-                            <td></td>
+                            <td><input class="variable_mean"></td>
+                            <td><input id="btn_thumbtack_g:{{ var.id }}" onchange="FixVariable(event);" type="checkbox" class="btn-check"><label class="btn btn-labeled" for="btn_thumbtack_g:{{ var.id }}"><i class="fa-solid fa-thumbtack"></i></label></td>
                         </tr>
                     {% endfor %}
                   </tbody>
@@ -167,7 +175,7 @@
     <div class="modal-dialog" id="modal_radioGroup">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="groupRadioModalLabel">Радио группы</h5>
+          <h5 class="modal-title" id="groupRadioModalLabel">Альтернативы</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
         </div>
         <div class="modal-body" id="modal_radioGroup_body">
@@ -180,7 +188,7 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-success" onclick="addRadioGroup();">Добавить радиогруппу</button>
+            <button class="btn btn-success" onclick="addRadioGroup();">Добавить альтернативу</button>
         </div>
       </div>
     </div>
@@ -293,6 +301,12 @@
         <a class="btn btn-labeled" data-bs-toggle="modal" data-bs-target="#variableModal">
             <i class="fa-solid fa-bolt"></i>
         </a>
+        <a class="btn btn-labeled" data-bs-toggle="modal" data-bs-target="#groupRadioModal">
+            <i class="fa-solid fa-list-check"></i>
+        </a>
+        <a class="btn btn-labeled" onclick="splitRun(window.getSelection());">
+            <i class="fa-solid fa-divide"></i>
+        </a>
     </div>
     <div id="fixedVariables">
         <h5>Закреплённые переменные</h5>
@@ -356,6 +370,43 @@
             else if(element.classList.contains('paragraph')){
                 var elements = element.querySelectorAll('.docelement')
                 setActiveElement(elements[elements.length-1]);
+            } 
+        }
+
+        // Функция, которая выделяет элемент
+        async function addActiveElement(element){
+            if(element.classList.contains('selected')){
+                element.classList.remove('selected')
+                if(element.classList.contains('runs')){
+                    element.classList.remove('selectedRun')
+                    element.parentElement.classList.remove('selectedPar')
+                }
+                else if(element.classList.contains('paragraph')){
+                    element.classList.remove('selectedPar')
+                    for(let activeRun of element.querySelectorAll('.selectedRun')){
+                        addActiveElement(activeRun);
+                    }
+                }
+                return
+            }
+            element.classList.add('selected');
+            // Если это текстовый элемент то выделяем его и ставим коретку в конец
+            if(element.classList.contains('runs')){
+                element.classList.add('selectedRun');
+                element.parentElement.classList.add('selectedParagraph')
+                ParagraphBottomContextMenu(element.parentElement);
+                // redSpan = element;
+                // element.contentEditable = true;
+                ApplyMenu(element)
+                await setEndOfContenteditable(element);
+            }
+            // Если параграф то запускаем эту функцию с последним элементом
+            else if(element.classList.contains('paragraph')){
+                element.classList.add('selectedParagraph')
+                var elements = element.querySelectorAll('.docelement')
+                for(let elem of elements){
+                    elem.classList.add('selectedRun')
+                }
             } 
         }
 
@@ -472,12 +523,18 @@
         async function FixedVariablesFromJSON(data) {
             try {
                 var jsonp = JSON.parse(data);
+                console.log(jsonp);
                 for(let element of jsonp['fixedVariable']){
                     const variable = document.querySelector('.variable[data-idVar="'+ element['id'] +'"]')
+                    if(!variable){
+                        continue;
+                    }
+                    console.log(variable)
                     CreateFixedVariable(variable)
-                    variable.querySelector('#btn_thumbtack_'+element['id']).checked = true;
+                    variable.querySelector('input[id^="btn_thumbtack_"]').checked = true;
                 }
             } catch (error) {
+                console.log(error)
                 return;
             }
         }
@@ -517,6 +574,7 @@
 
         // Сохраняет в стек текущую версию
         async function SaveLastVersion(){
+            console.log('Привет!')
             var arr = []
             for(let child of document.getElementsByClassName("document")[0].children){
                 arr.push(child.cloneNode(true));
@@ -603,65 +661,106 @@
 
         // Задать жирность шрифта текстовому элементу
         async function SetBold(){
-            if(document.querySelector('.selectedRun')){
-                for(let activeElement of document.querySelectorAll('.selectedRun')){
+            for(let activeElement of document.querySelectorAll('.selected')){
+                if(activeElement.classList.contains('runs')){
                     if(btn_check_bold.checked)
                         activeElement.style.fontWeight = "bold";
                     else
                         activeElement.style.fontWeight = "normal";
                 }
-            }
-            else{
-                for(let activeElement of document.querySelectorAll('.selectedParagraph'))
-                    for(let run of activeElement.children){
+                else if(activeElement.classList.contains('paragraph')){
+                    for(let activeRun of activeElement.querySelectorAll('.selectedRun')){
                         if(btn_check_bold.checked)
-                            run.style.fontWeight = "bold";
+                            activeRun.style.fontWeight = "bold";
                         else
-                            run.style.fontWeight = "normal";
+                            activeRun.style.fontWeight = "normal";
                     }
+                }
             }
+            // else{
+            //     for(let activeElement of document.querySelectorAll('.selectedParagraph'))
+            //         for(let run of activeElement.children){
+            //             if(btn_check_bold.checked)
+            //                 run.style.fontWeight = "bold";
+            //             else
+            //                 run.style.fontWeight = "normal";
+            //         }
+            // }
         }
 
     // Задать курсив шрифта текстовому элементу
         async function SetItalic(){
-            if(document.querySelector('.selectedRun')){
-                for(let activeElement of document.querySelectorAll('.selectedRun')){
+            for(let activeElement of document.querySelectorAll('.selected')){
+                if(activeElement.classList.contains('runs')){
                     if(btn_check_italic.checked)
                         activeElement.style.fontStyle = "italic";
                     else
                         activeElement.style.fontStyle = "normal";
-                    }
-            }
-            else{
-                for(let activeElement of document.querySelectorAll('.selectedParagraph'))
-                    for(let run of activeElement.children){
+                }
+                else if(activeElement.classList.contains('paragraph')){
+                    for(let activeRun of activeElement.querySelectorAll('.selectedRun')){
                         if(btn_check_italic.checked)
-                            run.style.fontStyle = "italic";
+                            activeRun.style.fontStyle = "italic";
                         else
-                            run.style.fontStyle = "normal";
+                            activeRun.style.fontStyle = "normal";
                     }
+                }
             }
+            // if(document.querySelector('.selectedRun')){
+            //     for(let activeElement of document.querySelectorAll('.selectedRun')){
+            //         if(btn_check_italic.checked)
+            //             activeElement.style.fontStyle = "italic";
+            //         else
+            //             activeElement.style.fontStyle = "normal";
+            //         }
+            // }
+            // else{
+            //     for(let activeElement of document.querySelectorAll('.selectedParagraph'))
+            //         for(let run of activeElement.children){
+            //             if(btn_check_italic.checked)
+            //                 run.style.fontStyle = "italic";
+            //             else
+            //                 run.style.fontStyle = "normal";
+            //         }
+            // }
         }
 
         // Задать подчёркивание шрифта текстовому элементу
         async function SetUnderline(){
-            if(document.querySelector('.selectedRun')){
-                for(let activeElement of document.querySelectorAll('.selectedRun')){
+            for(let activeElement of document.querySelectorAll('.selected')){
+                if(activeElement.classList.contains('runs')){
                     if(btn_check_underline.checked)
                         activeElement.style.textDecoration = "underline";
                     else
                         activeElement.style.textDecoration = "none";
                 }
-            }
-            else{
-                for(let activeElement of document.querySelectorAll('.selectedParagraph'))
-                    for(let run of activeElement.children){
+                else if(activeElement.classList.contains('paragraph')){
+                    for(let activeRun of activeElement.querySelectorAll('.selectedRun')){
                         if(btn_check_underline.checked)
-                            run.style.textDecoration = "underline";
+                            activeRun.style.textDecoration = "underline";
                         else
-                            run.style.textDecoration = "none";
+                            activeRun.style.textDecoration = "none";
                     }
+                }
             }
+
+            // if(document.querySelector('.selectedRun')){
+            //     for(let activeElement of document.querySelectorAll('.selectedRun')){
+            //         if(btn_check_underline.checked)
+            //             activeElement.style.textDecoration = "underline";
+            //         else
+            //             activeElement.style.textDecoration = "none";
+            //     }
+            // }
+            // else{
+            //     for(let activeElement of document.querySelectorAll('.selectedParagraph'))
+            //         for(let run of activeElement.children){
+            //             if(btn_check_underline.checked)
+            //                 run.style.textDecoration = "underline";
+            //             else
+            //                 run.style.textDecoration = "none";
+            //         }
+            // }
         }
 
         // Закрепить переменную
@@ -698,6 +797,7 @@
                     CheckOnVariableInSpan(span);
                 }
             }
+            console.log(variable)
             // Устанавливаем аттрибут для поиска
             container.setAttribute('data-idVar', variable.getAttribute('data-idVar'));
             container.appendChild(name);
@@ -838,19 +938,22 @@
                 setActiveElement(evt.target);
                 evt.target.classList.add('dragged');
                 evt.dataTransfer.setData('id', evt.target.id);
+                evt.stopPropagation();
+                SaveLastVersion();
             });
             doc.addEventListener('dragend', function(evt) {
                 try {
-                    SaveLastVersion();
+                    
                     document.querySelector('.dragged').classList.remove('dragged')
                     
                 } catch (error) {
-                    list_saved.style.border = "";
+                    // list_saved.style.border = "";
                     return
                 }
             });
 
             doc.addEventListener('drop', async function(evt){
+                evt.stopPropagation();
                 if(evt.dataTransfer.files.length > 0){
                     console.log(evt.dataTransfer.files);
                 }
@@ -860,49 +963,51 @@
                 var id = evt.dataTransfer.getData('id');
                 console.log(id);
                 var type = evt.dataTransfer.getData('type');
-                if(evt.target.closest('#list_saved')){
-                    if(draggedElement.querySelector('#context_add_menu')){
-                        draggedElement.querySelector('#context_add_menu').hidden = true;
-                        document_main.appendChild(draggedElement.querySelector('#context_add_menu'));
-                    }
-                    SaveElementToList(draggedElement, undefined, undefined);
-                    SaveListSaved();
-                    list_saved.style.border = "";
-                    document.querySelector('.dragged').classList.remove('dragged')
+                var spans = document_main.getElementsByClassName('runs');
+                for(let span of spans){
+                    CheckOnVariableInSpan(span);
                 }
-                if(type == 'saved'){
-                    var element = draggedElement.cloneNode(true);
-                    var paragraph = evt.target.closest('.paragraph');
-                    console.log(element);
-                    if(element.classList.contains('runs')){
-                        if(paragraph){
-                            paragraph.appendChild(element);
-                            element.removeAttribute('hidden');
-                            SetDefaultRun(element);
-                            var span = document.getElementById(element.id);
-                            if(span && span !== element)
-                                element.id = "r_"+GetId();
-                        } 
-                    }
-                    else if(element.classList.contains('paragraph')){
-                        if(paragraph){
-                            paragraph.parentElement.insertBefore(element, paragraph);
-                            element.removeAttribute('hidden');
-                            SetDefaultPar(element);
-                            element.id = "p_"+GetId();
-                        }
-                    }
-                    var spans = document_main.getElementsByClassName('runs');
-                    for(let span of spans){
-                        CheckOnVariableInSpan(span);
-                    }
-                }
-                list_saved.style.border = "";
+                // if(evt.target.closest('#list_saved')){
+                //     if(draggedElement.querySelector('#context_add_menu')){
+                //         draggedElement.querySelector('#context_add_menu').hidden = true;
+                //         document_main.appendChild(draggedElement.querySelector('#context_add_menu'));
+                //     }
+                //     SaveElementToList(draggedElement, undefined, undefined);
+                //     SaveListSaved();
+                //     list_saved.style.border = "";
+                //     document.querySelector('.dragged').classList.remove('dragged')
+                // }
+                // if(type == 'saved'){
+                //     var element = draggedElement.cloneNode(true);
+                //     var paragraph = evt.target.closest('.paragraph');
+                //     console.log(element);
+                //     if(element.classList.contains('runs')){
+                //         if(paragraph){
+                //             paragraph.appendChild(element);
+                //             element.removeAttribute('hidden');
+                //             SetDefaultRun(element);
+                //             var span = document.getElementById(element.id);
+                //             if(span && span !== element)
+                //                 element.id = "r_"+GetId();
+                //         } 
+                //     }
+                //     else if(element.classList.contains('paragraph')){
+                //         if(paragraph){
+                //             paragraph.parentElement.insertBefore(element, paragraph);
+                //             element.removeAttribute('hidden');
+                //             SetDefaultPar(element);
+                //             element.id = "p_"+GetId();
+                //         }
+                //     }
+                    
+                //}
+                // list_saved.style.border = "";
+                
             });
 
-            doc.addEventListener('dragleave', function(evt){
-                list_saved.style.border = "";
-            });
+            // doc.addEventListener('dragleave', function(evt){
+            //     list_saved.style.border = "";
+            // });
 
             doc.addEventListener('dragover', function(evt) {
                 try {
@@ -915,9 +1020,9 @@
                     else if(evt.clientY >= 700)
                         window.scrollBy(0, 100);
                     // Если переносим в список сохранённых элементов
-                    if(currentElement.closest("#list_saved")){
-                        list_saved.style.border = "2px dashed green";
-                    }
+                    // if(currentElement.closest("#list_saved")){
+                    //     list_saved.style.border = "2px dashed green";
+                    // }
                     // Если перетаскиваемый элемент - текстовый элемент
                     if(draggedElement.classList.contains('runs')){
                         // Есть ли возможность перенести?
@@ -989,7 +1094,7 @@
             }
             run.onclick = function(event){
                 if(event.ctrlKey || event.metaKey){
-                    //AddActiveInArray(run);
+                    addActiveElement(run);
                 }
                 else{
                     setActiveElement(run)
@@ -1002,6 +1107,7 @@
             }
             run.classList.add("runs");
             run.classList.add("docelement");
+            run.setAttribute("data-name", "")
             if(document.querySelector('#btn_check_nothidden').checked){
                 run.classList.add('docelementNotHidden');
             }
@@ -1038,7 +1144,12 @@
             paragraph.onclick = (evt) => {
                 if(!evt.target.classList.contains('paragraph'))
                     return;
-                setActiveElement(evt.target)
+                if(event.ctrlKey || event.metaKey){
+                    addActiveElement(paragraph);
+                }
+                else{
+                    setActiveElement(paragraph)
+                }
             }
             paragraph.ondblclick = (evt)=>{
                 if(paragraph.children.length == 0){
@@ -1059,6 +1170,7 @@
             }
             paragraph.classList.add("paragraph");
             paragraph.classList.add("docelement");
+            paragraph.setAttribute("data-name", "")
             if(document.querySelector('#btn_check_nothidden').checked){
                 paragraph.classList.add('docelementNotHidden');
             }
@@ -1084,7 +1196,7 @@
         // Вернуться к предыдущей версии
         async function ReturnToLastVersion(){
             var lastVers = lastVersions.pop();
-
+            console.log(lastVers)
             if( lastVers == undefined){
                 return;
             }
@@ -1459,7 +1571,11 @@
         function VariableToJSON(variable){
             var name = variable.children[0].firstElementChild.textContent;
             var value = variable.children[1].firstElementChild.value;
-            var id = variable.getAttribute('data-idVar');
+            if(variable.getAttribute('data-idVar') == '-1')
+                var id = variable.getAttribute('data-idVar');
+            else
+                var id = variable.getAttribute('data-idVar').split(';')[1];
+            console.log(id)
             var lst = {};
             lst['id'] = id;
             lst['name'] = name;
@@ -1546,7 +1662,7 @@
             $.ajax({
                 type: "POST",
                 url: "/document/variable/delete",
-                data: JSON.stringify({'id': variable.getAttribute('data-idVar')}),
+                data: JSON.stringify({'id': variable.getAttribute('data-idVar').split(':')[1]}),
                 contentType: "application/json; charset=utf-8",
                 success: function(res, status, xhr){
                     variable.parentNode.removeChild(variable);
@@ -1558,10 +1674,10 @@
         // Функция реагирует на клик в радиогруппе
         async function RadioInputChanged(evt){
             for(let other of document.querySelectorAll('input[name="'+ evt.target.name +'"]')){
-                var elem = document_main.querySelector('#'+other.parentElement.getAttribute('data-idElement')); 
+                var elem = document_main.querySelector('#'+other.closest('.tree_element').getAttribute('data-idElement')); 
                 elem.hidden = !other.checked;
-                if(other.parentElement.classList.contains('tree_element')){
-                    for(let run of other.parentElement.lastElementChild.children){
+                if(other.closest('.tree_element').querySelector('ul')){
+                    for(let run of other.closest('.tree_element').querySelector('ul').children){
                         run.firstElementChild.disabled = !other.parentElement.firstElementChild.checked;
                         run.firstElementChild.readonly = !other.parentElement.firstElementChild.checked;
                     }
@@ -1596,8 +1712,8 @@
                 evt.stopPropagation();
                 var element = document_main.querySelector('#' + evt.target.closest('.tree_element').getAttribute('data-idElement'));
                 element.hidden = !evt.target.checked;
-                if(evt.target.closest('.tree_element')){
-                    for(let run of evt.target.closest('.tree_element').lastElementChild.children){
+                if(evt.target.closest('.tree_element').querySelector('ul')){
+                    for(let run of evt.target.closest('.tree_element').querySelector('ul').children){
                         run.firstElementChild.disabled = !evt.target.checked;
                         run.firstElementChild.readonly = !evt.target.checked;
                         console.log(run)
@@ -1609,19 +1725,14 @@
                 }
             }
             //Заполняем лейбл
-            if(element.getAttribute('data-name') == 'undefined' || element.getAttribute('data-name') == null){
-                element.setAttribute('data-name', name); 
-                tree_element_label.textContent = name;
-            }
-            else{
-                tree_element_label.textContent = name;
-            }
+            tree_element_label.textContent = name;
+
             tree_element_label.contentEditable = true;
             tree_element_label.classList.add('tree_element_label');
             tree_element_label.oninput = (evt) => {
-                var element = document_main.querySelector('#' + evt.target.parentElement.getAttribute('data-idElement'));
+                var element = document_main.querySelector('#' + evt.target.closest('.tree_element').getAttribute('data-idElement'));
                 element.setAttribute('data-name', tree_element_label.textContent);
-                UpdateTreeElementInRadio(tree_element);
+                UpdateTreeElementInRadio(evt.target.closest('.tree_element').getAttribute('data-idElement'));
             }
 
             if(element.querySelectorAll('.docelement').length > 0){
@@ -1629,7 +1740,7 @@
                 tree_element_btn.classList.add('btn-labeled');
                 var i = document.createElement('i')
                 i.classList.add('fa-solid');
-                i.classList.add('fa-caret-down');
+                i.classList.add('fa-caret-right');
                 tree_element_btn.appendChild(i);
                 tree_element_btn.addEventListener('click', (evt)=>{
                     evt.stopPropagation();
@@ -1717,13 +1828,18 @@
                 var element = document.querySelector('.tree_element[data-idElement="'+ child.id +'"]')
                 if(!element){
                     var name = "";
-                    if(child.classList.contains('paragraph')){
-                        for(let run of child.querySelectorAll('.docelement')){
-                            name += run.textContent + " ";
+                    if(child.getAttribute('data-name').trim() == "" || child.getAttribute('data-name').trim() == 'null'){
+                        if(child.classList.contains('paragraph')){
+                            for(let run of child.querySelectorAll('.docelement')){
+                                name += run.textContent + " ";
+                            }
                         }
+                        else
+                            name = child.textContent
                     }
-                    else
-                        name = child.textContent
+                    else{
+                        name = child.getAttribute('data-name')
+                    }
                     var tree_element = CreateTreeElement(child, name)
                     // if(!child.getAttribute('data-name'))
                     //     var tree_element = CreateTreeElement(child, 'Элемент ' + child.id);
@@ -1733,8 +1849,10 @@
                         var ul = document.createElement('ul');
                         ul.classList.add('list-group-flush');
                         ul.classList.add('collapse')
+                        ul.classList.add('show')
                         FillTree(ul, child.querySelectorAll('.docelement'));
                         tree_element.appendChild(ul);
+                        
                     }
                     if (child.nextElementSibling){
                         var element_before_add = document.querySelector('.tree_element[data-idElement="'+ child.nextElementSibling.id +'"]')
@@ -1767,7 +1885,22 @@
         function CreateTreeElementInRadio(id){
             var li = document.createElement('li');
             var span = document.createElement('span');
-            span.textContent = document.querySelector('#'+id).getAttribute('data-name');
+            var child = document.querySelector('#'+id);
+            var name = "";
+            if(child.getAttribute('data-name').trim() == "" || child.getAttribute('data-name').trim() == 'null'){
+                if(child.classList.contains('paragraph')){
+                    for(let run of child.querySelectorAll('.docelement')){
+                        name += run.textContent + " ";
+                    }
+                }
+                else
+                    name = child.textContent
+            }
+            else{
+                name = child.getAttribute('data-name')
+            }
+            span.textContent = name;
+            span.classList.add('treeElementInRadioLabel');
             li.setAttribute('data-idElement', id);
             li.classList.add('list-group-item');
             li.classList.add('TreeElementInModalList');
@@ -1780,7 +1913,7 @@
         async function UpdateTreeElementInRadio(id){
             var treeElementInRadio = document.querySelector('.TreeElementInModalList[data-idElement="'+ id +'"]');
             var treeElement = document.querySelector('.tree_element[data-idElement="'+ id +'"]')
-            treeElementInRadio.firstElementChild.textContent = treeElement.children[1].textContent;
+            treeElementInRadio.firstElementChild.textContent = treeElement.querySelector('.tree_element_label').textContent;
         }
 
         // Функция удаляет элементы дерева в списке радиогрупп
@@ -1912,8 +2045,7 @@
             btn.onclick = function(){
                 SaveLastVersion();
                 if(document.querySelector('.selectedRun')){
-                    if(confirm('Вы точно хотите удалить?'))
-                        DeleteRun(document.querySelector('.selectedRun'));
+                    DeleteRun(document.querySelector('.selectedRun'));
                 }
                 else
                     return;
@@ -1923,8 +2055,11 @@
         // Функция для разделения текстового элемента на 3 части по выделению (слева от выделенного, выделенное, справа от выделенного)
         function splitRun(text){
             var selectedRun = document.querySelector('.selectedRun');
+            var indexStart = text.anchorOffset;
+            var indexEnd = text.extentOffset;
+            console.log(indexStart, indexEnd)
             if(selectedRun){
-                var run_splitted = selectedRun.textContent.split(text);
+                var run_splitted = [selectedRun.textContent.substring(0, indexStart), selectedRun.textContent.substring(indexEnd)];
                 var run1 = selectedRun.cloneNode(true);
                 var run2 = selectedRun.cloneNode(true);
                 run1.textContent = text;
@@ -1940,6 +2075,8 @@
                 SetDefaultRun(run2);
                 selectedRun.parentElement.insertBefore(run2, selectedRun.nextElementSibling);
                 selectedRun.parentElement.insertBefore(run1, selectedRun.nextElementSibling);  
+                unsetActiveElements();
+                setActiveElement(selectedRun);
             }
         }
 
@@ -2023,7 +2160,7 @@
                                 return;
                             let previousElement = redSpan.previousElementSibling;
                             let parent = redSpan.parentElement;
-                            if(!previousElement){
+                            if(!previousElement || !previousElement.classList.contains('docelement')){
                                 let previousPar = parent.previousElementSibling;
                                 if(!previousPar || !previousPar.classList.contains('docelement'))
                                     return;
@@ -2057,7 +2194,7 @@
                                 return;
                             let nextElement = redSpan.nextElementSibling;
                             let parent = redSpan.parentElement;
-                            if(!nextElement){
+                            if(!nextElement || !nextElement.classList.contains('docelement')){
                                 let nextPar = parent.nextElementSibling;
                                 if(!nextPar || !nextPar.classList.contains('docelement'))
                                     return;
@@ -2087,19 +2224,19 @@
                         event.preventDefault();
                         SaveLastVersion();
                         if(document.querySelector('.selectedRun'))
-                            if(confirm('Вы точно хотите удалить?'))
-                                DeleteRun(document.querySelector('.selectedRun'));
+                            DeleteRun(document.querySelector('.selectedRun'));
                         else
                             return;
                         break;
                     case 81: // Нажатие на Q. Разделение элемента
                         if (event.ctrlKey || event.metaKey) { // Зажатый Ctrl
                             event.preventDefault();
-                            splitRun(window.getSelection().toString());
+                            splitRun(window.getSelection());
                         }
                         break;
                     case 90: // Нажатие на Z. Возвращение к предыдущему состоянию
                         if(event.ctrlKey || event.metaKey){ // Зажатый Ctrl
+                            console.log('Нажат ctrl+z')
                             event.preventDefault();
                             ReturnToLastVersion();
                         }
@@ -2158,7 +2295,7 @@
             var tr = document.createElement('tr');
             tr.classList.add('variable');
             if(id != undefined)
-                tr.setAttribute('data-idVar', id);
+                tr.setAttribute('data-idVar', 'self;'+id);
             else
                 tr.setAttribute('data-idVar', '-1');
             var tdn = document.createElement('td');
@@ -2245,7 +2382,7 @@
                 success: function(res, status, xhr){
                     switch (xhr.status){
                         case 200:
-                            variable.setAttribute('data-idVar', xhr.getResponseHeader('id'));
+                            variable.setAttribute('data-idVar', 'self;'+xhr.getResponseHeader('id'));
                             variable.style.backgroundColor = "white";
                             console.log(variable.querySelector('.btn_thumb'));
                             console.log(variable.querySelector('.btn_thumb_label'));
@@ -2312,46 +2449,65 @@
                 var set_ids = []
                 for(let varSetId of variable.getAttribute('data-idSet').split(';')){
                     try {
-                        set_ids.push({'id': varSetId, 'value': document.querySelector('.sql_variable_set[data-idVar="'+ varSetId +'"] .variable_mean').value});
+                        console.log('s:'+ varSetId)
+                        set_ids.push({'id': varSetId, 'value': document.querySelector('.sql_variable_set[data-idVar="s:'+ varSetId +'"] .variable_mean').value});
                     } catch (error) {
+                        console.log(error)
                         continue;
                     }
                 }
-                json_stroke.push({'get_id': variable.getAttribute('data-idVar'), 'set_ids': set_ids})
+                json_stroke.push({'get_id': variable.getAttribute('data-idVar').split(':')[1], 'set_ids': set_ids})
             }
+            console.log(json_stroke)
             return json_stroke
         }
 
         // Функция заполняет переменные организации в документе данными из базы
         function GetFromDB(){
-            $.ajax({
-                type: "POST",
-                url: "{% url 'test_get' %}",
-                data: JSON.stringify({'con_id': '1', 'variables': GetVariables()}),
-                contentType: "application/json; charset=utf-8",
-                success: function(res, status, xhr){
-                    switch(xhr.status){
-                        case 200:
-                            var res = decodeURIComponent(escape(xhr.getResponseHeader('result')))
-                            for(let r of res.split(';')){
-                                try {
-                                    var id = r.split(':')[0]
-                                    var val = r.split(':')[1]
-                                    document.querySelector('.sql_variable_get[data-idVar="'+ id +'"] .variable_mean').value = val
+            for(let conn of document.querySelector('#connection_select').children){
+                $.ajax({
+                    type: "POST",
+                    url: "{% url 'test_get' %}",
+                    data: JSON.stringify({'con_id': conn.value, 'variables': GetVariables()}),
+                    contentType: "application/json; charset=utf-8",
+                    success: function(res, status, xhr){
+                        switch(xhr.status){
+                            case 200:
+                                var res = decodeURIComponent(escape(xhr.getResponseHeader('result')))
+                                for(let r of res.split(';')){
+                                    try {
+                                        var id = r.split(':')[0]
+                                        var val = r.split(':')[1]
+                                        document.querySelector('.sql_variable_get[data-idVar="g:'+ id +'"] .variable_mean').value = val
 
-                                } catch (error) {
-                                    continue;
+                                    } catch (error) {
+                                        continue;
+                                    }
                                 }
-                            }
-                            for(let span of document.getElementsByClassName('variable_ref')){
-                                CheckOnVariableInSpan(span);
-                            }
-                            break;
-                        case 304:
-                            break;
+                                for(let span of document.getElementsByClassName('variable_ref')){
+                                    CheckOnVariableInSpan(span);
+                                }
+                                break;
+                            case 304:
+                                break;
+                        }
                     }
+                });
+            }
+        }
+
+        function SelectDataBaseChanged(){
+            var conn_id = document.querySelector('#connection_select').value;
+            for(let variable of document.querySelectorAll('.sql_variable')){
+                if(variable.getAttribute('data-idCon') != conn_id){
+                    variable.style.display = 'none';
+                    variable.style.zIndex = 'inherit';
                 }
-            });
+                else{
+                    variable.style.display = 'table-row';
+                    variable.style.zIndex = 10000;
+                }
+            }
         }
 
         // Обработчик нажатия на кнопку добавления новой переменной
@@ -2440,6 +2596,7 @@
         ListSavedFromJSON("{{ saved_elements|escapejs }}");
 
         VariableFromJSON("{{ variable|escapejs }}")
+        SelectDataBaseChanged();
         
         FixedVariablesFromJSON("{{ document_json|escapejs }}")
 

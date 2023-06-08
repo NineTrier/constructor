@@ -6,7 +6,7 @@ class DocumentForm(forms.ModelForm):
     class Meta:
         model = Documents
         fields = ["name", "owner", "description", "file", "type", "documentOfOrganisation"]
-        Organisation = forms.ModelChoiceField(queryset=DocType.objects.all(), empty_label=None, to_field_name="type")
+        doctypes = forms.ModelChoiceField(queryset=DocType.objects.all(), empty_label=None, to_field_name="type")
         
         widgets = {
             "name": forms.TextInput(attrs={

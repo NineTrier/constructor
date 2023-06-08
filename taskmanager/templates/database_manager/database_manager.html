@@ -16,19 +16,21 @@
     <div id="bigDiv">
         <h3>{{ profile.organisation }}</h3>
         <div id="divConnection">
-            <select id="id_connection">
+            <select id="id_connection" onchange="ConnectionChanged();">
                 {% for connection in connections %}
                 <option value="{{ connection.id }}">{{ connection }}</option>
                 {% endfor %}
             </select>
             <a class="btn btn-primary" href="{% url 'create_connection' %}">Создать подключение</a>
             <a class="btn btn-primary" onclick="TestConnection();">Тест подключения</a>
+            <a class="btn btn-primary" onclick="GetTables();">Получить таблицы</a>
+            
         </div>
         <div class="divSQLVariableContainer">
             <h4>Переменные SQL-параметры</h4>
             <ul id="divSQLVariableSet">
             {% for var in sql_variables_set %}
-                <li class="sql_variable_set" data-idVar="{{ var.id }}">
+                <li class="sql_variable sql_variable_set" data-idVar="{{ var.id }}" data-idCon="{{ var.connection.id }}">
                     <span>Название переменной:</span>
                     <input class="sql_variable_name" value="{{ var.name }}" readonly="true">
                     <span>Название столбца:</span>
@@ -45,14 +47,14 @@
                 </li>
             {% endfor %}
             </ul>
-            <a class="btn btn-primary" href="{% url 'create_sql_variable_set' %}">Добавить переменную</a>
+            <a class="btn btn-primary" onclick="CreateSQLVariableSet();">Добавить переменную</a>
         </div>
         <div id="divSQLVariable">
             <div class="divSQLVariableContainer">
                 <h4>Переменные SQL-запросы</h4>
                 <ul id="divSQLVariableGet">
                 {% for var in sql_variables_get %}
-                    <li class="sql_variable_get" data-idVar="{{ var.id }}" data-idSet="{% for varSetGet in set_get %}{% if varSetGet.variableGet == var %}{{ varSetGet.variableSet.id }};{% endif %}{% endfor %}">
+                    <li class="sql_variable sql_variable_get" data-idVar="{{ var.id }}" data-idSet="{% for varSetGet in set_get %}{% if varSetGet.variableGet == var %}{{ varSetGet.variableSet.id }};{% endif %}{% endfor %}" data-idCon="{{ var.connection.id }}">
                         <input class="sql_variable_name" value="{{ var.name }}" readonly="true">
                         <input class="sql_variable_sql" readonly="true" value="{{ var.sql }}">
                         <input readonly="true" class="sql_variable_value">
@@ -67,7 +69,7 @@
                     </li>
                 {% endfor %}
                 </ul>
-                <a class="btn btn-primary" href="{% url 'create_sql_variable_get' %}">Добавить переменную</a>
+                <a class="btn btn-primary" onclick="CreateSQLVariableGet();">Добавить переменную</a>
             </div>
             
         </div>
@@ -109,6 +111,18 @@
         });
     }
 
+    function ConnectionChanged(){
+        var conn_id = document.querySelector('#id_connection').value;
+        for(let variable of document.querySelectorAll('.sql_variable')){
+            if(variable.getAttribute('data-idCon') != conn_id){
+                variable.setAttribute('hidden', 'true');
+            }
+            else{
+                variable.removeAttribute('hidden');
+            }
+        }
+    }
+
     function MakeUpdatable(event){
         var btn = event.target.closest('.btn');
         btn.parentElement.nextElementSibling.hidden = false;
@@ -116,6 +130,31 @@
         btn.parentElement.hidden = true;
         btn.parentElement.parentElement.querySelector('.sql_variable_name').removeAttribute('readonly');
         btn.parentElement.parentElement.querySelector('.sql_variable_sql').removeAttribute('readonly');
+    }
+
+    function CreateSQLVariableSet(){
+        location.href = '/database/create_sql_variable_set/' + document.querySelector('#id_connection').value;
+    }
+
+    function CreateSQLVariableGet(){
+        location.href = '/database/create_sql_variable_get/' + document.querySelector('#id_connection').value;
+    }
+
+    function GetTables(){
+        $.ajax({
+            type: "POST",
+            url: "{% url 'update_table' %}",
+            data: JSON.stringify({'con_id': document.querySelector('#id_connection').value}),
+            contentType: "application/json; charset=utf-8",
+            success: function(res, status, xhr){
+                switch(xhr.status){
+                    case 200:
+                        break;
+                    case 304:
+                        break;
+                }
+            }
+        });
     }
 
     function AcceptChange(event){
@@ -161,12 +200,7 @@
                     case 200:
                         console.log(xhr)
                         console.log(xhr.getResponseHeader('connection'))
-                        if(xhr.getResponseHeader('connection') == '1'){
-                            alert('Подключение успешно!');
-                        }
-                        else{
-                            alert('Подключение не удалось, проверьте настройки соединения');
-                        }
+                        alert('Подключение успешно!');
                         break;
                     case 304:
                         break;
@@ -218,6 +252,8 @@
             }
         });
     }
+
+    ConnectionChanged();
 </script>
 
 {% endblock %}
