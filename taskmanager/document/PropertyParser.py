@@ -181,9 +181,9 @@ class FontFamily(Property):
     def from_json(self, json: dict):
         for k, v in json.items():
             if k == "fontFamily":
-                self.attrib['w:ascii'] = v
-                self.attrib['w:hAnsi'] = v
-                self.attrib['w:cs'] = v
+                self.attrib['w:ascii'] = v[1:-1]
+                self.attrib['w:hAnsi'] = v[1:-1]
+                self.attrib['w:cs'] = v[1:-1]
                 self.enabled = True
 
 
