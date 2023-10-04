@@ -1,15 +1,16 @@
 import json
 import base64
+import re
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import CreateView
-from .models import Documents, Fonts, SavedElements, VariableBlock, DocType
+from .models import DocumentsPattern, Fonts, SavedElements, VariableBlock, DocType, Document_ParentDocument
 from database_manager.models import Connection, VariableSQLGet, VariableSQLSet, VariableSQLSet_VariableSQLGet
 from .forms import DocumentForm
 from django.core.files.storage import FileSystemStorage
 import os
 from django.conf import settings
-from django.http import HttpResponse, Http404, HttpResponseNotModified, HttpResponseForbidden
+from django.http import HttpRequest, HttpResponse, Http404, HttpResponseNotModified, HttpResponseForbidden
 from docx import Document
 from .Document import Document
 
@@ -18,11 +19,25 @@ from transliterate import translit
 from transliterate.decorators import transliterate_function
 from user_manager.models import Profile, user_directory_path
 
+import pymorphy3
+from pymorphy3.shapes import restore_capitalization
+
+raskrit = {
+    'ООО': 'Общество с ограниченной ответственностью',
+    'ИП':'Индивидуальный предприниматель',
+}
+
+matchers ={ 
+    r'\s?Арбитражн\w*\sсуд\w?': r'\s?Арбитражн\w*\sсуд\w?\s',
+    r'\s?Обществ\w*\sс\sограниченной': r'\s?Обществ\w*\sс\sограниченной\s',
+    r'\s?Индивидуальн\w*\sпредпринимател\w?': r'\s?Индивидуальн\w*\sпредпринимател\w?\s',
+
+}
 
 # Класс, который помогает создавать новый записи в базу данных Documents
 # и открывает страницу с добавлением новых документов
 class DocumentCreate(CreateView):
-    model = Documents
+    model = DocumentsPattern
     form_class = DocumentForm
 
     template_name = 'document/document_create.html'
@@ -31,20 +46,25 @@ class DocumentCreate(CreateView):
         context = super(DocumentCreate, self).get_context_data(**kwargs)
         if self.request.user.is_authenticated:
             context['profile'] = Profile.objects.filter(user=self.request.user)[0]
-        context['documents'] = Documents.objects.all()
+        context['documents'] = DocumentsPattern.objects.all()
         context['title'] = "Загрузка документа"
         return context
     
     def post(self, request, *args, **kwargs):
-        document = Documents()
+        document = DocumentsPattern()
         document.name = request.POST['name']
         document.description = request.POST['description']
         document.type = DocType.objects.get(id=request.POST['type'])
         document.owner = Profile.objects.filter(user=request.user)[0]
         file = request.FILES.get('file')
-        fs = FileSystemStorage(location=f"{settings.MEDIA_ROOT}/documents/user_{request.user.id}/")
+        fileDirect = int(DocumentsPattern.objects.latest('id').id)+1
+        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}"):
+            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}")
+        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}"):
+            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}")
+        fs = FileSystemStorage(location=f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}")
         fs.save(translit_russian(file.name), file)
-        file_url = f"documents/user_{request.user.id}/{translit_russian(file.name)}"
+        file_url = f"documents\\user_{request.user.id}\\{fileDirect}\\{translit_russian(file.name)}"
         document.file = file_url
         document.save()
         response = redirect(f"/document/view?id={document.id}&type=1")
@@ -53,10 +73,8 @@ class DocumentCreate(CreateView):
 def translit_russian(text):
     """Выполняет транслитерацию русского текста в латиницу для названий файлов"""
     try:
-        print(text)
         translited = translit(text, reversed=True)
         translited = str(translited).replace(' ', '_')
-        print(translited)
         return translited
     except Exception as exc:
         print(exc)
@@ -66,17 +84,22 @@ def translit_russian(text):
 def create_New_Document(request):
     """Обработчик запроса для создания документа"""
     if request.method == 'POST':
-        document = Documents()
+        document = DocumentsPattern()
         document.name = request.POST['name']
         document.description = request.POST['description']
         document.type = DocType.objects.get(id=request.POST['type'])
         document.owner = Profile.objects.filter(user=request.user)[0]
         document.picture = f"noimage.jpeg"
-        file_name = f"{translit_russian(document.name)}{translit_russian(document.owner.__str__())}.docx"
-        file_url = f"documents/user_{request.user.id}/{file_name}"
+        fileDirect = int(DocumentsPattern.objects.latest('id').id)+1
+        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}"):
+            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}")
+        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}"):
+            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}")
+        file_name = f"{translit_russian(document.name)}{translit_russian(document.owner.__str__())}"
+        file_url = f"documents\\user_{request.user.id}\\{fileDirect}\\{file_name}.docx"
         document.file = file_url
-        doc_file = Document(f"{settings.MEDIA_ROOT}/blank.docx")
-        doc_file.save(f"{settings.MEDIA_ROOT}/{file_url}")
+        doc_file = Document(f"{settings.MEDIA_ROOT}\\blank.docx")
+        doc_file.save(f"{settings.MEDIA_ROOT}\\{file_url}")
         document.save()
         return redirect(f"/document/view?id={document.id}&type=1")
     form = DocumentForm()
@@ -93,15 +116,17 @@ def SaveCover(request):
     """Обработчик запроса для загрузки обложки"""
     try:
         id = request.POST['id']
-        document = Documents.objects.get(id=id)
+        document = DocumentsPattern.objects.get(id=id)
         img = request.POST['img']
         img = str(img).replace('data:image/png;base64,', '')
         img = str(img).replace(' ', '+')
         dat = base64.decodebytes(img.encode('utf-8'))
-        print(dat)
-        with open(f"{settings.MEDIA_ROOT}/documents/user_{request.user.id}/{translit_russian(document.name)}Cover.png", 'wb') as file:
+        fileDirect = document.id
+        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}"):
+            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}")
+        with open(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}\\{translit_russian(document.name)}Cover.png", 'wb') as file:
             file.write(dat)
-        file_url = f"documents/user_{request.user.id}/{translit_russian(document.name)}Cover.png"
+        file_url = f"documents\\user_{request.user.id}\\{fileDirect}\\{translit_russian(document.name)}Cover.png"
         document.picture = file_url
         document.save() 
         return HttpResponse()
@@ -109,11 +134,35 @@ def SaveCover(request):
         print(exc)
         return HttpResponseNotModified()
 
+@csrf_exempt
+def SaveImage(request):
+    """Обработчик запроса для загрузки картинок в документ"""
+    try:
+        id = request.POST['id']
+        document = DocumentsPattern.objects.get(id=id)
+        img = request.FILES['img']
+        fileDirect = document.id
+        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}"):
+            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}")
+        file_url = f"documents\\user_{request.user.id}\\{fileDirect}\\{request.POST['idImage']}.png"
+        if os.path.isfile(f"{settings.MEDIA_ROOT}\\{file_url}"):
+            os.remove(f"{settings.MEDIA_ROOT}\\{file_url}")
+        fs = FileSystemStorage()
+        filename = fs.save(file_url, img)
+        response = HttpResponse()
+        response['img'] = f"{settings.MEDIA_URL}{file_url}"
+        return response
+    except Exception as exc:
+        print(exc)
+        return HttpResponseNotModified()
 
 # Функция, которая позволяет скачать файл, загруженный на сервер
 def download(request):
     """Обработчик запроса для выгрузки документа"""
-    filepath = Documents.objects.filter(id=request.GET.get('id'))[0].file
+    document = DocumentsPattern.objects.filter(id=request.GET.get('id'))[0]
+    document.downloadsTimes = int(document.downloadsTimes) + 1
+    document.save()
+    filepath = document.file
     file_path = os.path.join(settings.MEDIA_ROOT, str(filepath))
     if os.path.exists(file_path):
         with open(file_path, 'rb') as fh:
@@ -203,41 +252,97 @@ def SaveVariable(request):
     return response
 
 @csrf_exempt
-def AddDocumentToUser(request):
+def CopyDocument(request, id=None):
     """Обработчик запроса для копирования документа пользователю"""
     try:
         response = HttpResponse()
         request_data = request.body
-        stroke = json.loads(request_data)
+        if id == None:
+            stroke = json.loads(request_data)
+        else:
+            stroke = {'id': id}
+        print(stroke)
         profile = Profile.objects.filter(user=request.user)[0]
-        
-        document = Documents()
-        documentToCopy = Documents.objects.get(id=stroke['id'])
-        print(documentToCopy)
-        document.name = documentToCopy.name[:40]
+        documentToCopy = DocumentsPattern.objects.get(id=stroke['id'])
+        document = DocumentsPattern()
+        document.name = documentToCopy.name + '-копия'
         document.owner = profile
         document.type = documentToCopy.type
         document.description = documentToCopy.description
         document.picture = f"noimage.jpeg"
         document.json = documentToCopy.json
-
+        fileDirect = int(DocumentsPattern.objects.latest('id').id)+1
+        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}"):
+            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}")
+        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}"):
+            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}")
         file_name = f"{translit_russian(document.name)}{translit_russian(document.owner.__str__())}.docx"
-        file_url = f"documents/user_{request.user.id}/{file_name}"
+        file_url = f"documents\\user_{request.user.id}\\{fileDirect}\\{file_name}"
         doc_file = Document(documentToCopy.file)
         doc_file.save(f"{settings.MEDIA_ROOT}/{file_url}")
-        
         document.file = file_url
-        print(document.file)
         document.documentOfOrganisation = False
         if document.save():
-            print("#########", document.id)
+            print('Документ добавлен')
             response['id'] = document.id
             return response
         else:
             print('документ не сохранен')
             return HttpResponseNotModified()
     except Exception as exc:
-        print(exc)
+        print(f"Не получилось {exc}")
+        return HttpResponseNotModified()
+
+@csrf_exempt
+def AddDocumentToUser(request, id=None):
+    """Обработчик запроса для копирования документа пользователю"""
+    try:
+        response = HttpResponse()
+        request_data = request.body
+        if id == None:
+            stroke = json.loads(request_data)
+        else:
+            stroke = {'id': id}
+        profile = Profile.objects.filter(user=request.user)[0]
+        documentToCopy = DocumentsPattern.objects.get(id=stroke['id'])
+        document_parentDocument = Document_ParentDocument.objects.filter(parent=documentToCopy).filter(userRequested=profile)
+        if document_parentDocument:
+            document = DocumentsPattern.objects.get(id=document_parentDocument[0].document.id)
+            document_parentDocument = document_parentDocument[0]
+        else:
+            document = DocumentsPattern()
+            document_parentDocument = Document_ParentDocument()
+            document_parentDocument.document = document
+            document_parentDocument.parent = documentToCopy
+            document_parentDocument.userRequested = profile
+            document_parentDocument.parentDocumentChanged = False
+        document.name = documentToCopy.name[:40]
+        document.owner = profile
+        document.type = documentToCopy.type
+        document.description = documentToCopy.description
+        document.picture = f"noimage.jpeg"
+        document.json = documentToCopy.json
+        fileDirect = int(DocumentsPattern.objects.latest('id').id)+1
+        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}"):
+            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}")
+        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}"):
+            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}")
+        file_name = f"{translit_russian(document.name)}{translit_russian(document.owner.__str__())}.docx"
+        file_url = f"documents\\user_{request.user.id}\\{fileDirect}\\{file_name}"
+        doc_file = Document(documentToCopy.file)
+        doc_file.save(f"{settings.MEDIA_ROOT}/{file_url}")
+        document.file = file_url
+        document.documentOfOrganisation = False
+        if document.save():
+            print('Документ добавлен')
+            response['id'] = document_parentDocument.document.id
+            document_parentDocument.save()
+            return response
+        else:
+            print('документ не сохранен')
+            return HttpResponseNotModified()
+    except Exception as exc:
+        print(f"Не получилось {exc}")
         return HttpResponseNotModified()
     
 
@@ -264,10 +369,12 @@ def DeleteDocument(request):
     response = redirect('/')
     request_data = request.body
     stroke = json.loads(request_data) 
-    print(stroke)
     if stroke['id'] == '-1':
         return response
-    document = Documents.objects.get(id=stroke['id'])
+    document = DocumentsPattern.objects.get(id=stroke['id'])
+    childs = Document_ParentDocument.objects.filter(parent=document)
+    for child in childs:
+        child.delete()
     try:
         os.remove(f"{settings.MEDIA_ROOT}/{document.file}")
         os.remove(f"{settings.MEDIA_ROOT}/{document.picture}")
@@ -276,15 +383,31 @@ def DeleteDocument(request):
     except:
         document.delete()
         return response
+    
+def replace_last(source_string, replace_what, replace_with):
+    head, _sep, tail = source_string.rpartition(replace_what)
+    return head + replace_with + tail
 
 def ViewDocument(request):
     """Обработчик запроса для просмотра документа"""
     fileid = request.GET.get('id')
-    Doc = get_object_or_404(Documents, pk=fileid)
-    if request.user != Doc.owner.user:
-        return HttpResponseForbidden()
+    print(request.body)
+    print(request.GET.get('numfirst'))
+    Doc = get_object_or_404(DocumentsPattern, pk=fileid)
     file_path = Doc.file
     file_path = os.path.join(settings.MEDIA_ROOT, str(file_path))
+    if request.user != Doc.owner.user:
+        res = AddDocumentToUser(request, fileid)
+        if "vksid" in request.GET:
+            vksid = request.GET.get("vksid")
+        else:
+            vksid = ""
+        if "numfirst" in request.GET:
+            numfirst = request.GET.get("numfirst")
+        else:
+            numfirst = ""
+        return redirect(f'/document/view?id={res["id"]}&type=0&vksid={vksid}&numfirst={numfirst}')
+    parent_document = Document_ParentDocument.objects.filter(document=Doc.id)
     context = {
         'title': 'Просмотр документа',
         'Doc': Doc,
@@ -293,11 +416,14 @@ def ViewDocument(request):
         'variable': json.dumps({var.id: f"{var.name}:{var.meaning}" for var in VariableBlock.objects.filter(doc=Doc.id)}),
         'document_json': json.dumps(Doc.json),
         'type': '0',
+        'id_parent': parent_document[0].parent.id if parent_document else Doc.id,
         'sql_var_set': VariableSQLSet.objects.all(),
         'sql_var_get': VariableSQLGet.objects.all(),
         'sql_var_get_set': VariableSQLSet_VariableSQLGet.objects.all(),
-        'connections': Connection.objects.all()
+        'connections': Connection.objects.all(),
+        'data': json.dumps({'s:3': replace_last(str(request.GET.get('numfirst')), '-', '/'), 'vks_id': request.GET.get('vksid'), 'file_path': str(Doc.file)})
     }
+    print('###############'+str(context['id_parent'])+'###################')
     if(request.GET.get('type') == '1'):
         document = Document(file_path)
         context['type'] = '1'
@@ -308,7 +434,6 @@ def ViewDocument(request):
         context['profile'] = Profile.objects.filter(user=request.user)[0]
         
     return render(request, 'document/document_view_v2.html', context)
-
 
 def SavedElementFromJSON(json_stroke):
     """Функция создаёт элементы класса SavedElements из JSON-строки"""
@@ -329,7 +454,11 @@ def SavedElementFromJSON(json_stroke):
 def UpdateDocument(request):
     """Функция обрабатывает запрос и обновляет документ в базе данных"""
     fileid = request.GET.get('id')
-    doc = Documents.objects.get(id=fileid)
+    doc = DocumentsPattern.objects.get(id=fileid)
+    childs = Document_ParentDocument.objects.filter(parent=doc)
+    print(childs)
+    for child in childs:
+        print(child.document.id)
     file_path = os.path.join(settings.MEDIA_ROOT, str(doc.file))
     document = Document()
     request_data = request.body
@@ -345,3 +474,72 @@ def UpdateDocument(request):
     document.save(file_path)
     response = HttpResponse()
     return response
+
+@csrf_exempt
+def AcceptFilters(request):
+    request_data = request.body
+    stroke = json.loads(request_data)
+    result = {}
+    print(stroke)
+    for key, value in stroke.items():
+        print(key)
+        print(value)
+        for filter in value['filters']:
+            if filter == 'Raskrit':
+                value['phrase'] = Raskritie(value)
+            if filter == 'ChangeCattle':
+                value['phrase'] = ChangeCattle(value)
+            if filter == 'ChangeCase':
+                value['phrase'] = UpperCase(value)
+        result[key] = value['phrase']
+    print(result)
+    response = HttpResponse()
+    response.content = json.dumps(result)
+    response.charset = 'utf-8'
+    return response
+
+def Raskritie(stroke):
+    phrase = str(stroke['phrase'])
+    newphrase = phrase
+    for key, value in raskrit.items():
+        newphrase = newphrase.replace(key, value)  
+    return newphrase
+
+def ChangeCattle(stroke):
+    phrase = str(stroke['phrase'])
+    morph = pymorphy3.MorphAnalyzer()
+    newphrase = ''
+    for key, value in matchers.items():
+        result = re.match(key, phrase)
+        if result:
+            splitted_phrase = re.split(value, phrase)[1] 
+            phrase = result.group(0)
+            for word in phrase.split():
+                try:
+                    parsed_word = morph.parse(word)
+                    newphrase += restore_capitalization(parsed_word[0].inflect({stroke['filters']['ChangeCattle']}).word, word) + ' '
+                except:
+                    newphrase += word + ' '
+            newphrase += splitted_phrase
+            return newphrase
+        else:
+            continue
+    for word in phrase.split():
+        try:
+            parsed_word = morph.parse(word)
+            newphrase += restore_capitalization(parsed_word[0].inflect({stroke['filters']['ChangeCattle']}).word, word) + ' '
+        except:
+            newphrase += word + ' '
+            continue
+    return newphrase
+
+def UpperCase(stroke):
+    response = HttpResponse()
+    phrase = str(stroke['phrase'])
+    newphrase = phrase
+    if stroke['filters']['ChangeCase'] == 'Upper':
+        newphrase = phrase.upper()
+    elif stroke['filters']['ChangeCase'] == 'Lower':
+        newphrase = phrase.lower()
+    return newphrase
+    

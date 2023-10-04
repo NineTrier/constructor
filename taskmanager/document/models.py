@@ -20,7 +20,7 @@ class DocType(models.Model):
 
 
 # Класс документы для базы данных
-class Documents(models.Model):
+class DocumentsPattern(models.Model):
     name = models.CharField('Название', max_length=100, null=True, blank=True)
     type = models.ForeignKey(DocType, on_delete=models.CASCADE, default=1, null=True, blank=True)
     description = models.TextField('Описание', null=True, blank=True)
@@ -31,6 +31,7 @@ class Documents(models.Model):
     picture = models.ImageField(null=True, blank=True, upload_to=user_directory_path)
     lastUpdate = models.DateTimeField(auto_now=True, null=True, blank=True)
     dateCreate = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    downloadsTimes = models.PositiveIntegerField(default=0,null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} от {self.owner}"
@@ -49,7 +50,7 @@ class Documents(models.Model):
 
 class VariableBlock(models.Model):
     name = models.CharField('Название', max_length=100, null=True, blank=True)
-    doc = models.ForeignKey(Documents, on_delete=models.CASCADE, null=True, blank=True)
+    doc = models.ForeignKey(DocumentsPattern, on_delete=models.CASCADE, null=True, blank=True)
     meaning = models.TextField('Значение', null=True, blank=True)
     
     def __str__(self):
@@ -87,6 +88,21 @@ class SavedElements(models.Model):
 
 
 class Document_ParentDocument(models.Model):
-    document = models.ForeignKey(Documents, on_delete=models.CASCADE, null=True, blank=True, related_name='document')
-    parent = models.ForeignKey(Documents, on_delete=models.CASCADE, null=True, blank=True, related_name='parent_document')
+    document = models.ForeignKey(DocumentsPattern, on_delete=models.CASCADE, null=True, blank=True, related_name='document')
+    parent = models.ForeignKey(DocumentsPattern, on_delete=models.CASCADE, null=True, blank=True, related_name='parent_document')
     parentDocumentChanged = models.BooleanField(default=False, null=True, blank=True)
+    userRequested = models.ForeignKey(Profile, on_delete=models.CASCADE, null=True, blank=True)
+
+
+class Group(models.Model):
+    name = models.CharField('Название', max_length=100, null=True, blank=True)
+
+class CreatedDocument(models.Model):
+    name = models.CharField('Название', max_length=100, null=True, blank=True)   
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, null=True, blank=True)
+    file = models.FileField(upload_to=user_directory_path, null=True, blank=True)
+    json = models.JSONField('JSON строка', default=dict, null=True, blank=True)
+    pattern = models.ForeignKey(DocumentsPattern, on_delete=models.CASCADE, null=True, blank=True)
+    lastUpdate = models.DateTimeField(auto_now=True, null=True, blank=True)
+    dateCreate = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    downloadsTimes = models.PositiveIntegerField(default=0,null=True, blank=True)

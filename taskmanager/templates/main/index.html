@@ -23,6 +23,7 @@
                         <a href="/document/download?id={{ el.id }}" target="_blank" class="btn btn-labeled"><i class="fas fa-download"></i></a>
                         {% if user == el.owner.user %}
                         <a onclick="ClickOnDocument(event);" class="btn btn-labeled"><i class="fas fa-pen"></i></a>
+                        <a onclick="ClickOnDocumentCopy(event);" class="btn btn-labeled"><i class="fas fa-copy"></i></a>
                         <button type="button" class="btn btn-labeled doc_del_button"><i class="fas fa-trash" style="color:red;"></i></button>
                         {% else %}
                         <a onclick="ClickOnDocumentAdd(event);" class="btn btn-labeled"><i class="fas fa-plus"></i></a>
@@ -138,6 +139,22 @@
             $.ajax({
                 type: "POST",
                 url: "/document/document_add",
+                data: JSON.stringify({'id': parent.getAttribute('data-iddb')}),
+                contentType: "application/json; charset=utf-8",
+                success: function(res, status, xhr){
+                    console.log(xhr.getResponseHeader('id'))
+                    location.href = "/document/view?id="+ xhr.getResponseHeader('id') +"&type=0"
+                }
+            });
+            
+        }
+        function ClickOnDocumentCopy(evt){
+            evt.stopPropagation();
+            const parent = evt.target.closest('.doc_in_list');
+            console.log(parent)
+            $.ajax({
+                type: "POST",
+                url: "/document/document_copy",
                 data: JSON.stringify({'id': parent.getAttribute('data-iddb')}),
                 contentType: "application/json; charset=utf-8",
                 success: function(res, status, xhr){

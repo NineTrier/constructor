@@ -1,10 +1,10 @@
-from .models import Documents, DocType
+from .models import DocumentsPattern, DocType
 from django import forms
 
 
 class DocumentForm(forms.ModelForm):
     class Meta:
-        model = Documents
+        model = DocumentsPattern
         fields = ["name", "owner", "description", "file", "type", "documentOfOrganisation"]
         doctypes = forms.ModelChoiceField(queryset=DocType.objects.all(), empty_label=None, to_field_name="type")
         

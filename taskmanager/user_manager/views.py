@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 
 from .models import Profile, Organisation
 
@@ -7,12 +7,13 @@ import json
 from django.views.generic.list import ListView
 from django.views.generic.edit import CreateView
 from django.shortcuts import get_object_or_404, redirect
-from django.contrib.auth import views, models
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import views, models, authenticate, login
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from .forms import UserLoginForm, ProfileForm
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse, Http404, HttpResponseNotModified
 from django.core.files.storage import FileSystemStorage
+from django.contrib import messages
 import csv
 import codecs
 from django.conf import settings
@@ -37,6 +38,45 @@ class Login(views.LoginView):
         #     profile_of_user.save()
         #     return f'/accounts/change_profile/{user.id}/'
         return '/'
+    
+@csrf_exempt
+def login1(request):
+    
+    if request.method == 'POST':
+        print(request.POST)
+        form = AuthenticationForm(request.POST)
+        username = request.POST['username']
+        password = request.POST['password']
+        
+        if 'target' in request.POST:
+            target = request.POST['target']
+        else:
+            target = '0'
+        user = authenticate(username=username,password=password)
+        if user:
+            if user.is_active:
+                login(request,user)
+                if target == '3':
+                    if 'idDoc' in request.POST:
+                        fileId = request.POST['idDoc']
+
+                    if 'numfirst' in request.POST:
+                        numfirst = request.POST['numfirst']
+
+                    if 'vks_id' in request.POST:
+                        vks_id = request.POST['vks_id']
+                    print(numfirst)
+                    return redirect(f'/document/view?id={fileId}&type=0&vksid={vks_id}&numfirst={numfirst.replace("/", "-").split(":")[1]}')
+                else:
+                    return redirect('/')
+        else:
+            messages.error(request,'username or password not correct')
+            return redirect(reverse('login'))
+        
+                
+    else:
+        form = AuthenticationForm()
+    return render(request,'user_manager/login.html',{'form':form})
 
 class SignUpView(CreateView):
     form_class = UserCreationForm

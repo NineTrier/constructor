@@ -1,6 +1,6 @@
 :root{
-    --color-primary: #F2F2F2;
-    --color-third: #dcd9d9;
+    --color-primary: #F9FAFA;
+    --color-third: #D9D9D9;
     --color-secondary:#b1defc;
     --color-accent: #a5bcfc;
     --color-document: #ffffff;
@@ -13,6 +13,37 @@
     max-width: 600px;
 }
 
+.variable{
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
+
+.variable > .variable_mean{
+    margin-left: auto;
+    width: 40%;
+    border: 1px solid #DBDBDB;
+}
+
+.variable > .variable_name{
+    width: 50%;
+    text-overflow: ellipsis;
+}
+
+.variable > .variable_thumbtack + label{
+    border: 0px solid black;
+}
+
+.variable > .variable_thumbtack_checked + label > i{
+    color:rgb(52, 53, 53);
+}
+
+.variable > .variable_thumbtack_not_checked + label > i{
+    color:rgb(165, 165, 165);
+}
+
 span{
     padding:3px;
 }
@@ -23,12 +54,14 @@ span{
 
 #menu{
     display: flex;
-    margin: auto;
     text-align: center;
-    background-color: var(--color-secondary);
-    border-radius: 30px;
-    margin-bottom: 5px;
-    padding: 5px;
+    background-color: var(--color-primary);
+    padding-top: 5px;
+    padding-bottom: 5px;
+    border-top: 1px solid #D9D9D9;
+    border-bottom: 1px solid #D9D9D9;
+    padding-left: 55px;
+    padding-right: 50px;
 }
 
 #menu .vr{
@@ -87,7 +120,6 @@ body {
     display: flex;
     flex-direction: row;
     justify-content: flex-start;
-    padding: 10px
 }
 
 #rightMenu{
@@ -95,7 +127,7 @@ body {
 	display:flex;
 	flex-direction: column;
 	position: sticky;
-	top: 80px;
+	top: 150px;
 	background-color: white;
 	padding: 10px;
     margin-left: 5px;
@@ -124,7 +156,7 @@ body {
 	flex-direction: column;
 	background-color: var(--color-document);
 	margin-left: 30px;
-	margin-top: 5px;
+	margin-top: 20px;
 	padding-top: 80px;
 	padding-left: 100px;
     padding-right: 50px;
@@ -133,6 +165,11 @@ body {
 #save_complete{
     display: none;
     align-items: center;
+    background-color: #EEEFF1;
+    color: #08101C;
+    border-radius: 5px;
+    padding: 5px;
+    
 }
 
 #selectedElement{
@@ -141,12 +178,8 @@ body {
 }
 
 #span_value{
-    min-width: var(--document-size);
-    max-width: var(--document-size);
-    margin-left: 30px;
-    position: sticky;
-	top: 80px;
-    z-index: 1000;
+    width:100%;
+    border-radius: 0px;
 }
 
 .runs{
@@ -166,8 +199,9 @@ td.paragraph{
 #TopMenu{
 	position: sticky; 
 	top: 0px;
-	padding: 10px;
-	z-index: 15;
+    padding-top: 10px;
+	z-index: 1000;
+    background-color: var(--color-primary);
 }
 
 #DropDownFont{
@@ -247,6 +281,7 @@ td.paragraph{
 #doc_name{
     font-size: 20px;
     margin-right: 10px;
+    font-weight: bold;
     font-family: Arial, Helvetica, sans-serif;
 }
 
@@ -262,18 +297,27 @@ td.paragraph{
 }
 
 #font_select{
-    background-color: var(--color-secondary);
-    border: 1px solid var(--color-secondary);
-    max-width: 200px;
+    background-color: var(--color-primary);
+    border: 1px solid var(--color-primary);
+    max-width: 300px;
 }
 
 #leftMenu{
-    min-width: 350px;
-    padding: 15px;
-    background-color: white;
+    max-width: 30vw;
+    display: flex;
+    flex-direction: column;
     position: sticky;
-	top: 80px;
+	top: 150px;
     height: 100%;
+}
+
+#leftMenu > div{
+    background-color: white;
+    padding: 15px;
+    margin-bottom: 10px;
+    flex-grow: 1;
+    max-width: 30vw;
+    min-height: 40vh;
 }
 
 .deleteButton:hover i{
@@ -292,21 +336,30 @@ td.paragraph{
 }
 
 .tree_element{
-    min-width: 200px;
-    padding: 10px;
+    width: 100%;
     z-index: 10;
     margin-bottom: 10px;
-    border-radius: 15px;
+    
 }
 
 .tree_element_container{
     display: flex;
     align-items: center;
+    padding:10px;
+    border-bottom: 1px solid #D9D9D9;
+    
+    padding-left: 5%;
 }
+
+.hideCheckbox{
+    min-width: 20px;
+    min-height: 20px;
+}
+
 
 .tree_element_label{
     margin-left:10px;
-    width: 230px;
+    width: 100%;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -337,8 +390,8 @@ td.paragraph{
 
 .inputNumberMenu{
     max-width: 40px;
-    background-color: var(--color-secondary);
-    border: 1px solid var(--color-secondary);
+    background-color: var(--color-primary);
+    border: 1px solid var(--color-primary);
     padding: 5px 5px;
     text-align: center;
 }
@@ -359,6 +412,7 @@ input[type="number"]::-webkit-inner-spin-button{
     display: flex;
     flex-direction: row;
     margin-right: 3px;
+    align-items: center;
 }
 
 .inputNumber:hover > .inputButtons{
@@ -367,8 +421,6 @@ input[type="number"]::-webkit-inner-spin-button{
 
 .inputButton{
     display: flex;
-    width: 10px;
-    height: 10px;
     padding: 0px;
     align-items: center;
 }
@@ -376,7 +428,10 @@ input[type="number"]::-webkit-inner-spin-button{
 #context_menu{
     display:none;
     position: absolute;
-    z-index: 1000;
+    background-color: white;
+    z-index: 1005;
+    border: 1px solid rgb(172, 172, 172);
+    border-radius: 0.375rem;
 }
 
 #modal_radioGroup_body{
@@ -399,7 +454,7 @@ input[type="number"]::-webkit-inner-spin-button{
 
 #rightRadioMenu{
     overflow: auto;
-    background-color: var(--color-secondary);
+    background-color: var(--color-primary);
     padding: 0px;
     height: 510px;
 }
@@ -436,9 +491,53 @@ input[type="number"]::-webkit-inner-spin-button{
 
 #document_tree{
     overflow: auto;
-    height: 500px;
+    max-height: 70vh;
+    max-width: 100%;
     background-color: white;
-    padding:10px;
+    padding:0px;
+}
+
+.setUserCheckbox + label{
+    min-width: 20px;
+    min-height: 20px;
+    margin-left: 10px;
+}
+
+
+#tree_develop{
+    margin-left: 15px;
+}
+
+#tree_develop + label{
+    margin-left: 5px;
+}
+
+#tree_develop_container{
+    padding: 10px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    border-bottom: 1px solid #D9D9D9;
+}
+
+.variable_ref{
+    background-color: rgb(182, 182, 182);
+}
+
+#variable_fixed{
+    margin-left: 15px;
+}
+
+#variable_fixed + label{
+    margin-left: 5px;
+}
+
+#variable_fixed_container{
+    padding: 10px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    border-bottom: 1px solid #D9D9D9;
 }
 
 ::-webkit-scrollbar {
@@ -454,7 +553,7 @@ input[type="number"]::-webkit-inner-spin-button{
   
 ::-webkit-scrollbar-thumb {
     border-radius: 10px;
-    background: linear-gradient(180deg, var(--color-secondary), var(--color-accent));
+    background: linear-gradient(180deg, var(--color-primary), var(--color-primary));
 }
 
 #errorWindowModal{
@@ -497,25 +596,170 @@ input[type="number"]::-webkit-inner-spin-button{
     text-decoration: line-through;
 }
 
-#fixedVariables{
-    background-color: white;
-    width: 20vw;
-    height: 50vh;
-    margin-left: 30px;
+#rightMenu1{  
+    max-width: 800px;
+    display: flex;
+    flex-direction: column;
+    max-height: 85vh;
+    margin-left: auto;
+    flex-grow: 1;
     position: sticky;
-	top: 80px;
-    padding: 10px;
+	top: 175px;
+    overflow-y: auto;
+    background-color: var(--color-document);
 }
 
-#fixedVariables{
-    max-height: 40vh;
-    overflow-y: auto;
+#rightMenuTopContext{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
 }
+
+.optionContainer{
+    flex-grow: 1;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    padding: 15px;
+}
+
+.optionContainer:has(.optionInput:checked){
+    border-bottom: 2px solid #5E6878;
+}
+
+#zavisimosti{
+    display:none;
+}
+
+/* #rightMenu1 > div{
+    flex-grow: 1;
+    margin-bottom: 15px;
+    background-color: white;
+    padding: 15px;
+} */
 
 .FixedVariableContainer{
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    justify-content: space-between;
     border-bottom: 1px solid black;
     padding: 10px;
+}
+
+.selectedTreeElement{
+    border: 1px dotted #a5bcfc;
+}
+
+#modal_event_body{
+    display: flex;
+    flex-direction: column;
+}
+
+#EventCallerContainer{
+    display: flex;
+    flex-direction: column;
+}
+
+#EventReceiversList{
+    display: flex;
+    flex-direction: column;
+    height: 200px;
+    margin-top: 10px;
+    overflow: auto;
+}
+
+#img_profile{
+    width: 3vw;
+    border-radius: 100%;    
+    height: 3vw;
+}
+
+.EventReceiverIDContainer{
+    display: flex;
+    flex-direction: row;
+
+}
+
+.EventReceiverDoingContainer{
+    display: flex;
+    flex-direction: row;
+}
+
+.EventReceiver{
+    display: flex;
+    flex-direction: row;
+}
+
+.EventReceiverID{
+    max-width: 200px;
+}
+
+.imageDocElement{
+    resize: both;
+    overflow: auto;
+    max-width: inherit;
+    display:inline-block;
+}
+
+.imageForDocElement{
+    width: 100%;
+    height: 100%;
+}
+
+#TopMenu{
+    display: flex;
+    flex-direction: column;
+}
+
+#TopHeader{
+    display: flex;
+    flex-direction: row;
+}
+
+#DocNameContainer{
+    display: flex;
+    flex-direction: row;
+}
+
+#buttonBackContainer{
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+#buttonBackContainer > div{
+    background-color: #EEEFF1;
+    border-radius: 5px;
+    padding: 2px;
+    min-width: 50px;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    margin-left: 15px;
+}
+
+#buttonBackContainer > div > a{
+    color: #333333;
+}
+
+#DocMenuContainer{
+    display: flex;
+    flex-direction: column;
+    margin-left: 15px;
+}
+
+#profile_menu{
+    margin-left: auto;
+    margin-right: 15px;
+}
+
+#TopNavigator a{
+    font-weight: 500;
+}
+
+
+.invisible{
+    display: none!important;
 }
 

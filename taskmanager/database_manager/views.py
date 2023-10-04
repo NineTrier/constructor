@@ -29,7 +29,6 @@ class CreateConnection(CreateView):
         return context
 
     def post(self, request, *args, **kwargs):
-        print(request.POST)
         connection = Connection()
         connection.name = request.POST['name']
         connection.dialect = Dialect.objects.get(id=request.POST['dialect'])
@@ -61,7 +60,6 @@ class CreateSQLVariableGet(CreateView):
         return context
 
     def post(self, request, *args, **kwargs):
-        print(request.POST)
         sqlVariable = VariableSQLGet()
         sqlVariable.name = request.POST['name']
         sqlVariable.sql = request.POST['sql']
@@ -85,7 +83,6 @@ class CreateSQLVariableSet(CreateView):
         return context
 
     def post(self, request, *args, **kwargs):
-        print(request.POST)
         sqlVariable = VariableSQLSet()
         sqlVariable.name = request.POST['name']
         sqlVariable.sql = request.POST['sql']
@@ -105,7 +102,6 @@ def SaveSqlVariableGet(request):
     sqlVariableGet.connection = Connection.objects.get(id=stroke['connection'])
     sqlVariableGet.save()
     for regexp in re.findall(r'{: \d{1,5} :}', stroke['sql']):
-        print(VariableSQLSet.objects.get(id=re.search(r'\d{1,5}', regexp)[0]))
         varSet_varGet = VariableSQLSet_VariableSQLGet()
         varSet_varGet.variableGet = sqlVariableGet
         varSet_varGet.variableSet = VariableSQLSet.objects.get(id=re.search(r'\d{1,5}', regexp)[0])
@@ -120,7 +116,6 @@ def UpdateSQLVariableSet(request):
         response = HttpResponse()
         request_data = request.body
         stroke = json.loads(request_data)
-        print(stroke)
         var = VariableSQLSet.objects.get(id=stroke['id'])
         var.name = stroke['name']
         var.sql = stroke['sql']
@@ -139,7 +134,6 @@ def UpdateSQLVariableGet(request):
         response = HttpResponse()
         request_data = request.body
         stroke = json.loads(request_data)
-        print(stroke)
         var = VariableSQLGet.objects.get(id=stroke['id'])
         var.name = stroke['name']
         var.sql = stroke['sql']
@@ -165,7 +159,6 @@ def DeleteSQLVariableGet(request):
         response = HttpResponse()
         request_data = request.body
         stroke = json.loads(request_data)
-        print(stroke)
         VariableSQLGet.objects.get(id=stroke['id']).delete()
         return response
     except Exception as exc:
@@ -180,7 +173,6 @@ def DeleteSQLVariableSet(request):
         response = HttpResponse()
         request_data = request.body
         stroke = json.loads(request_data)
-        print(stroke)
         VariableSQLSet.objects.get(id=stroke['id']).delete()
         return response
     except Exception as exc:
@@ -206,7 +198,6 @@ def TestConnection(request):
     try:
         request_data = request.body
         stroke = json.loads(request_data)
-        print(stroke)
         conn = Connection.objects.get(id=stroke['con_id'])
         if conn.dialect.id == 1:
             ENGINE_PATH_WIN_AUTH = conn.dialect.name + '+' + conn.dialect.driver + '://' + conn.username + ':' + conn.password +'@' + conn.host + ':' + conn.port + '/?service_name=' + conn.service
@@ -215,6 +206,7 @@ def TestConnection(request):
         engine = create_engine(ENGINE_PATH_WIN_AUTH, pool_size=50, pool_pre_ping=True)
         
         connect = engine.connect()
+        connect.execute(text("SET lc_time_names = 'ru_RU'"))
         try:
             response = HttpResponse()
             if conn.dialect.id == 1:
@@ -222,8 +214,6 @@ def TestConnection(request):
             else:
                 sql = text("SELECT 1")
             result = connect.execute(sql)
-            for i, row in enumerate(result):
-                print(row)  
             connect.close()
             response['connection'] = json.dumps({'connection':'1'})
             return response
@@ -245,7 +235,6 @@ def TestGetFromDB(request):
     try:
         request_data = request.body
         stroke = json.loads(request_data)
-        print(stroke)
         conn = Connection.objects.get(id=stroke['con_id'])
         if conn.dialect.id == 1:
             ENGINE_PATH_WIN_AUTH = conn.dialect.name + '+' + conn.dialect.driver + '://' + conn.username + ':' + conn.password +'@' + conn.host + ':' + conn.port + '/?service_name=' + conn.service
@@ -253,6 +242,8 @@ def TestGetFromDB(request):
             ENGINE_PATH_WIN_AUTH = conn.dialect.name + '+' + conn.dialect.driver + '://' + conn.username + ':' + conn.password +'@' + conn.host + ':' + conn.port + '/' + conn.service
         engine = create_engine(ENGINE_PATH_WIN_AUTH, pool_size=50, pool_pre_ping=True)
         connect = engine.connect()
+        if conn.id == 22:
+            connect.execute(text("SET lc_time_names = 'ru_RU'"))
         res = ""
         response = HttpResponse()
         for varGet in stroke['variables']:
@@ -260,11 +251,9 @@ def TestGetFromDB(request):
             sql = sqlGetVar.sql
             for varSet in varGet['set_ids']:
                 sql = sql.replace('{: '+ varSet['id'] +' :}', f"{VariableSQLSet.objects.get(id=varSet['id']).sql}='{varSet['value']}'")
-            print(sql)
             sql = text(sql)
             result = connect.execute(sql)
             for row in result:
-                print(row[0])
                 res += f"{varGet['get_id']}:{row[0]};"
                 break
         response['result'] = res.encode('utf-8')
@@ -279,7 +268,6 @@ def TestGetFromDB(request):
 def GetFromDBByTable(request):
     request_data = request.body
     stroke = json.loads(request_data)
-    print(stroke)
     if('where' in stroke):
         return GetFromDBByTableWithWhere(stroke)
     else:
@@ -296,13 +284,13 @@ def GetFromDBByTableWithoutWhere(stroke):
             ENGINE_PATH_WIN_AUTH = conn.dialect.name + '+' + conn.dialect.driver + '://' + conn.username + ':' + conn.password +'@' + conn.host + ':' + conn.port + '/' + conn.service
         engine = create_engine(ENGINE_PATH_WIN_AUTH, pool_size=50, pool_pre_ping=True)
         connect = engine.connect()
+        if conn.id == 22:
+            connect.execute(text("SET lc_time_names = 'ru_RU'"))
         tables = json.loads(conn.tables)
         colnames = []
         for table in stroke['tables']:
             for col in tables[table]['columns']:
                 colnames.append(col['name'])
-
-        print(colnames)
         res = []
         response = HttpResponse()
         if conn.dialect.id == 1:
@@ -310,7 +298,6 @@ def GetFromDBByTableWithoutWhere(stroke):
         else:
             result = connect.execute(text(f"SELECT * FROM {stroke['tableSQL']} LIMIT 10"))
         for row in result:
-            print(row)
             oneRow = {}
             for i, col in enumerate(row):
                 oneRow[colnames[i]] = str(col)
@@ -333,13 +320,13 @@ def GetFromDBByTableWithWhere(stroke):
             ENGINE_PATH_WIN_AUTH = conn.dialect.name + '+' + conn.dialect.driver + '://' + conn.username + ':' + conn.password +'@' + conn.host + ':' + conn.port + '/' + conn.service
         engine = create_engine(ENGINE_PATH_WIN_AUTH, pool_size=50, pool_pre_ping=True)
         connect = engine.connect()
+        if conn.id == 22:
+            connect.execute(text("SET lc_time_names = 'ru_RU'"))
         tables = json.loads(conn.tables)
         colnames = []
         for table in stroke['tables']:
             for col in tables[table]['columns']:
                 colnames.append(col['name'])
-
-        print(colnames)
         res = []
         response = HttpResponse()
         if conn.dialect.id == 1:
@@ -348,10 +335,8 @@ def GetFromDBByTableWithWhere(stroke):
             sqlRequest = f"SELECT * FROM {stroke['tableSQL']} WHERE {stroke['where']} LIMIT 10"
         for key, value in stroke['sqlset'].items():
             sqlRequest = sqlRequest.replace('{: '+ key +' :}', f"{VariableSQLSet.objects.get(id=key).sql}='{value}'")
-        print(sqlRequest)
         result = connect.execute(text(sqlRequest))
         for row in result:
-            print(row)
             oneRow = {}
             for i, col in enumerate(row):
                 oneRow[colnames[i]] = str(col)
@@ -369,7 +354,6 @@ def update_table(request):
     try:
         request_data = request.body
         stroke = json.loads(request_data)
-        print(stroke)
         get_all_table(stroke['con_id'])
         response = HttpResponse()
         return response
@@ -391,14 +375,12 @@ def get_all_table(conn_id):
         tables = {}
         for table_name in inspector.get_table_names():
             columns = []
-            print(table_name)
             for column in inspector.get_columns(table_name):
                 columns.append({'name': f"{table_name}.{column['name']}", 'type': str(column['type'])})
             fks = []
             for fk in inspector.get_foreign_keys(table_name):
                 fks.append({'constrained_column': f"{table_name}.{fk['constrained_columns'][0]}", 'referr_table': fk['referred_table'], 'referr_column': f"{fk['referred_table']}.{fk['referred_columns'][0]}"})
             tables[table_name] = {"columns": columns, "fks": fks}
-        print(tables)
         conn.tables = json.dumps(tables)
         conn.save()
     except Exception as exc:

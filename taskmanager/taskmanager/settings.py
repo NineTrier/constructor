@@ -32,12 +32,14 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
-CSRF_TRUSTED_ORIGINS = ['https://c843-90-189-6-250.ngrok-free.app']
+CSRF_TRUSTED_ORIGINS = ['https://c843-90-189-6-250.ngrok-free.app', 'http://localhost:8080']
+
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    'django_extensions',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -47,10 +49,13 @@ INSTALLED_APPS = [
     'main',
     'document',
     'user_manager',
-    'database_manager'
+    'database_manager',
+    'testModules',
+    'corsheaders'
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -58,6 +63,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django.middleware.common.CommonMiddleware',
 ]
 
 ROOT_URLCONF = 'taskmanager.urls'
@@ -97,7 +103,7 @@ DATABASES = {
         'USER': 'admin',
         'NAME': 'diplomDB',
         'PASSWORD': 'admin',
-        'HOST': 'localhost',
+        'HOST': 'webservicebd.vas.arbitr.ru',
         'PORT': '3306',
         'OPTIONS': {
          "init_command": "SET foreign_key_checks = 0;",
@@ -160,3 +166,17 @@ os.environ['path'] = 'C:/oracle/instantclient_21_6'
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = 524288000
 DATA_DOWNLOAD_MAX_MEMORY_SIZE = 524288000
+
+CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_ALL_ORIGINS = True # If this is used then `CORS_ALLOWED_ORIGINS` will not have any effect
+CORS_ALLOW_CREDENTIALS = True
+CORS_ORIGIN_WHITELIST = (
+  'http://10.104.223.58:8080',
+  'http://webservice.vas.arbitr.ru:8081',
+  'http://10.104.223.96:8080',
+  'http://90.189.6.253:8081'
+)
+
+CORS_EXPOSE_HEADERS = [
+    "result",
+]

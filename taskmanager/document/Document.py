@@ -1,6 +1,8 @@
 # Класс Документ, представленный xml структурой
 import json
 import re
+from django.conf import settings
+from docx.shared import Inches, Mm
 from .PropertyParser import *
 
 # Специальные xml вставки от Microsoft, нужны, чтобы сравнивать теги
@@ -376,10 +378,12 @@ class Paragraph(Element):
                 run = Run(None)
                 run.from_json(json_childs)
                 self.childs.append(run)
-            elif json_childs['hyperlink'] == 'hypers':
+            elif json_childs['class'] == 'hypers':
                 hyper = Hyperlink(None)
                 hyper.from_json(child)
                 self.childs.append(json_childs)
+            elif json_childs['class'] == 'img':
+                print('Это картинка')
 
 
 # Класс таблица
@@ -549,6 +553,7 @@ class Document:
     def __init__(self, path=None):
         global i_id
         i_id = 0
+        self.images = {}
         if path is None:
             self.wa = WordAPI()
             self.childs = []
@@ -564,9 +569,16 @@ class Document:
     def save(self, path):
         self.wa.create_new_doc(self.childs)
         self.wa.saveDoc(path)
+        for key, value in self.images.items():
+            self.wa.doc.paragraphs[int(key)]._element.clear_content()
+            self.wa.doc.paragraphs[int(key)].add_run().add_picture(f"{settings.MEDIA_ROOT}{value['src'].split('http://10.104.223.71:8000/media')[1]}", width=Mm(int(value['width'])), height=Mm(int(value['height'])))
+        self.wa.saveDoc(path)
+
 
     def from_json(self, json_stroke: dict):
         self.childs = []
+        self.images = json_stroke['images']
+        print(self.images)
         for elem in json_stroke['elements']:
             self.childs.append(ElementFactory().initialize_from_json(elem))
         sectPr = Properties(None)

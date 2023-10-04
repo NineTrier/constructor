@@ -16,7 +16,11 @@ urlpatterns = [
     path('variable/create', views.SaveVariable), # создание переменной
     path('delete', views.DeleteDocument), # удаление документа
     path('save_image', views.SaveCover), # сохранение обложки
+    path('save_doc_image', views.SaveImage), # сохранение картинки
     path('document_add', views.AddDocumentToUser), # копирование документа
+    path('document_copy', views.CopyDocument), # копирование документа
     path('doctype_add', views.CreateDocType), # добавление типа документа
     path('doctype_remove', views.DeleteDocType), # удаление типа документа
+    path('acceptFilters', views.AcceptFilters),
+    
 ]
