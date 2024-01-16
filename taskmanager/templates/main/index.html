@@ -11,7 +11,36 @@
 {% endblock %}
 
 {% block content %}
-<div class="main">
+
+<div id="main">
+    {% for typ, values in documents.items %}
+    <div class="DocsBlockContainer">
+        <div class="DocsBlockTitleContainer">
+            <span class="DocsBlockTitle">{{ typ.name }}</span>
+        </div>
+        <div class="DocsBlockMain">
+            {% for el in values %}
+                {% for key, value in el.items %}
+                <div class="DocBlockDocument" type="button" onclick="ClickOnDocument(event);" data-idDB="{{ key.id }}">
+                    <span class="DocumentName" >{{ key.name }}</span>
+                    <div class="DocumentAdvancedInform">
+                        <!-- <span class="DocumentAuthor">{{ value.getAbbr }}</span> -->
+                        <span class="DocumentDateLastUpdate">{{ key.print_lastUpdate_in_other_format }}</span>
+                        {% if key.documentOfOrganisation %}
+                        <i class="fa-solid fa-building"></i>
+                        {% else %}
+                        <i class="fa-solid fa-user"></i>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- <div class="main">
     <h2>Последние документы</h2>
     <div class="containerOfDocument">
     {% if documentsOfUser %}
@@ -33,7 +62,7 @@
                         <span class="docname">{{ el.name }}</span>
                         <span class="docowner">{{ el.owner }}</span>
                         <span class="docdescr">{{ el.description }}</span>
-                    <div>
+                    </div>
                 </div>
             </li>
             {% endfor %}
@@ -42,9 +71,9 @@
     {% else %}
         <p>Нет записей</p>
     {% endif %}
-    </div>
+    </div> -->
 
-    <h2>Шаблоны организации</h2>
+    <!-- <h2>Шаблоны организации</h2>
     <div class="containerOfDocument">
     {% if documentsOfOrganisation %}
         <ul class="list_of_document">
@@ -102,7 +131,7 @@
     {% else %}
         <p>Нет записей</p>
     {% endif %}
-</div>
+</div> -->
 </div>
 {% endblock %}
 
@@ -129,7 +158,7 @@
             }
         }
         function ClickOnDocument(evt){
-            const parent = evt.target.closest('.doc_in_list');
+            const parent = evt.target.closest('.DocBlockDocument');
             location.href = "/document/view?id="+ parent.getAttribute('data-iddb') +"&type=0"
         }
         function ClickOnDocumentAdd(evt){

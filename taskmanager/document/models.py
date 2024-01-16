@@ -9,7 +9,7 @@ def user_directory_path(instance, filename):
 
 class DocType(models.Model):
     id = models.BigAutoField(primary_key=True)
-    name = models.CharField('Название', max_length=100, null=True, blank=True)
+    name = models.CharField(verbose_name='Название', max_length=100, null=True, blank=True)
     author = models.ForeignKey(Profile, on_delete=models.CASCADE, null=True, blank=True)
     def __str__(self):
         return f"{self.name}"
@@ -21,11 +21,11 @@ class DocType(models.Model):
 
 # Класс документы для базы данных
 class DocumentsPattern(models.Model):
-    name = models.CharField('Название', max_length=100, null=True, blank=True)
+    name = models.CharField(verbose_name='Название', max_length=100, null=True, blank=True)
     type = models.ForeignKey(DocType, on_delete=models.CASCADE, default=1, null=True, blank=True)
-    description = models.TextField('Описание', null=True, blank=True)
+    description = models.TextField(verbose_name='Описание', null=True, blank=True)
     file = models.FileField(upload_to=user_directory_path, null=True, blank=True)
-    json = models.JSONField('JSON строка', default=dict, null=True, blank=True)
+    json = models.JSONField(verbose_name='JSON строка', default=dict, null=True, blank=True)
     owner = models.ForeignKey(Profile, on_delete=models.CASCADE, null=True, blank=True)
     documentOfOrganisation = models.BooleanField(default=False, null=True, blank=True)
     picture = models.ImageField(null=True, blank=True, upload_to=user_directory_path)
@@ -43,15 +43,18 @@ class DocumentsPattern(models.Model):
         except:
             return False
 
+    def print_lastUpdate_in_other_format(self):
+        return self.lastUpdate.strftime('%d.%m.%Y')
+
     class Meta:
         verbose_name = 'Документ'
         verbose_name_plural = 'Документы'
 
 
 class VariableBlock(models.Model):
-    name = models.CharField('Название', max_length=100, null=True, blank=True)
+    name = models.CharField(verbose_name='Название', max_length=100, null=True, blank=True)
     doc = models.ForeignKey(DocumentsPattern, on_delete=models.CASCADE, null=True, blank=True)
-    meaning = models.TextField('Значение', null=True, blank=True)
+    meaning = models.TextField(verbose_name='Значение', null=True, blank=True)
     
     def __str__(self):
         return f"{self.name}"
@@ -62,7 +65,7 @@ class VariableBlock(models.Model):
 
 
 class Fonts(models.Model):
-    name = models.CharField('Название', max_length=100, null=True, blank=True)
+    name = models.CharField(verbose_name='Название', max_length=100, null=True, blank=True)
 
     def __str__(self):
         return f"{self.name}"
@@ -74,9 +77,9 @@ class Fonts(models.Model):
 
 class SavedElements(models.Model):
     id = models.BigAutoField(primary_key=True)
-    name = models.CharField('Название', max_length=100, null=True, blank=True)
+    name = models.CharField(verbose_name='Название', max_length=100, null=True, blank=True)
     type = models.ForeignKey(DocType, on_delete=models.CASCADE, default=1, null=True, blank=True)
-    json = models.JSONField('JSON строка', null=True, blank=True)
+    json = models.JSONField(verbose_name='JSON строка', null=True, blank=True)
     author = models.ForeignKey(Profile, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
@@ -94,12 +97,13 @@ class Document_ParentDocument(models.Model):
     userRequested = models.ForeignKey(Profile, on_delete=models.CASCADE, null=True, blank=True)
 
 
-class Group(models.Model):
-    name = models.CharField('Название', max_length=100, null=True, blank=True)
+class GroupOfDocument(models.Model):
+    name = models.CharField(verbose_name='Название группы', max_length=100, null=True, blank=True)
+
 
 class CreatedDocument(models.Model):
-    name = models.CharField('Название', max_length=100, null=True, blank=True)   
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, null=True, blank=True)
+    name = models.CharField(verbose_name='Название документа', max_length=100, null=True, blank=True)
+    groupofdocument = models.ForeignKey(GroupOfDocument, on_delete=models.CASCADE, null=True, blank=True)
     file = models.FileField(upload_to=user_directory_path, null=True, blank=True)
     json = models.JSONField('JSON строка', default=dict, null=True, blank=True)
     pattern = models.ForeignKey(DocumentsPattern, on_delete=models.CASCADE, null=True, blank=True)

@@ -1,19 +1,25 @@
 from django.shortcuts import render
-from .models import Dialect, Connection, VariableSQLGet, VariableSQLSet, VariableSQLSet_VariableSQLGet
+from .models import Dialect, Connection, VariableSQLGet, VariableSQLSet, VariableSQLSet_VariableSQLGet, Connection_Organisation
 from django.views.generic import CreateView
 from .forms import ConnectionForm, SQLVariableFormGet, SQLVariableFormSet
 from django.contrib.auth import views, models
-from user_manager.models import Profile
+from django.db.models import Q
+from django.core.exceptions import PermissionDenied
+from user_manager.models import Profile, Organisation
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views.decorators.csrf import csrf_exempt
-from django.http import HttpResponse, Http404, HttpResponseNotModified
+from django.http import HttpResponse, Http404, HttpResponseNotModified, HttpResponseForbidden
 import json
 import re
+import cx_Oracle
 
 from sqlalchemy.engine import create_engine
 from sqlalchemy import inspect
 from sqlalchemy import text
+
+
+cx_Oracle.init_oracle_client(lib_dir=r"c:\oracle\instantclient_21_11")
 
 # Класс для создания подключения к базе данных
 class CreateConnection(CreateView):
@@ -182,9 +188,10 @@ def DeleteSQLVariableSet(request):
 
 
 def setting_database(request):
+    profileUser = Profile.objects.filter(user=request.user)[0]
     context = {
-        'profile': Profile.objects.filter(user=request.user)[0],
-        'connections': Connection.objects.all(),
+        'profile': profileUser,
+        'connections': [con.connection for con in Connection_Organisation.objects.filter(organisation=profileUser.organisation)],
         'sql_variables_get': VariableSQLGet.objects.all(),
         'sql_variables_set': VariableSQLSet.objects.all(),
         'set_get': VariableSQLSet_VariableSQLGet.objects.all(),
@@ -196,8 +203,10 @@ def setting_database(request):
 def TestConnection(request):
     """Функция для обработки запроса по тестированию подключения к базе данных"""
     try:
+        print(request.body)
         request_data = request.body
         stroke = json.loads(request_data)
+        
         conn = Connection.objects.get(id=stroke['con_id'])
         if conn.dialect.id == 1:
             ENGINE_PATH_WIN_AUTH = conn.dialect.name + '+' + conn.dialect.driver + '://' + conn.username + ':' + conn.password +'@' + conn.host + ':' + conn.port + '/?service_name=' + conn.service
@@ -206,7 +215,7 @@ def TestConnection(request):
         engine = create_engine(ENGINE_PATH_WIN_AUTH, pool_size=50, pool_pre_ping=True)
         
         connect = engine.connect()
-        connect.execute(text("SET lc_time_names = 'ru_RU'"))
+        # connect.execute(text("SET lc_time_names = 'ru_RU'"))
         try:
             response = HttpResponse()
             if conn.dialect.id == 1:
@@ -235,7 +244,12 @@ def TestGetFromDB(request):
     try:
         request_data = request.body
         stroke = json.loads(request_data)
+        # profileUser = Profile.objects.filter(user=request.user)[0]
         conn = Connection.objects.get(id=stroke['con_id'])
+        # print(Connection_Organisation.objects.filter(Q(connection=conn) & Q(organisation=profileUser.organisation)))
+        # if len(Connection_Organisation.objects.filter(Q(connection=conn) & Q(organisation=profileUser.organisation))) == 0:
+        #     return HttpResponseForbidden()
+        print(stroke)
         if conn.dialect.id == 1:
             ENGINE_PATH_WIN_AUTH = conn.dialect.name + '+' + conn.dialect.driver + '://' + conn.username + ':' + conn.password +'@' + conn.host + ':' + conn.port + '/?service_name=' + conn.service
         else:
@@ -244,21 +258,24 @@ def TestGetFromDB(request):
         connect = engine.connect()
         if conn.id == 22:
             connect.execute(text("SET lc_time_names = 'ru_RU'"))
-        res = ""
-        response = HttpResponse()
+        res = {}
         for varGet in stroke['variables']:
             sqlGetVar = VariableSQLGet.objects.get(id=varGet['get_id'])    
             sql = sqlGetVar.sql
             for varSet in varGet['set_ids']:
                 sql = sql.replace('{: '+ varSet['id'] +' :}', f"{VariableSQLSet.objects.get(id=varSet['id']).sql}='{varSet['value']}'")
+            print(sql)
             sql = text(sql)
             result = connect.execute(sql)
             for row in result:
-                res += f"{varGet['get_id']}:{row[0]};"
+                print(row[0])
+                res[varGet['get_id']] = row[0]
+                #res += f"{varGet['get_id']}:{row[0]};"
                 break
-        response['result'] = res.encode('utf-8')
+        #response['result'] = res.encode('utf-8')
+        print(res)
         connect.close()
-        return response
+        return HttpResponse(json.dumps(res, default=str))
     except Exception as exc:
         print(exc)
         response = HttpResponseNotModified()
@@ -383,5 +400,59 @@ def get_all_table(conn_id):
             tables[table_name] = {"columns": columns, "fks": fks}
         conn.tables = json.dumps(tables)
         conn.save()
+    except Exception as exc:
+        print(exc)
+
+
+@csrf_exempt
+def dataBaseUserSync(request):
+    try:
+        ENGINE_PATH_WIN_AUTH = 'mysql+mysqldb://admin:admin@10.104.224.123:3306/portal4aas'
+        engine = create_engine(ENGINE_PATH_WIN_AUTH, pool_size=50, pool_pre_ping=True)
+        connect = engine.connect()
+        connect.execute(text("SET lc_time_names = 'ru_RU'"))
+        result = connect.execute(text("SELECT * FROM usr INNER JOIN court ON usr.court_id = court.id"))
+        for row in result:
+            print(row)
+            username = row[3]
+            first_name = row[4]
+            last_name = row[7]
+            middle_name = row[6]
+            organisation = Organisation.objects.filter(name=row[13])
+            if organisation:
+                organisation = organisation[0]
+            else:
+                organisation = Organisation()
+                organisation.name = row[13]
+                organisation.save()
+            user = models.User.objects.filter(username=username)
+            if user:
+                user = user[0]
+                user.first_name = first_name
+                user.last_name = last_name
+            else:
+                user = models.User()
+                user.username = username
+                user.first_name = first_name
+                user.last_name = last_name
+            user.save()
+            profile_of_user = Profile.objects.filter(user=user)
+            if profile_of_user:
+                profile_of_user = profile_of_user[0]
+                profile_of_user.firstName = first_name
+                profile_of_user.lastName = last_name
+                profile_of_user.middleName = middle_name
+                profile_of_user.organisation = organisation
+            else:
+                profile_of_user = Profile()
+                profile_of_user.user = user
+                profile_of_user.firstName = first_name
+                profile_of_user.lastName = last_name
+                profile_of_user.middleName = middle_name
+                profile_of_user.organisation = organisation
+                profile_of_user.canAddOrganisationDocument = 0
+            profile_of_user.save()
+        connect.close()
+        return HttpResponse
     except Exception as exc:
         print(exc)

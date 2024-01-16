@@ -17,5 +17,6 @@ urlpatterns = [
     path('delete_sql_get/', views.DeleteSQLVariableGet, name='delete_get'),
     path('get_tables/', views.get_all_table, name='get_tables'),
     path('get_table_body/', views.GetFromDBByTable),
-    path('update_tables/', views.update_table, name='update_table')
+    path('update_table/', views.update_table, name='update_table'),
+    path('sync_user/', views.dataBaseUserSync, name='sync_user')
 ]

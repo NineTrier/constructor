@@ -10,7 +10,6 @@ urlpatterns = [
     path('document/', include('document.urls')),
     path('accounts/', include('user_manager.urls')),
     path('database/', include('database_manager.urls')),
-    path('test/', include('testModules.urls')),
     re_path(r'^media/(?P<path>.*)$', serve,{'document_root': settings.MEDIA_ROOT}), 
     re_path(r'^static/(?P<path>.*)$', serve,{'document_root': settings.STATIC_ROOT}), 
 ]

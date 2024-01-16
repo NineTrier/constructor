@@ -95,7 +95,7 @@ def create_New_Document(request):
             os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}")
         if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}"):
             os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}")
-        file_name = f"{translit_russian(document.name)}{translit_russian(document.owner.__str__())}"
+        file_name = f"{translit_russian(document.name)}{translit_russian(document.owner.__str__())}"[:50]
         file_url = f"documents\\user_{request.user.id}\\{fileDirect}\\{file_name}.docx"
         document.file = file_url
         doc_file = Document(f"{settings.MEDIA_ROOT}\\blank.docx")
@@ -369,10 +369,13 @@ def DeleteDocument(request):
     response = redirect('/')
     request_data = request.body
     stroke = json.loads(request_data) 
+    print(stroke)
     if stroke['id'] == '-1':
         return response
     document = DocumentsPattern.objects.get(id=stroke['id'])
-    childs = Document_ParentDocument.objects.filter(parent=document)
+    print(document)
+    childs = Document_ParentDocument.objects.filter(parent=document) | Document_ParentDocument.objects.filter(document=document)
+    print(childs)
     for child in childs:
         child.delete()
     try:
@@ -380,8 +383,14 @@ def DeleteDocument(request):
         os.remove(f"{settings.MEDIA_ROOT}/{document.picture}")
         document.delete()
         return response
-    except:
-        document.delete()
+    except Exception as exc:
+        print(document)
+        try:
+            doc_deleted = document.delete()
+        except Exception as exc:
+            print(exc)
+        print("#######", doc_deleted)
+        print(exc)
         return response
     
 def replace_last(source_string, replace_what, replace_with):
@@ -391,8 +400,6 @@ def replace_last(source_string, replace_what, replace_with):
 def ViewDocument(request):
     """Обработчик запроса для просмотра документа"""
     fileid = request.GET.get('id')
-    print(request.body)
-    print(request.GET.get('numfirst'))
     Doc = get_object_or_404(DocumentsPattern, pk=fileid)
     file_path = Doc.file
     file_path = os.path.join(settings.MEDIA_ROOT, str(file_path))
@@ -421,9 +428,11 @@ def ViewDocument(request):
         'sql_var_get': VariableSQLGet.objects.all(),
         'sql_var_get_set': VariableSQLSet_VariableSQLGet.objects.all(),
         'connections': Connection.objects.all(),
-        'data': json.dumps({'s:3': replace_last(str(request.GET.get('numfirst')), '-', '/'), 'vks_id': request.GET.get('vksid'), 'file_path': str(Doc.file)})
+        'vks': False,
     }
-    print('###############'+str(context['id_parent'])+'###################')
+    if 'numfirst' in request.GET:
+        context['data'] = json.dumps({"s:3": replace_last(str(request.GET.get('numfirst')), '-', '/'), "vks_id": request.GET.get('vksid'), "file_path": str(Doc.file)})
+        context['vks'] = True
     if(request.GET.get('type') == '1'):
         document = Document(file_path)
         context['type'] = '1'
@@ -479,11 +488,9 @@ def UpdateDocument(request):
 def AcceptFilters(request):
     request_data = request.body
     stroke = json.loads(request_data)
-    result = {}
     print(stroke)
+    result = {}
     for key, value in stroke.items():
-        print(key)
-        print(value)
         for filter in value['filters']:
             if filter == 'Raskrit':
                 value['phrase'] = Raskritie(value)
@@ -492,7 +499,6 @@ def AcceptFilters(request):
             if filter == 'ChangeCase':
                 value['phrase'] = UpperCase(value)
         result[key] = value['phrase']
-    print(result)
     response = HttpResponse()
     response.content = json.dumps(result)
     response.charset = 'utf-8'

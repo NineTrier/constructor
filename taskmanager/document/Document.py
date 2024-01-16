@@ -571,7 +571,9 @@ class Document:
         self.wa.saveDoc(path)
         for key, value in self.images.items():
             self.wa.doc.paragraphs[int(key)]._element.clear_content()
-            self.wa.doc.paragraphs[int(key)].add_run().add_picture(f"{settings.MEDIA_ROOT}{value['src'].split('http://10.104.223.71:8000/media')[1]}", width=Mm(int(value['width'])), height=Mm(int(value['height'])))
+            print(value['src'])
+            print(settings.MEDIA_ROOT)
+            self.wa.doc.paragraphs[int(key)].add_run().add_picture(f"{settings.MEDIA_ROOT}/{value['src'].split('media')[1]}", width=Mm(int(value['width'])), height=Mm(int(value['height'])))
         self.wa.saveDoc(path)
 
 

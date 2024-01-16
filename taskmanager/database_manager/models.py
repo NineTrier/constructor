@@ -1,5 +1,6 @@
 from django.db import models
 from document.models import VariableBlock
+from user_manager.models import Organisation
 
 class Dialect(models.Model):
     name = models.CharField('Название', max_length=100, null=True, blank=True)
@@ -24,6 +25,11 @@ class Connection(models.Model):
     class Meta:
         verbose_name = 'Подключение'
         verbose_name_plural = 'Подключения'
+
+class Connection_Organisation(models.Model):
+    connection = models.ForeignKey(Connection, on_delete=models.CASCADE, null=True, blank=True)
+    organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE, null=True, blank=True)
+
 
 class VariableSQLSet(models.Model):
     name = models.CharField('Название', max_length=100, null=True, blank=True)

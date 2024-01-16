@@ -29,4 +29,10 @@ class Profile(models.Model):
     profile_pic = models.ImageField(null=True, blank=True, upload_to=user_directory_path)
 
     def __str__(self):
-        return f"{self.firstName} {self.lastName} {self.middleName}"
+        return f"{self.lastName} {self.firstName} {self.middleName}"
+    
+    def getAbbr(self):
+        print(self.lastName)
+        print(self.firstName)
+        print(self.middleName)
+        return f"{self.lastName} {self.firstName[0]}. {self.middleName[0]}."

@@ -1,9 +1,11 @@
 from django.contrib import admin
-from .models import Dialect ,VariableSQLGet, VariableSQLSet, Connection,  VariableSQLSet_VariableSQLGet
+import database_manager.models as models
 
-
-admin.site.register(VariableSQLGet)
-admin.site.register(VariableSQLSet)
-admin.site.register(Connection)
-admin.site.register(VariableSQLSet_VariableSQLGet)
-admin.site.register(Dialect)
+admin.site.register([
+    models.Connection,
+    models.Connection_Organisation,
+    models.Dialect,
+    models.VariableSQLGet,
+    models.VariableSQLSet,
+    models.VariableSQLSet_VariableSQLGet
+])

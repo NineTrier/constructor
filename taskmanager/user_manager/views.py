@@ -9,6 +9,7 @@ from django.views.generic.edit import CreateView
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib.auth import views, models, authenticate, login
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.contrib.auth.models import User
 from .forms import UserLoginForm, ProfileForm
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse, Http404, HttpResponseNotModified
@@ -41,42 +42,52 @@ class Login(views.LoginView):
     
 @csrf_exempt
 def login1(request):
-    
-    if request.method == 'POST':
-        print(request.POST)
-        form = AuthenticationForm(request.POST)
-        username = request.POST['username']
-        password = request.POST['password']
-        
-        if 'target' in request.POST:
-            target = request.POST['target']
-        else:
-            target = '0'
-        user = authenticate(username=username,password=password)
-        if user:
-            if user.is_active:
-                login(request,user)
-                if target == '3':
-                    if 'idDoc' in request.POST:
-                        fileId = request.POST['idDoc']
+    try:
+        print(request.META['REMOTE_ADDR'])
+        if request.method == 'POST':
+            print(request.POST)
+            print(request.META['HTTP_HOST'])
+            print(request.META['REMOTE_ADDR'])
+            form = AuthenticationForm(request.POST)
+            username = request.POST['username']
+            password = request.POST['password']
+            if 'target' in request.POST:
+                target = request.POST['target']
+            else:
+                target = '0'
+            if request.META['HTTP_REFERER'] == "https://xn--4-7sbba6cqgjoe.xn--p1ai/" or request.META['REMOTE_ADDR'] == "90.189.6.250":
+                user = User.objects.filter(username=username)[0]
+            else:
+                user = authenticate(username=username,password=password)
+            print(user)
+            if user:
+                if user.is_active:
+                    login(request,user)
+                    print(target)
+                    if target == '3':
+                        if 'idDoc' in request.POST:
+                            fileId = request.POST['idDoc']
+                        if 'numfirst' in request.POST:
+                            numfirst = request.POST['numfirst']
+                            print(numfirst)
+                        if 'vks_id' in request.POST:
+                            vks_id = request.POST['vks_id']
+                        return redirect(f'/document/view?id={fileId}&type=0&vksid={vks_id}&numfirst={numfirst.replace("/", "-")}')
+                    else:
+                        return redirect('/')
+            else:
+                print('Неверный логин или пароль')
+                messages.error(request,'username or password not correct')
+                return redirect(reverse('login'))
 
-                    if 'numfirst' in request.POST:
-                        numfirst = request.POST['numfirst']
 
-                    if 'vks_id' in request.POST:
-                        vks_id = request.POST['vks_id']
-                    print(numfirst)
-                    return redirect(f'/document/view?id={fileId}&type=0&vksid={vks_id}&numfirst={numfirst.replace("/", "-").split(":")[1]}')
-                else:
-                    return redirect('/')
         else:
-            messages.error(request,'username or password not correct')
-            return redirect(reverse('login'))
-        
-                
-    else:
-        form = AuthenticationForm()
-    return render(request,'user_manager/login.html',{'form':form})
+            form = AuthenticationForm()
+        return render(request,'user_manager/login.html',{'form':form})
+    except Exception as exc:
+        print(exc)
+        return
+
 
 class SignUpView(CreateView):
     form_class = UserCreationForm

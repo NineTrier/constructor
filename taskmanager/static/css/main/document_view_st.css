@@ -21,6 +21,28 @@
     margin-bottom: 5px;
 }
 
+.selectedVar{
+    background-color: #a5bcfc;
+}
+
+#Variables{
+    padding-left: 15px;
+    padding-top: 15px;
+    max-height: 80%;
+    overflow-y: scroll;
+}
+
+#Variables > div{
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
+
+.VariablesList{
+    max-height: 300px;
+    overflow-y: scroll;
+    padding:5px;
+}
+
 .variable > .variable_mean{
     margin-left: auto;
     width: 40%;
@@ -605,7 +627,6 @@ input[type="number"]::-webkit-inner-spin-button{
     flex-grow: 1;
     position: sticky;
 	top: 175px;
-    overflow-y: auto;
     background-color: var(--color-document);
 }
 

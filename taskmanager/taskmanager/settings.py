@@ -28,13 +28,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-gts#l3w%h$rmgpe48ymx9&%+mjwet(bqnu1$)k$gk6)k!twaht'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ["*"]
 
 CSRF_TRUSTED_ORIGINS = ['https://c843-90-189-6-250.ngrok-free.app', 'http://localhost:8080']
-
-
 
 # Application definition
 
@@ -50,7 +48,6 @@ INSTALLED_APPS = [
     'document',
     'user_manager',
     'database_manager',
-    'testModules',
     'corsheaders'
 ]
 
@@ -98,12 +95,12 @@ WSGI_APPLICATION = 'taskmanager.wsgi.application'
 # }
 
 DATABASES = {
-    'default': {
+    'default':  {
         'ENGINE': 'django.db.backends.mysql',
         'USER': 'admin',
         'NAME': 'diplomDB',
         'PASSWORD': 'admin',
-        'HOST': 'webservicebd.vas.arbitr.ru',
+        'HOST': '10.104.224.125',
         'PORT': '3306',
         'OPTIONS': {
          "init_command": "SET foreign_key_checks = 0;",
@@ -155,7 +152,7 @@ STATIC_URL = '/static/'
 
 # remove STATIC_ROOT
 MEDIA_URL = 'media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = 'E:\\media'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
