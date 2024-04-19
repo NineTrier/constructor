@@ -32,7 +32,7 @@ DEBUG = False
 
 ALLOWED_HOSTS = ["*"]
 
-CSRF_TRUSTED_ORIGINS = ['https://c843-90-189-6-250.ngrok-free.app', 'http://localhost:8080']
+CSRF_TRUSTED_ORIGINS = ['http://localhost:8080', 'https://портал4аас.рф']
 
 # Application definition
 
@@ -48,7 +48,7 @@ INSTALLED_APPS = [
     'document',
     'user_manager',
     'database_manager',
-    'corsheaders'
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
@@ -144,11 +144,13 @@ SECURE_CROSS_ORIGIN_OPENER_POLICY=None
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
-STATICFILES_DIRS = (
-    os.path.join(BASE_DIR, "static"),
-)
+# STATICFILES_DIRS = (
+#     os.path.join(BASE_DIR, "static"),
+# )
 
 STATIC_URL = '/static/'
+
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # remove STATIC_ROOT
 MEDIA_URL = 'media/'
@@ -177,3 +179,13 @@ CORS_ORIGIN_WHITELIST = (
 CORS_EXPOSE_HEADERS = [
     "result",
 ]
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
+# session expire at browser close
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# wsgi scheme
+os.environ['wsgi.url_scheme'] = 'https'

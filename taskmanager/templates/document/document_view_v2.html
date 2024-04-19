@@ -156,80 +156,17 @@
                     <label class="btn btn-labeled" for="btn_check_nothidden">Отображать скрытое</label>
                     <div class="vr"></div>
                     <a class="btn btn-labeled" onclick="filterManager.acceptAllFilters();">Применить фильтры</a>
-                           
+                    <div class="vr"></div>
+                    <div class="dropdown">
+                        <a class="btn btn-labeled" id="btnRadioInstruments" type="button" data-bs-toggle="dropdown" aria-expanded="false"></a>
+                        <ul class="dropdownRadioMenu dropdown-menu" aria-labelledby="btnRadioInstruments">
+                            <li><a class="dropdownRadioGroup dropdown-item" onclick="radioGroupClickInstrument(event)" data-idRadioGroup="radioGroup-1" type="button" style="background-color:#ffffff"></a></li>
+                        </ul>
+                    </div>
                 </div>
                 <input list="variable_list" value="" id="span_value" class="form-control" disabled/>
             </div>
-            <!-- <div class="modal fade" id="variableModal" tabindex="-1" aria-labelledby="variableModalLabel" aria-hidden="true">
-                <div class="modal-dialog" id="modal_variable">
-                <div class="modal-content">
-                    <div class="modal-header">
-                    <h5 class="modal-title" id="variableModalLabel">Переменные документа</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="list-container" id="table_oknapolya">
-                            <h5>Переменные организации</h5>
-                            <div class="fieldWrapper">
-                                <label for="connection_select">База данных:</label>
-                                <select id="connection_select" onchange="SelectDataBaseChanged();">
-                                    {% for connection in connections %}
-                                        <option value="{{ connection.id }}">{{ connection.name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Название</th>
-                                    <th scope="col">Значение</th>
-                                    <th scope="col"></th>
-                                </tr>
-                                
-                            </thead>
-                            <tbody id="VariableOrganisation">
-                                <tr><td colspan="3">Для поиска:</td></tr>
-                                {% for var in sql_var_set %}
-                                    <tr class="variable sql_variable sql_variable_set" data-idVar="s:{{ var.id }}" data-idCon="{{ var.connection.id }}">
-                                        <td><span class="variable_name">{{ var }}</span></td>
-                                        <td><input class="variable_mean"></td>
-                                        <td><input id="btn_thumbtack_s:{{ var.id }}" onchange="FixVariable(event);" type="checkbox" class="btn-check"><label class="btn btn-labeled" for="btn_thumbtack_s:{{ var.id }}"><i class="fa-solid fa-thumbtack"></i></label></td>
-                                    </tr>
-                                {% endfor %}
-                                <tr><td colspan="3">Найденные значения:</td></tr>
-                                {% for var in sql_var_get %}
-                                    <tr class="variable sql_variable sql_variable_get" data-idVar="g:{{ var.id }}" data-idCon="{{ var.connection.id }}" data-idSet="{% for varSetGet in sql_var_get_set %}{% if varSetGet.variableGet == var %}{{ varSetGet.variableSet.id }};{% endif %}{% endfor %}">
-                                        <td><span class="variable_name">{{ var }}</span></td>
-                                        <td><input class="variable_mean"></td>
-                                        <td><input id="btn_thumbtack_g:{{ var.id }}" onchange="FixVariable(event);" type="checkbox" class="btn-check"><label class="btn btn-labeled" for="btn_thumbtack_g:{{ var.id }}"><i class="fa-solid fa-thumbtack"></i></label></td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                            </table>
-                            <h5>Личные переменные</h5>
-                            <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Название</th>
-                                    <th scope="col">Значение</th>
-                                    <th scope="col"></th>
-                                </tr>
-                                
-                            </thead>
-                            <tbody id="VariableMy">
-                            </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button id="variable_add_btn" class="btn btn-success">Добавить</button>
-                        <button id="save_variable_btn" class="btn btn-success">Сохранить</button>
-                        <button onclick="GetFromDB();" class="btn btn-success">Получить данные из БД</button>
-                    </div>
-                </div>
-                </div>
-            </div> -->
-            
+           
             <div class="modal fade" id="filtersModal" tabindex="-1" aria-labelledby="filtersModalLabel" aria-hidden="true">
                 <div class="modal-dialog" id="modal_filters">
                 <div class="modal-content">
@@ -268,12 +205,15 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
                     </div>
                     <div class="modal-body" id="modal_radioGroup_body">
-                        <div class="container" id="leftRadioMenu">
-                            <ul class="list-group" id="modal_radioGroup_list"></ul>
-                        </div>
-                        <div class="vr"></div>
-                        <div class="container" id="rightRadioMenu">
-                            <ul class="list-group" id="modal_radioGroup_treeElements_list"></ul>
+                        <div class="container" id="leftRadioMenu" >
+                            <ul class="list-group" id="modal_radioGroup_list">
+                                <div class="RadioGroup" id="radioGroup-1" onclick="radioGroupClick(event);">
+                                    <div class="containerTextColorRadioGroup">
+                                        <input type="color" value="#ffffff" readonly>
+                                        <span>Нет</span>
+                                    </div>
+                                </div>
+                            </ul>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -360,7 +300,8 @@
             </datalist>
             <div class="mainDocument">
                 <div id="leftMenu">
-                    
+                    <a class="btn btn-labeled" data-bs-toggle="modal" data-bs-target="#groupRadioModal" id="btnRadioGroup"><i class="fa-solid fa-list-ol fa-xl"></i></a>
+                    <a class="btn btn-labeled" id="btnDependence" onclick="goToDependence();"><i class="fa-solid fa-timeline fa-xl"></i></a>
                 </div>
                 <div>
                     <div class="document" id="document_main" style="{{ sectPr.to_css }}">
@@ -490,7 +431,7 @@
                             {% for var in sql_var_set %}
                             <div class="variable sql_variable sql_variable_set" data-idVar="s:{{ var.id }}" data-idCon="{{ var.connection.id }}" ondblclick="SelectVar(event);">
                                 <input id="btn_thumbtack_s:{{ var.id }}" onchange="FixVariable(event);" type="checkbox" class="btn-check variable_thumbtack variable_thumbtack_not_checked"><label class="btn btn-labeled" for="btn_thumbtack_s:{{ var.id }}"><i class="fa-solid fa-thumbtack"></i></label>
-                                <span class="variable_name">{{ var }}</span>
+                                <span type="button" class="variable_name">{{ var }}</span>
                                 <input class="variable_mean" onchange="onChangeVariableMean(event);">
                             </div>
                             {% endfor %}
@@ -612,7 +553,7 @@
             }
 
             function goToDependence(){
-                element = tempElement
+                element = document.querySelectorAll('.selected')[0]
                 setEventCaller(document.querySelector('#EventCallerID'), element)
                 EventChanged()
             }
@@ -625,14 +566,20 @@
             }
 
             // Функция, которая выделяет элемент
-            async function setActiveElement(element){
+            async function setActiveElement(element, param){
                 if(document_main.querySelectorAll('.selected').length === 1 && document_main.querySelector('.selected') === element)
                     return;
                 unsetActiveElements()
-                element.classList.add('selected');
+                if(param !== 0)
+                    element.classList.add('selected');
                 let tree_elem = document.querySelector('.tree_element[data-idElement="'+ element.id +'"]');
                 tree_elem.classList.add('selectedTreeElement');
-                // Если это текстовый элемент то выделяем его и ставим коретку в конец
+                let radioGroup = document.querySelector('#' + document_main.querySelector('.selected').getAttribute('data-idRadioGroup'));
+                if(radioGroup){
+                    radioGroup.classList.add('selectedRadioGroup');
+                    document.querySelector('#btnRadioInstruments').style.backgroundColor = radioGroup.querySelector('input').value
+                }
+                    // Если это текстовый элемент то выделяем его и ставим коретку в конец
                 if(element.classList.contains('runs')){
                     let tree_elem_container = tree_elem.parentElement.closest('.tree_element');
                     if(element.classList.contains('variable_ref')){
@@ -664,7 +611,7 @@
                 // Если параграф то запускаем эту функцию с последним элементом
                 else if(element.classList.contains('paragraph')){
                     var elements = element.querySelectorAll('.docelement')
-                    setActiveElement(elements[elements.length-1]);
+                    setActiveElement(elements[elements.length-1], 0);
                 } 
                 else if(element.classList.contains('imageDocElement')){
                     let tree_elem_container = tree_elem.parentElement.closest('.tree_element');
@@ -696,6 +643,13 @@
                     return
                 }
                 element.classList.add('selected');
+                let tree_elem = document.querySelector('.tree_element[data-idElement="'+ element.id +'"]');
+                tree_elem.classList.add('selectedTreeElement');
+                let radioGroup = document.querySelector('#' + document_main.querySelector('.selected').getAttribute('data-idRadioGroup'));
+                if(radioGroup){
+                    let radioGroup = document.querySelector('#' + document_main.querySelectorAll('.selected')[0].getAttribute('data-idRadioGroup'));
+                    radioGroup.classList.add('selectedRadioGroup');
+                }
                 // Если это текстовый элемент то выделяем его и ставим коретку в конец
                 if(element.classList.contains('runs')){
                     element.classList.add('selectedRun');
@@ -738,12 +692,12 @@
                 for(let tree_elem of document.querySelectorAll('.tree_element')){
                     if(enable){
                         tree_elem.removeAttribute('hidden');
-                        document.querySelector('label[for="checkView;'+tree_elem.getAttribute('data-idElement')+'"]').removeAttribute('hidden')
+                        tree_elem.querySelector('.setUserCheckboxLabel').removeAttribute('hidden')
                     }
                     else{
                         if(tree_elem.classList.contains('userCanSee')){
                             tree_elem.removeAttribute('hidden');
-                            document.querySelector('label[for="checkView;'+tree_elem.getAttribute('data-idElement')+'"]').setAttribute('hidden', 1)
+                            tree_elem.querySelector('.setUserCheckboxLabel').setAttribute('hidden', 1)
                         }
                         else{
                             tree_elem.setAttribute('hidden', 1);
@@ -768,6 +722,13 @@
                 for(let vari of document.querySelectorAll('.selectedVar')){
                     vari.classList.remove('selectedVar')
                 }
+                for(let vari of document.querySelectorAll('.selectedRadioGroup')){
+                    vari.classList.remove('selectedRadioGroup')
+                }
+                for(let vari of document.querySelectorAll('.selectedTreeElement')){
+                    vari.classList.remove('selectedTreeElement')
+                }
+                document.querySelector('#btnRadioInstruments').style.backgroundColor = "#ffffff"
                 // document.querySelector('#context_add_menu').hidden = true;
                 //document_main.appendChild(document.querySelector('#context_add_menu'));
             }
@@ -829,6 +790,9 @@
                 span.textContent = child['text'];
                 span.setAttribute('data-invis', child['data-invis']);
                 span.setAttribute('data-name', child['data-name']);
+                if(!child['data-idRadioGroup'])
+                    child['data-idRadioGroup'] = "radioGroup-1"
+                span.setAttribute('data-idRadioGroup', child['data-idRadioGroup']);
                 span.hidden = child['hidden'];
                 SetDefaultRun(span);
                 return span;
@@ -842,6 +806,9 @@
                 height:`+ Number(child['height']) / 0.2636 +`px;`
                 if(child['userCanSee'])
                     span.classList.add('userCanSeeInTree')
+                if(!child['data-idRadioGroup'] || child['data-idRadioGroup'] == "undefined")
+                    child['data-idRadioGroup'] = "radioGroup-1"
+                span.setAttribute('data-idRadioGroup', child['data-idRadioGroup'])
                 if(document.querySelector('#btn_check_nothidden').checked){
                     span.classList.add('docelementNotHidden');
                 }
@@ -867,6 +834,10 @@
                 if(child['userCanSee'])
                     par.classList.add('userCanSeeInTree')
                 par.setAttribute('data-name', child['data-name']);
+                console.log(child['data-idRadioGroup']) 
+                if(!child['data-idRadioGroup'] || child['data-idRadioGroup'] == "undefined")
+                    child['data-idRadioGroup'] = "radioGroup-1"
+                par.setAttribute('data-idRadioGroup', child['data-idRadioGroup']);
                 par.hidden = child['hidden'];
                 if(document.querySelector('#btn_check_nothidden').checked){
                     par.classList.add('docelementNotHidden');
@@ -887,7 +858,7 @@
                     if(key!='textIndent')
                         par.style[key] = value;
                     else{
-                        par.firstElementChild.style[key] = value;
+                        par.style[key] = value;
                     }
                 }
                 SetDefaultPar(par);
@@ -943,19 +914,42 @@
                 }
             }
 
+            async function RadioGroupColorChanged(evt){
+                var radioGroup = evt.target.closest(".RadioGroup")
+                document.querySelector('.dropdownRadioGroup[data-idRadioGroup="'+ radioGroup.id +'"]').style.backgroundColor = evt.target.value
+                document.querySelector('#btnRadioInstruments[data-idRadioGroup="'+ radioGroup.id +'"]').style.backgroundColor = evt.target.value
+                var tree_elements_indicators = document.querySelectorAll('.hideCheckbox[name="'+ radioGroup.id +'"] ~ .radioGroupIndicator')
+                for(let tei of tree_elements_indicators){
+                    tei.style.backgroundColor = evt.target.value
+                }
+            }
+
+
             // Восстанавливает радиогруппы из JSON
             async function RadioGroupsFromJSON(data){
                 var jsonp = JSON.parse(data);
-                if(!jsonp['radioGroups'])
+                console.log(jsonp['radioGroups'])
+                if(!jsonp['radioGroups'] || jsonp['radioGroups'].length == 0)
                     return;
                 for(let key of jsonp['radioGroups']['childs']){
-                    var radioGroup = createRadioGroup(key['name'], key['color']);
-                    modal_radioGroup_list.appendChild(radioGroup);
-                    for(let child of key['childs']){
-                        var treeElementInRadio = document.querySelector('.TreeElementInModalList[data-idElement="'+child['data-idElement']+'"]');
-                        ElementInRadioGroup(child['data-idElement'], radioGroup.firstElementChild.lastElementChild.id);
-                        radioGroup.firstElementChild.lastElementChild.firstElementChild.appendChild(treeElementInRadio);
-                    }
+                    // var radioGroup = createRadioGroup(key['name'], key['color'], key['id']);
+                    // modal_radioGroup_list.appendChild(radioGroup);
+                    modal_radioGroup_list.insertAdjacentHTML('beforeend', `
+                    <div class="RadioGroup" id="` + key['id'] + `" onclick="radioGroupClick(event);">
+                        <div class="containerTextColorRadioGroup">
+                            <input type="color" onchange="RadioGroupColorChanged(event);" value="`+ key['color'] +`">
+                            <span contenteditable="true">`+ key['name'] +`</span>
+                        </div>
+                    </div>
+                    `)
+                    document.querySelector(".dropdown-menu").insertAdjacentHTML('beforeend', `
+                        <li><a class="dropdownRadioGroup dropdown-item" onclick="radioGroupClickInstrument(event)" data-idRadioGroup="`+ key['id'] +`" type="button" style="background-color:`+ key['color'] +`"></a></li>
+                    `)
+                    // for(let child of key['childs']){
+                    //     var treeElementInRadio = document.querySelector('.TreeElementInModalList[data-idElement="'+child['data-idElement']+'"]');
+                    //     ElementInRadioGroup(child['data-idElement'], radioGroup.firstElementChild.lastElementChild.id);
+                    //     radioGroup.firstElementChild.lastElementChild.firstElementChild.appendChild(treeElementInRadio);
+                    // }
                     //InputColor(radioGroup.firstElementChild.firstElementChild.lastElementChild);
                 }
             }
@@ -1571,7 +1565,6 @@
 
             // Задать начальное значение переменной
             async function SetDefaultVariable(variable){
-                variable.querySelector('.variable_name').contentEditable = true;
                 variable.querySelector('.variable_mean').oninput = function(){
                     for(let span of document.getElementsByClassName('variable_ref')){
                         CheckOnVariableInSpan(span);
@@ -1801,12 +1794,12 @@
 
             // Выставляет в меню настройки отступа
             async function ApplyIndent(element){
-                if(element.firstElementChild.style.textIndent){
-                    IndentElement.value = Number(element.firstElementChild.style.textIndent.split('cm')[0]);
+                if(element.style.textIndent){
+                    IndentElement.value = Number(element.style.textIndent.split('cm')[0]);
                 }
                 else{
                     IndentElement.value = startIndent;
-                    element.firstElementChild.style.textIndent = startIndent+"cm";
+                    element.style.textIndent = startIndent+"cm";
                 }
             }
 
@@ -1848,7 +1841,7 @@
             async function IndentChanged(){
                 var indent = IndentElement.value;
                 for(let paragraph of document.querySelectorAll('.selectedParagraph'))
-                    paragraph.firstElementChild.style.textIndent = Number(indent) + 'cm';
+                    paragraph.style.textIndent = Number(indent) + 'cm';
             }
 
             // Событие изменения интервала
@@ -1909,7 +1902,87 @@
 
             // Функция добавления радиогруппы
             async function addRadioGroup(){
-                modal_radioGroup_list.appendChild(createRadioGroup());
+                const length = modal_radioGroup_list.children.length
+                var color = "#97c0ff"
+                var id = 'radioGroup' + length
+                modal_radioGroup_list.insertAdjacentHTML('beforeend', `
+                <div class="RadioGroup" id="` + id + `" onclick="radioGroupClick(event);">
+                    <div class="containerTextColorRadioGroup">
+                        <input onchange="RadioGroupColorChanged(event);" type="color" value="`+ color +`">
+                        <span contenteditable="true">`+ 'Новая альтернатива' + length  +`</span>
+                    </div>
+                </div>
+                `)
+                document.querySelector(".dropdown-menu").insertAdjacentHTML('beforeend', `
+                    <li><a class="dropdownRadioGroup dropdown-item" onclick="radioGroupClickInstrument(event)" data-idRadioGroup="`+ id +`" type="button" style="background-color:`+ color +`"></a></li>
+                `)
+            }
+
+            function setRadio(element, radio){
+                console.log(element)
+                var tree_element = document.querySelector('.tree_element[data-idElement="'+ element.id +'"]');
+                console.log(tree_element)
+                if(!tree_element)
+                    return
+                console.log(radio)
+                tree_element.querySelector('.hideCheckbox').type = 'radio';
+                tree_element.querySelector('.hideCheckbox').name = radio.id;
+                tree_element.querySelector('.radioGroupIndicator').style.backgroundColor = radio.querySelector('input').value;
+                tree_element.querySelector('.radioGroupIndicator').classList.remove('invisible')
+                var event = new Event('change');
+                tree_element.querySelector('.hideCheckbox').dispatchEvent(event);
+            }
+
+            function unsetRadio(element, radio){
+                console.log(element)
+                var tree_element = document.querySelector('.tree_element[data-idElement="'+ element.id +'"]');
+                if(!tree_element)
+                    return
+                console.log(tree_element)
+                console.log(radio)
+                tree_element.querySelector('.hideCheckbox').type = 'checkbox';
+                tree_element.querySelector('.hideCheckbox').name = '';
+                tree_element.querySelector('.radioGroupIndicator').style.backgroundColor = radio.querySelector('input').value;
+                tree_element.querySelector('.radioGroupIndicator').classList.add('invisible')
+                var event = new Event('change');
+                tree_element.querySelector('.hideCheckbox').dispatchEvent(event);
+            }
+
+            async function radioGroupClick(event){
+                let radioGroup = event.target.closest('.RadioGroup')
+                for(let vari of document.querySelectorAll('.selectedRadioGroup')){
+                    vari.classList.remove('selectedRadioGroup')
+                }
+                for(let sel of document_main.querySelectorAll('.selected')){
+                    console.log(sel)
+                    sel.setAttribute('data-idRadioGroup', radioGroup.id)
+                    if(radioGroup.id == "radioGroup-1")
+                        unsetRadio(sel, radioGroup)
+                    else
+                        setRadio(sel, radioGroup)
+                }
+                console.log(document_main.querySelectorAll('.selected')[0])
+                console.log(radioGroup)
+                radioGroup.classList.add('selectedRadioGroup');
+            }
+
+            async function radioGroupClickInstrument(event){
+                let radioInstrument = event.target.closest('.dropdownRadioGroup') 
+                let radioGroup = document.querySelector('#'+radioInstrument.getAttribute('data-idRadioGroup'))
+                for(let vari of document.querySelectorAll('.selectedRadioGroup')){
+                    vari.classList.remove('selectedRadioGroup')
+                }
+                for(let sel of document_main.querySelectorAll('.selected')){
+                    console.log(sel)
+                    sel.setAttribute('data-idRadioGroup', radioGroup.id)
+                    if(radioGroup.id == "radioGroup-1")
+                        unsetRadio(sel, radioGroup)
+                    else
+                        setRadio(sel, radioGroup)
+                }
+                radioGroup.classList.add('selectedRadioGroup');
+                document.querySelector('#btnRadioInstruments').setAttribute('data-idRadioGroup', radioGroup.id)
+                document.querySelector('#btnRadioInstruments').style.backgroundColor = radioGroup.querySelector('input').value
             }
 
             // Функция переводит ряды таблицы в JSON
@@ -1963,16 +2036,28 @@
                     }
                 }
                 let op = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
-                if(elem.firstElementChild.style['textIndent']){
-                    op['textIndent'] = elem.firstElementChild.style['textIndent'];
+                if(elem.style['textIndent']){
+                    op['textIndent'] = elem.style['textIndent'];
                 }
-                return JSON.stringify({'id': elem.id, 'data-name': elem.getAttribute('data-name'), 'class': 'paragraph', 'childs': chil, 'style': op, 'hidden': elem.hidden, 'userCanSee': elem.classList.contains('userCanSeeInTree')});
+                return JSON.stringify({'id': elem.id, 
+                'data-name': elem.getAttribute('data-name'), 
+                'data-idRadioGroup': elem.getAttribute('data-idRadioGroup'), 
+                'class': 'paragraph', 
+                'childs': chil, 
+                'style': op, 
+                'hidden': elem.hidden, 
+                'userCanSee': elem.classList.contains('userCanSeeInTree')});
             }
 
             // Функция переводит элементы внутри параграфа в JSON
             function ChildrenToJSON(elem, id){
                 let o = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
-                return JSON.stringify({'text': elem.textContent, 'data-invis': elem.getAttribute('data-invis'), 'data-name': elem.getAttribute('data-name'), 'class': elem.classList[0], 'id': elem.id, 'style': o , 'attrib': elem.id, 'hidden': elem.hidden, 'userCanSee': elem.classList.contains('userCanSeeInTree')});
+                return JSON.stringify({'text': elem.textContent, 
+                'data-invis': elem.getAttribute('data-invis'), 
+                'data-name': elem.getAttribute('data-name'), 
+                'data-idRadioGroup': elem.getAttribute('data-idRadioGroup'), 
+                'class': elem.classList[0], 
+                'id': elem.id, 'style': o , 'attrib': elem.id, 'hidden': elem.hidden, 'userCanSee': elem.classList.contains('userCanSeeInTree')});
             }
 
             function ImageToJSON(elem, id){
@@ -1981,36 +2066,39 @@
                 elem.parentElement.style.height = rect.height * 0.2636;
                 let o = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
                 
-                return JSON.stringify({'src': elem.src, 'data-name': elem.getAttribute('data-name'), 'class': 'img', 'id': elem.parentElement.id, 'style': o , 'hidden': elem.hidden, 'userCanSee': elem.classList.contains('userCanSeeInTree'), 'width': rect.width * 0.2636, 'height': rect.height * 0.2636});
+                return JSON.stringify({'src': elem.src, 
+                'data-name': elem.getAttribute('data-name'),
+                'data-idRadioGroup': elem.getAttribute('data-idRadioGroup'),  
+                'class': 'img', 'id': elem.parentElement.id, 'style': o , 'hidden': elem.hidden, 'userCanSee': elem.classList.contains('userCanSeeInTree'), 'width': rect.width * 0.2636, 'height': rect.height * 0.2636});
             }
 
             // Функция переводит сохранённые элементы в JSON
-            function SavedElementToJSON(list_elem, id1){
-                var element = list_elem.firstChild.children[1];
-                var inner = list_elem.firstChild.children[0].textContent;
-                var id = list_elem.getAttribute('data-idDB');
-                var lst = {};
-                lst['id'] = id;
-                lst['name'] = inner;
-                if(element.classList.contains("paragraph")){
-                    lst['json'] = ParagraphToJSON(element, id1);
-                }
-                else if(element.classList.contains("tables")){
-                    lst['json'] = TableToJSON(element, id1);
-                }
-                else if(element.classList.contains("runs")){
-                    lst['json'] = ChildrenToJSON(element, id1);
-                }
-                return lst;
-            }
+            // function SavedElementToJSON(list_elem, id1){
+            //     var element = list_elem.firstChild.children[1];
+            //     var inner = list_elem.firstChild.children[0].textContent;
+            //     var id = list_elem.getAttribute('data-idDB');
+            //     var lst = {};
+            //     lst['id'] = id;
+            //     lst['name'] = inner;
+            //     if(element.classList.contains("paragraph")){
+            //         lst['json'] = ParagraphToJSON(element, id1);
+            //     }
+            //     else if(element.classList.contains("tables")){
+            //         lst['json'] = TableToJSON(element, id1);
+            //     }
+            //     else if(element.classList.contains("runs")){
+            //         lst['json'] = ChildrenToJSON(element, id1);
+            //     }
+            //     return lst;
+            // }
 
-            // Функция переводит список сохранённых элементов в JSON
-            function ListSavedToJSON(){
-                var chil = [];
-                for(let list_elem of list_saved_sp.children)
-                    chil.push(SavedElementToJSON(list_elem, chil.length));
-                return chil;
-            }
+            // // Функция переводит список сохранённых элементов в JSON
+            // function ListSavedToJSON(){
+            //     var chil = [];
+            //     for(let list_elem of list_saved_sp.children)
+            //         chil.push(SavedElementToJSON(list_elem, chil.length));
+            //     return chil;
+            // }
 
             // Функция переводит переменную в JSON
             function VariableToJSON(variable){
@@ -2037,23 +2125,24 @@
             }
 
             // Функция переводит членов радиогруппы в JSON
-            function RadioGroupMemberToJSON(child){
-                var lst = {};
-                lst['data-idElement'] = child.getAttribute('data-idElement');
-                return lst;
-            }
+            // function RadioGroupMemberToJSON(child){
+            //     var lst = {};
+            //     lst['data-idElement'] = child.getAttribute('data-idElement');
+            //     return lst;
+            // }
 
             // Функция переводит радиогруппу в JSON
             function RadioGroupToJSON(radioGroup){
                 var lst = {};
                 var childs = [];
 
-                lst['name'] = radioGroup.firstElementChild.firstElementChild.firstElementChild.textContent;
-                lst['color'] = radioGroup.firstElementChild.firstElementChild.lastElementChild.value;
-                for(let child of radioGroup.firstElementChild.lastElementChild.firstElementChild.children){
-                    childs.push(RadioGroupMemberToJSON(child))
-                }
-                lst['childs'] = childs;
+                lst['name'] = radioGroup.querySelector('span').textContent;
+                lst['color'] = radioGroup.querySelector('input').value;
+                lst['id'] = radioGroup.id
+                // for(let child of radioGroup.firstElementChild.lastElementChild.firstElementChild.children){
+                //     childs.push(RadioGroupMemberToJSON(child))
+                // }
+                // lst['childs'] = childs;
                 return lst;
             }
 
@@ -2062,7 +2151,9 @@
                 var lst = {};
                 var childs = [];
 
-                for(let radioGroup of document.querySelectorAll('.radioGroups')){
+                for(let radioGroup of document.querySelectorAll('.RadioGroup')){
+                    if(radioGroup.id == 'radioGroup-1')
+                        continue
                     childs.push(RadioGroupToJSON(radioGroup));
                 }
                 lst['childs'] = childs;
@@ -2146,136 +2237,194 @@
                 }
             }
 
-            //Функция создаёт элемент для дерева
-            function CreateTreeElement(element, name){    
-                var tree_element = document.createElement('li');
-                var tree_element_container = document.createElement('div');
-                var tree_element_checkbox = document.createElement('input');
-                var tree_element_checkbox_2 = document.createElement('input');
-                var tree_element_checkbox_2_label = document.createElement('label');
-                var tree_element_label = document.createElement('span');
-                var tree_element_btn = document.createElement('a')
-                //Добавляем класс из бутстрапа
-                tree_element.classList.add('list-group-item');
-                tree_element.classList.add('tree_element');
-                tree_element.setAttribute('data-idElement', element.id);
-                tree_element.ondblclick = (evt) => {
-                    evt.stopPropagation();
-                    var element = document_main.querySelector('#' + tree_element.getAttribute('data-idElement'));
-                    setActiveElement(element);
+            function TreeElementInput1OnChange(evt){
+                evt.stopPropagation();
+                var element = document_main.querySelector('#' + evt.target.closest('.tree_element').getAttribute('data-idElement'));
+                element.hidden = !evt.target.checked;
+                if(element.hidden){
+                    eventManager.eventDispatch(element.id, 'hidden');
                 }
-                //Создаём чекбокс и стилизуем его
-                tree_element_checkbox.classList.add('form-check-input');
-                tree_element_checkbox.classList.add('me-1');
-                tree_element_checkbox.classList.add('hideCheckbox');
-                tree_element_checkbox.type = 'checkbox';
-                tree_element_checkbox.name = name;
-                tree_element_checkbox.value = element.id;
-                tree_element_checkbox.checked = !element.hidden;
-                tree_element_checkbox.onchange = (evt) => {
-                    evt.stopPropagation();
-                    var element = document_main.querySelector('#' + evt.target.closest('.tree_element').getAttribute('data-idElement'));
-                    element.hidden = !evt.target.checked;
-                    if(element.hidden){
-                        eventManager.eventDispatch(element.id, 'hidden');
-                    }
-                    else{
-                        eventManager.eventDispatch(element.id, 'unhidden');
-                    }
-                    if(evt.target.closest('.tree_element').querySelector('ul')){
-                        for(let run of evt.target.closest('.tree_element').querySelector('ul').children){
-                            run.firstElementChild.disabled = !evt.target.checked;
-                            run.firstElementChild.readonly = !evt.target.checked;
-                            document_main.querySelector('#'+run.getAttribute('data-idElement')).hidden =  !evt.target.checked;
-                        }
-                    }
-                    if(evt.target.type == 'radio'){
-                        RadioInputChanged(evt);
+                else{
+                    eventManager.eventDispatch(element.id, 'unhidden');
+                }
+                if(evt.target.closest('.tree_element').querySelector('ul')){
+                    for(let run of evt.target.closest('.tree_element').querySelector('ul').children){
+                        run.firstElementChild.disabled = !evt.target.checked;
+                        run.firstElementChild.readonly = !evt.target.checked;
+                        document_main.querySelector('#'+run.getAttribute('data-idElement')).hidden =  !evt.target.checked;
                     }
                 }
-                tree_element_checkbox_2.classList.add('btn-check');
-                tree_element_checkbox_2.classList.add('setUserCheckbox');
-                tree_element_checkbox_2.type = 'checkbox';
-                tree_element_checkbox_2.id = 'checkView;'+element.id;
-                tree_element_checkbox_2.checked = element.classList.contains('userCanSeeInTree');
-                tree_element_checkbox_2.onchange = (evt) => {
-                    evt.stopPropagation();
-                    var label_eye = document.querySelector('label[for="checkView;'+element.id+'"] > i');
-                    if(evt.target.checked){
-                        evt.target.closest('.tree_element').classList.add('userCanSee');
-                        element.classList.add('userCanSeeInTree');
-                        label_eye.setAttribute('class',"fa-regular fa-eye fa-lg")
-                        
-                    }
-                    else{
-                        evt.target.closest('.tree_element').classList.remove('userCanSee');
-                        element.classList.remove('userCanSeeInTree');
-                        label_eye.setAttribute('class',"fa-regular fa-eye-slash fa-lg")
-                    }
+                if(evt.target.type == 'radio'){
+                    RadioInputChanged(evt);
                 }
-                tree_element_checkbox_2_label.setAttribute('for', 'checkView;'+element.id);
-                tree_element_checkbox_2_label.setAttribute('type', 'button')
+            }
+
+            async function CheckUserCanSeeFlags(tree_element){
+                var element = document_main.querySelector('#' + tree_element.getAttribute('data-idElement'))
+                var label_eye = tree_element.querySelector('.setUserCheckboxLabel > i');
+                console.log(tree_element)
+                console.log(element)
+                console.log(label_eye)
                 if(element.classList.contains('userCanSeeInTree')){
-                    tree_element.classList.add('userCanSee');
-                    tree_element_checkbox_2_label.insertAdjacentHTML('beforeend', 
-                    `
-                    <i class="fa-regular fa-eye fa-lg"></i>
-                    `)
+                    console.log('Да')
+                    tree_element.classList.add('userCanSee');  
+                    label_eye.setAttribute('class',"fa-regular fa-eye fa-lg")
+                    tree_element.querySelector('.setUserCheckbox').checked = true
+                }
+                else{
+                    console.log('Нет')
+                    tree_element.classList.remove('userCanSee');
+                    label_eye.setAttribute('class',"fa-regular fa-eye-slash fa-lg")
+                    tree_element.querySelector('.setUserCheckbox').checked = false
+                }
+            }
+
+            async function ChangeUserCanSee(tree_element, checked){
+                var element = document_main.querySelector('#' + tree_element.getAttribute('data-idElement'))
+                var label_eye = tree_element.querySelector('.setUserCheckboxLabel > i');
+                tree_element.querySelector('.setUserCheckbox').checked = checked
+                if(checked){
+                    tree_element.classList.add('userCanSee');   
+                    element.classList.add('userCanSeeInTree');            
+                    label_eye.setAttribute('class',"fa-regular fa-eye fa-lg")
                 }
                 else{
                     tree_element.classList.remove('userCanSee');
-                    tree_element_checkbox_2_label.insertAdjacentHTML('beforeend', 
-                    `
-                    <i class="fa-regular fa-eye-slash fa-lg"></i>
-                    `)
+                    element.classList.remove('userCanSeeInTree');
+                    label_eye.setAttribute('class',"fa-regular fa-eye-slash fa-lg")
                 }
-                //Заполняем лейбл
-                tree_element_label.textContent = name;
+            }
 
-                tree_element_label.contentEditable = true;
-                tree_element_label.classList.add('tree_element_label');
-                tree_element_label.oninput = (evt) => {
-                    evt.preventDefault();
-                    var element = document_main.querySelector('#' + evt.target.closest('.tree_element').getAttribute('data-idElement'));
-                    element.setAttribute('data-name', tree_element_label.textContent);
-                    UpdateTreeElementInRadio(evt.target.closest('.tree_element').getAttribute('data-idElement'));
+            function TreeElementInput2OnChange(evt){
+                console.log(evt.target.closest('.tree_element'))
+                evt.stopPropagation();
+                var tree_element = evt.target.closest('.tree_element')
+                ChangeUserCanSee(tree_element, evt.target.checked)
+                var tree_element_parent = tree_element.parentNode.closest('.tree_element')
+                if(tree_element_parent && evt.target.checked)
+                    ChangeUserCanSee(tree_element_parent, evt.target.checked)
+                for(let tree_elem of tree_element.querySelectorAll('.tree_element')){
+                    ChangeUserCanSee(tree_elem, evt.target.checked)
                 }
+                
+            }
 
-                if(element.querySelectorAll('.docelement').length > 0){
-                    tree_element_btn.classList.add('btn');
-                    tree_element_btn.classList.add('btn-labeled');
-                    var i = document.createElement('i')
-                    i.classList.add('fa-solid');
-                    i.classList.add('fa-caret-right');
-                    tree_element_btn.appendChild(i);
-                    tree_element_btn.addEventListener('click', (evt)=>{
-                        evt.stopPropagation();
-                        evt.preventDefault();
-                        var elem = document.querySelector('.tree_element[data-idElement="'+ element.id +'"] ul');
-                        $('.tree_element[data-idElement="'+ element.id +'"] ul').collapse('toggle');
-                        if(tree_element_btn.querySelector('i').classList.contains('fa-caret-right')){
-                            tree_element_btn.querySelector('i').classList.remove('fa-caret-right');
-                            tree_element_btn.querySelector('i').classList.add('fa-caret-down');
-                        }
-                        else{
-                            tree_element_btn.querySelector('i').classList.remove('fa-caret-down');
-                            tree_element_btn.querySelector('i').classList.add('fa-caret-right');
-                        }
-                    });
+            function TreeElementSpanOnInput(evt){
+                evt.preventDefault();
+                var element = document_main.querySelector('#' + evt.target.closest('.tree_element').getAttribute('data-idElement'));
+                element.setAttribute('data-name', evt.target.textContent);
+                //UpdateTreeElementInRadio(evt.target.closest('.tree_element').getAttribute('data-idElement'));
+            }
+
+            function TreeElementDblClick(evt){
+                evt.stopPropagation();
+                var element = document_main.querySelector('#' + tree_element.getAttribute('data-idElement'));
+                setActiveElement(element);
+            }
+
+            function TreeElementBtnlClick(evt){
+                evt.stopPropagation();
+                evt.preventDefault();
+                var elem = document.querySelector('.tree_element[data-idElement="'+ element.id +'"] ul');
+                $('.tree_element[data-idElement="'+ element.id +'"] ul').collapse('toggle');
+                if(evt.target.querySelector('i').classList.contains('fa-caret-right')){
+                    evt.target.querySelector('i').classList.remove('fa-caret-right');
+                    evt.target.querySelector('i').classList.add('fa-caret-down');
                 }
                 else{
-                    tree_element_btn.style.display = 'none';
+                    evt.target.querySelector('i').classList.remove('fa-caret-down');
+                    evt.target.querySelector('i').classList.add('fa-caret-right');
                 }
+            }
 
-                //Вставляем элементы в родителя
-                tree_element_container.classList.add('tree_element_container')
-                tree_element_container.appendChild(tree_element_checkbox);
-                tree_element_container.appendChild(tree_element_checkbox_2);
-                tree_element_container.appendChild(tree_element_checkbox_2_label);
-                tree_element_container.appendChild(tree_element_label);
-                tree_element_container.appendChild(tree_element_btn);
-                tree_element.appendChild(tree_element_container);
-                return tree_element;
+            function fromHTML(html, trim = true) {
+                // Process the HTML string.
+                html = trim ? html : html.trim();
+                if (!html) return null;
+
+                // Then set up a new template element.
+                const template = document.createElement('template');
+                template.innerHTML = html;
+                const result = template.content.children;
+
+                // Then return either an HTMLElement or HTMLCollection,
+                // based on whether the input HTML had one or more roots.
+                if (result.length === 1) return result[0];
+                return result;
+            }
+
+            //Функция создаёт элемент для дерева
+            function CreateTreeElement(element, name){   
+                var tree_element_html = `Ничего нет`
+                if(element.querySelectorAll('.docelement').length > 0){
+                    if(element.classList.contains('userCanSee'))
+                        tree_element_html = `
+                            <li class="list-group-item tree_element userCanSee" ondblclick="TreeElementDblClick(event);" data-idelement="`+ element.id +`" style="background-color: rgb(255, 255, 255);">
+                                <div class="tree_element_container">     
+                                    <input class="form-check-input me-1 hideCheckbox" onchange="TreeElementInput1OnChange(event);" type="checkbox" name="`+ name +`" value="`+ element.id +`" checked="`+ !element.hidden +`">
+                                    <input class="btn-check setUserCheckbox" onchange="TreeElementInput2OnChange(event);" type="checkbox" id="checkView;`+ element.id +`">
+                                    
+                                    <label class="setUserCheckboxLabel" for="checkView;`+ element.id +`" type="button">
+                                        <i class="fa-regular fa-eye fa-lg"></i>
+                                    </label>
+                                    <div class="radioGroupIndicator invisible"></div>
+                                    <span contenteditable="true" class="tree_element_label" oninput="TreeElementSpanOnInput(event);">`+ name +`</span>
+                                    <a class="btn btn-labeled" onclick="TreeElementBtnlClick(event);"><i class="fa-solid fa-caret-right"></i></a>
+                                </div>
+                            </li>
+                        `
+                    else
+                        tree_element_html = `
+                            <li class="list-group-item tree_element" ondblclick="TreeElementDblClick(event);" data-idelement="`+ element.id +`" style="background-color: rgb(255, 255, 255);">
+                                <div class="tree_element_container">
+                                    <input class="form-check-input me-1 hideCheckbox" onchange="TreeElementInput1OnChange(event);" type="checkbox" name="`+ name +`" value="`+ element.id +`" checked="`+ !element.hidden +`">
+                                    <input class="btn-check setUserCheckbox" onchange="TreeElementInput2OnChange(event);" type="checkbox" id="checkView;`+ element.id +`">
+                                    
+                                    <label class="setUserCheckboxLabel" for="checkView;`+ element.id +`" type="button">
+                                        <i class="fa-regular fa-eye-slash fa-lg"></i>
+                                    </label>
+                                    <div class="radioGroupIndicator invisible"></div>
+                                    <span contenteditable="true" class="tree_element_label" oninput="TreeElementSpanOnInput(event);">`+ name +`</span>
+                                    <a class="btn btn-labeled" onclick="TreeElementBtnlClick(event);"><i class="fa-solid fa-caret-right"></i></a>
+                                </div>
+                            </li>
+                        `  
+                }
+                else{
+                    if(element.classList.contains('userCanSee'))
+                        tree_element_html = `
+                            <li class="list-group-item tree_element userCanSee" ondblclick="TreeElementDblClick(event);" data-idelement="`+ element.id +`" style="background-color: rgb(255, 255, 255);">
+                                <div class="tree_element_container">
+                                    <input class="form-check-input me-1 hideCheckbox" onchange="TreeElementInput1OnChange(event);" type="checkbox" name="`+ name +`" value="`+ element.id +`" checked="`+ !element.hidden +`">
+                                    <input class="btn-check setUserCheckbox" onchange="TreeElementInput2OnChange(event);" type="checkbox" id="checkView;`+ element.id +`">
+                                    
+                                    <label class="setUserCheckboxLabel" for="checkView;`+ element.id +`" type="button">
+                                        <i class="fa-regular fa-eye fa-lg"></i>
+                                    </label>
+                                    <div class="radioGroupIndicator invisible"></div>
+                                    <span contenteditable="true" class="tree_element_label" oninput="TreeElementSpanOnInput(event);">`+ name +`</span>
+                                    <a class="btn btn-labeled" onclick="TreeElementBtnlClick(event);"><i class="fa-solid fa-caret-right"></i></a>
+                                </div>
+                            </li>
+                        `
+                    else
+                        tree_element_html = `
+                            <li class="list-group-item tree_element" ondblclick="TreeElementDblClick(event);" data-idelement="`+ element.id +`" style="background-color: rgb(255, 255, 255);">
+                                <div class="tree_element_container">
+                                    <input class="form-check-input me-1 hideCheckbox" onchange="TreeElementInput1OnChange(event);" type="checkbox" name="`+ name +`" value="`+ element.id +`" checked="`+ !element.hidden +`">
+                                    <input class="btn-check setUserCheckbox" onchange="TreeElementInput2OnChange(event);" type="checkbox" id="checkView;`+ element.id +`">
+                                    
+                                    <label class="setUserCheckboxLabel" for="checkView;`+ element.id +`" type="button">
+                                        <i class="fa-regular fa-eye-slash fa-lg"></i>
+                                    </label>
+                                    <div class="radioGroupIndicator invisible"></div>
+                                    <span contenteditable="true" class="tree_element_label" oninput="TreeElementSpanOnInput(event);">`+ name +`</span>
+                                    <a class="btn btn-labeled" onclick="TreeElementBtnlClick(event);" style="display: none;"><i class="fa-solid fa-caret-right"></i></a>
+                                </div>
+                            </li>
+                        `  
+                }
+                return fromHTML(tree_element_html)
             }
 
             // Функция обновляет элемент в дереве
@@ -2324,7 +2473,8 @@
                 else{
                     tree_element_btn.style.display = 'none';
                 }
-                UpdateTreeElementInRadio(tree_element.getAttribute('data-idElement'));
+                CheckUserCanSeeFlags(tree_element)
+                //UpdateTreeElementInRadio(tree_element.getAttribute('data-idElement'));
             }
 
             // Функция удаляет элемент в дереве
@@ -2334,6 +2484,8 @@
                     tree_element.parentElement.removeChild(tree_element);
                 }
             }
+            
+            
 
             // Функция заполняет дерево
             async function FillTree(parent, childs){
@@ -2378,7 +2530,8 @@
                         else{
                             parent.appendChild(tree_element);
                         }
-                        modal_radioGroup_treeElements_list.appendChild(CreateTreeElementInRadio(child.id));
+                        CheckUserCanSeeFlags(tree_element)
+                        //modal_radioGroup_treeElements_list.appendChild(CreateTreeElementInRadio(child.id));
                     }
                     else{
                         UpdateTreeElement(element);
@@ -2397,45 +2550,45 @@
             }
 
             // Функция создаёт элемент в списке элементов для радиогрупп
-            function CreateTreeElementInRadio(id){
-                var li = document.createElement('li');
-                var span = document.createElement('span');
-                var child = document.querySelector('#'+id);
-                var name = "";
-                if(child.getAttribute('data-name').trim() == "" || child.getAttribute('data-name').trim() == 'null'){
-                    if(child.classList.contains('paragraph')){
-                        for(let run of child.querySelectorAll('.docelement')){
-                            name += run.textContent + " ";
-                        }
-                    }
-                    else
-                        name = child.textContent
-                }
-                else{
-                    name = child.getAttribute('data-name')
-                }
-                span.textContent = name;
-                span.classList.add('treeElementInRadioLabel');
-                li.setAttribute('data-idElement', id);
-                li.classList.add('list-group-item');
-                li.classList.add('TreeElementInModalList');
-                li.draggable = true;
-                li.appendChild(span);
-                return li;
-            }
+            // function CreateTreeElementInRadio(id){
+            //     var li = document.createElement('li');
+            //     var span = document.createElement('span');
+            //     var child = document.querySelector('#'+id);
+            //     var name = "";
+            //     if(child.getAttribute('data-name').trim() == "" || child.getAttribute('data-name').trim() == 'null'){
+            //         if(child.classList.contains('paragraph')){
+            //             for(let run of child.querySelectorAll('.docelement')){
+            //                 name += run.textContent + " ";
+            //             }
+            //         }
+            //         else
+            //             name = child.textContent
+            //     }
+            //     else{
+            //         name = child.getAttribute('data-name')
+            //     }
+            //     span.textContent = name;
+            //     span.classList.add('treeElementInRadioLabel');
+            //     li.setAttribute('data-idElement', id);
+            //     li.classList.add('list-group-item');
+            //     li.classList.add('TreeElementInModalList');
+            //     li.draggable = true;
+            //     li.appendChild(span);
+            //     return li;
+            // }
 
             // Функция обновляет элементы дерева в списке радиогрупп
-            async function UpdateTreeElementInRadio(id){
-                var treeElementInRadio = document.querySelector('.TreeElementInModalList[data-idElement="'+ id +'"]');
-                var treeElement = document.querySelector('.tree_element[data-idElement="'+ id +'"]')
-                treeElementInRadio.firstElementChild.textContent = treeElement.querySelector('.tree_element_label').textContent;
-            }
+            // async function UpdateTreeElementInRadio(id){
+            //     var treeElementInRadio = document.querySelector('.TreeElementInModalList[data-idElement="'+ id +'"]');
+            //     var treeElement = document.querySelector('.tree_element[data-idElement="'+ id +'"]')
+            //     treeElementInRadio.firstElementChild.textContent = treeElement.querySelector('.tree_element_label').textContent;
+            // }
 
             // Функция удаляет элементы дерева в списке радиогрупп
-            async function DeleteTreeElementInRadio(id){
-                var treeElementInRadio = document.querySelector('.TreeElementInModalList[data-idElement="'+ id +'"]');
-                treeElementInRadio.parentElement.removeChild(treeElementInRadio);
-            }
+            // async function DeleteTreeElementInRadio(id){
+            //     var treeElementInRadio = document.querySelector('.TreeElementInModalList[data-idElement="'+ id +'"]');
+            //     treeElementInRadio.parentElement.removeChild(treeElementInRadio);
+            // }
 
             // События на изменение текста в поле изменения текста
             span_value.oninput = function(event){
@@ -2908,22 +3061,22 @@
                 }
             }
 
-            // Функция добавления элемента в радиогруппу
-            function ElementInRadioGroup(id_element, id_radioGroup){ 
-                var element = document.querySelector('.tree_element[data-idElement="'+ id_element +'"]');
-                var radioGroup = document.querySelector('#'+id_radioGroup);
-                element.querySelector('input').type = 'radio';
-                element.querySelector('input').name = id_radioGroup;
-                element.style.backgroundColor = radioGroup.previousElementSibling.lastElementChild.value;
-            }
+            //Функция добавления элемента в радиогруппу
+            // function ElementInRadioGroup(id_element, id_radioGroup){ 
+            //     var element = document.querySelector('.tree_element[data-idElement="'+ id_element +'"]');
+            //     var radioGroup = document.querySelector('#'+id_radioGroup);
+            //     element.querySelector('input').type = 'radio';
+            //     element.querySelector('input').name = id_radioGroup;
+            //     element.style.backgroundColor = radioGroup.previousElementSibling.lastElementChild.value;
+            // }
 
             // Функция удаления элемента из радиогруппы
-            function ElementDeleteFromRadioGroup(id_element){
-                var element = document.querySelector('.tree_element[data-idElement="'+ id_element +'"]');
-                element.querySelector('input').type = 'checkbox';
-                element.querySelector('input').name = '';
-                element.style.backgroundColor = element.parentNode.style.backgroundColor;
-            }
+            // function ElementDeleteFromRadioGroup(id_element){
+            //     var element = document.querySelector('.tree_element[data-idElement="'+ id_element +'"]');
+            //     element.querySelector('input').type = 'checkbox';
+            //     element.querySelector('input').name = '';
+            //     element.style.backgroundColor = element.parentNode.style.backgroundColor;
+            // }
 
             function AddDependence(evt){
                 var sender = EventCallerID.value;
@@ -3144,19 +3297,26 @@
                 }
 
                 async eventDispatch(sender, event){
-                    for(let [key, value] of Object.entries(this.eventHashTable[event][sender])){
-                        if(value == 'hide'){
-                            var element = document.querySelector('.tree_element[data-idElement="'+ key +'"] .hideCheckbox');
-                            element.checked = false;
-                            element.dispatchEvent(new Event('change'));
+                    try {
+                        for(let [key, value] of Object.entries(this.eventHashTable[event][sender])){
+                            
+                                if(value == 'hide'){
+                                    var element = document.querySelector('.tree_element[data-idElement="'+ key +'"] .hideCheckbox');
+                                    element.checked = false;
+                                    element.dispatchEvent(new Event('change'));
+                                }
+                                else if(key == 'unhide'){
+                                    var element = document.querySelector('.tree_element[data-idElement="'+ key +'"] .hideCheckbox');
+                                    element.checked = true;
+                                    element.dispatchEvent(new Event('change'));
+                                }
+                            
+                            
                         }
-                        else if(key == 'unhide'){
-                            var element = document.querySelector('.tree_element[data-idElement="'+ key +'"] .hideCheckbox');
-                            element.checked = true;
-                            element.dispatchEvent(new Event('change'));
-                        }
+                    } catch (error) {
+                                console.log(error)
+                            }
                     }
-                }
             }
 
             class FilterManager{
@@ -3267,10 +3427,22 @@
             switchAdminMode(false);
             RadioGroupsFromJSON("{{ document_json|escapejs }}")
 
-            if('{{ vks }}' == 'True')
-                AutoFillFromRequest("{{ data|escapejs }}")
+            for(let element of document_main.querySelectorAll('.docelement')){
+                //var tree_element = document.querySelector('.tree_element[data-idElement="'+ child.id +'"]')
+                if(!element.getAttribute('data-idRadioGroup'))
+                    continue;
+                if(element.getAttribute('data-idRadioGroup') == "radioGroup-1")
+                    unsetRadio(element, document.querySelector('#' + element.getAttribute('data-idRadioGroup')))
+                else
+                    setRadio(element, document.querySelector('#' + element.getAttribute('data-idRadioGroup')))
+                }
+
+            // if('{{ vks }}' == 'True')
+                //  AutoFillFromRequest("{{ data|escapejs }}")
 
             $(document).ready(function () {
+
+                
 
             // Обработчик нажатия на кнопку сохранения
             document.getElementById("updateButton").onclick = function(evt){
@@ -3310,6 +3482,7 @@
                         event.stopPropagation();
                         if(!redSpan)
                             return;
+                        console.log(redSpan)
                         SaveLastVersion();
                         if(!redSpan.classList.contains('variable_ref'))
                             redSpan.setAttribute('data-invis', redSpan.textContent);
@@ -3454,38 +3627,38 @@
             });
 
             // Обработчик начала перетаскивания элементов в меню радиогрупп
-            groupRadioModal.addEventListener('dragstart', (evt)=>{
-                evt.dataTransfer.setData("Text", evt.target.getAttribute('data-idElement'));    
-            });
+            // groupRadioModal.addEventListener('dragstart', (evt)=>{
+            //     evt.dataTransfer.setData("Text", evt.target.getAttribute('data-idElement'));    
+            // });
 
 
             // Обработчик события для окончания переноса элемента в радиогруппу
-            groupRadioModal.addEventListener('drop', (evt)=>{
-                evt.preventDefault();
-                var id = evt.dataTransfer.getData("Text");
-                var element = document.querySelector('.TreeElementInModalList[data-idElement="'+id+'"]');
-                var radioGroup = evt.target.closest('.radioGroups');
-                var treeElementList = evt.target.closest('#rightRadioMenu');
-                var treeElement = evt.target.closest('.TreeElementInModalList')
-                // Если перенос осуществляется в радиогруппу, то добавляем туда
-                if(radioGroup){
-                    if(treeElement)
-                        radioGroup.querySelector('ul').insertBefore(element, treeElement);
-                    else
-                        radioGroup.querySelector('ul').appendChild(element);
-                    element.classList.add('radioted');
-                    ElementInRadioGroup(element.getAttribute('data-idElement'), radioGroup.querySelector('.ulContainerRadioGroup').id);
-                }  
-                // Если перенос осуществляется обратно в список, то удаляем из радиогрупп
-                else if(treeElementList){
-                    if(treeElement)
-                        treeElementList.querySelector('ul').insertBefore(element, treeElement);
-                    else
-                        treeElementList.querySelector('ul').appendChild(element);
-                    element.classList.remove('radioted');
-                    ElementDeleteFromRadioGroup(element.getAttribute('data-idElement'));
-                }
-            });
+            // groupRadioModal.addEventListener('drop', (evt)=>{
+            //     evt.preventDefault();
+            //     var id = evt.dataTransfer.getData("Text");
+            //     var element = document.querySelector('.TreeElementInModalList[data-idElement="'+id+'"]');
+            //     var radioGroup = evt.target.closest('.radioGroups');
+            //     var treeElementList = evt.target.closest('#rightRadioMenu');
+            //     var treeElement = evt.target.closest('.TreeElementInModalList')
+            //     // Если перенос осуществляется в радиогруппу, то добавляем туда
+            //     if(radioGroup){
+            //         if(treeElement)
+            //             radioGroup.querySelector('ul').insertBefore(element, treeElement);
+            //         else
+            //             radioGroup.querySelector('ul').appendChild(element);
+            //         element.classList.add('radioted');
+            //         ElementInRadioGroup(element.getAttribute('data-idElement'), radioGroup.querySelector('.ulContainerRadioGroup').id);
+            //     }  
+            //     // Если перенос осуществляется обратно в список, то удаляем из радиогрупп
+            //     else if(treeElementList){
+            //         if(treeElement)
+            //             treeElementList.querySelector('ul').insertBefore(element, treeElement);
+            //         else
+            //             treeElementList.querySelector('ul').appendChild(element);
+            //         element.classList.remove('radioted');
+            //         ElementDeleteFromRadioGroup(element.getAttribute('data-idElement'));
+            //     }
+            // });
 
             // Нужна, чтобы работал drop ивент
             groupRadioModal.addEventListener('dragover', (evt) => {

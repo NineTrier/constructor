@@ -84,6 +84,7 @@ span{
     border-bottom: 1px solid #D9D9D9;
     padding-left: 55px;
     padding-right: 50px;
+    align-items: center;
 }
 
 #menu .vr{
@@ -104,7 +105,7 @@ body {
   transition: .3s ease-in-out;
 }
 
-#menu ul {
+#menu > ul {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -313,9 +314,50 @@ td.paragraph{
     margin-left: 10px;
 }
 
+#btnRadioInstruments{
+    border-radius: 100%;
+    height: 25px;
+    width: 25px;
+    border: 1px solid black;
+}
+
+.dropdownRadioMenu > li{
+    min-width: 30px;
+    max-width: 30px;
+    margin-right: 5px;
+}
+
+.dropdownRadioMenu.show{
+    display: flex;
+    flex-direction: row;
+    padding: 5px;
+    overflow-x: scroll;
+    max-width: 200px;
+}
+
+.radioGroupIndicator{
+    border-radius: 100%;
+    width: 15px;
+    height: 15px;
+    margin-left: 10px;
+}
+
+.dropdownRadioGroup{
+    border-radius: 100%;
+    height: 25px;
+    width: 25px;
+    min-width: 25px;
+    border: 1px solid black;
+    padding: 0;
+}
+
 #doc_name_container{
     display: flex;
     align-items: center;
+}
+
+.selectedRadioGroup{
+    border:1px solid rgb(52, 53, 53)
 }
 
 #font_select{
@@ -325,12 +367,13 @@ td.paragraph{
 }
 
 #leftMenu{
-    max-width: 30vw;
+    width: 50px;
     display: flex;
     flex-direction: column;
     position: sticky;
-	top: 150px;
-    height: 100%;
+    top: 200px;
+    height: 100vh;
+    background-color: white;
 }
 
 #leftMenu > div{
@@ -340,6 +383,34 @@ td.paragraph{
     flex-grow: 1;
     max-width: 30vw;
     min-height: 40vh;
+}
+
+.RadioGroup{
+    margin-bottom: 10px;
+    padding: 10px;
+}
+
+.containerTextColorRadioGroup > input {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-color: transparent;
+    width: 30px;
+    height: 30px;
+    border: none;
+    cursor: pointer;
+  }
+  .containerTextColorRadioGroup > input::-webkit-color-swatch {
+    border-radius: 50%;
+    border: 1px solid #000000;
+  }
+  .containerTextColorRadioGroup > input::-moz-color-swatch {
+    border-radius: 50%;
+    border: 1px solid #000000;
+  }
+
+#leftMenu > a{
+    padding: 5px;
 }
 
 .deleteButton:hover i{
@@ -367,10 +438,10 @@ td.paragraph{
 .tree_element_container{
     display: flex;
     align-items: center;
-    padding:10px;
+    padding:5px;
     border-bottom: 1px solid #D9D9D9;
     
-    padding-left: 5%;
+    padding-left: 2%;
 }
 
 .hideCheckbox{
@@ -470,7 +541,7 @@ input[type="number"]::-webkit-inner-spin-button{
 .containerTextColorRadioGroup{
     display: flex;
     flex-direction: row;
-    justify-content: space-between;
+    justify-content: flex-start;
     margin-bottom: 10px;
 }
 
@@ -485,7 +556,6 @@ input[type="number"]::-webkit-inner-spin-button{
     overflow: auto;
     padding: 0px;
     margin-right: 50px;
-    height: 510px;
 }
 
 #modal_radioGroup_body ul{
@@ -498,12 +568,7 @@ input[type="number"]::-webkit-inner-spin-button{
     max-width: 200px;
 }
 
-#modal_radioGroup_treeElements_list{
-    height: 500px;
-}
-
 #modal_radioGroup_list{
-    height: 500px;
 }
 
 #modal_radioGroup_list > li{
@@ -522,7 +587,7 @@ input[type="number"]::-webkit-inner-spin-button{
 .setUserCheckbox + label{
     min-width: 20px;
     min-height: 20px;
-    margin-left: 10px;
+    margin-left: 5px;
 }
 
 
@@ -563,18 +628,18 @@ input[type="number"]::-webkit-inner-spin-button{
 }
 
 ::-webkit-scrollbar {
-    width: 10px;
+    width: 3px;
     margin-left: 6px;
 }
   
 ::-webkit-scrollbar-track {
     -webkit-box-shadow: 5px 5px 5px -5px rgba(34, 60, 80, 0.2) inset;
     background-color: #f9f9fd;
-    border-radius: 10px;  
+    border-radius: 5px;  
 }
   
 ::-webkit-scrollbar-thumb {
-    border-radius: 10px;
+    border-radius: 5px;
     background: linear-gradient(180deg, var(--color-primary), var(--color-primary));
 }
 
@@ -626,7 +691,7 @@ input[type="number"]::-webkit-inner-spin-button{
     margin-left: auto;
     flex-grow: 1;
     position: sticky;
-	top: 175px;
+	top: 200px;
     background-color: var(--color-document);
 }
 
