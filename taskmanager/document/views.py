@@ -1,8 +1,6 @@
 import json
 import base64
 import re
-import traceback
-import uuid
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import CreateView
@@ -40,89 +38,85 @@ morph = pymorphy2.MorphAnalyzer()
 
 # Класс, который помогает создавать новый записи в базу данных Documents
 # и открывает страницу с добавлением новых документов
-# class DocumentCreate(CreateView):
-#     model = DocumentsPattern
-#     form_class = DocumentForm
+class DocumentCreate(CreateView):
+    model = DocumentsPattern
+    form_class = DocumentForm
 
-#     template_name = 'document/document_create.html'
+    template_name = 'document/document_create.html'
     
-#     def get_context_data(self, **kwargs):
-#         context = super().get_context_data(**kwargs)
-#         context['profile'] = Profile.objects.filter(user=self.request.user).first() if self.request.user.is_authenticated else None
-#         context['documents'] = DocumentsPattern.objects.all()
-#         context['title'] = "Загрузка документа"
-#         return context
+    def get_context_data(self, **kwargs):
+        context = super(DocumentCreate, self).get_context_data(**kwargs)
+        if self.request.user.is_authenticated:
+            context['profile'] = Profile.objects.filter(user=self.request.user)[0]
+        context['documents'] = DocumentsPattern.objects.all()
+        context['title'] = "Загрузка документа"
+        return context
     
-#     def post(self, request, *args, **kwargs):
-#         try:
-#             document = DocumentsPattern()
-#             document.name = request.POST['name']
-#             document.description = request.POST['description']
-#             document.type = DocType.objects.get(id=request.POST['type'])
-#             document.owner = Profile.objects.filter(user=request.user)[0]
-#             file = request.FILES.get('file')
-#             document.file = f"documents/user_{request.user.id}/{uuid.uuid4()}/{translit_russian(file.name)}"
-#             document.save()
-#             fs = FileSystemStorage(location=os.path.dirname(document.file.path))
-#             fs.save(os.path.basename(document.file.path), file)
-#             response = redirect(f"/document/view?id={document.id}&type=1")
-#             return response
-#         except Exception as exc:
-#             print(exc)
-#             return redirect("/document/create")
+    def post(self, request, *args, **kwargs):
+        document = DocumentsPattern()
+        document.name = request.POST['name']
+        document.description = request.POST['description']
+        document.type = DocType.objects.get(id=request.POST['type'])
+        document.owner = Profile.objects.filter(user=request.user)[0]
+        file = request.FILES.get('file')
+        fileDirect = int(DocumentsPattern.objects.latest('id').id)+1
+        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}"):
+            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}")
+        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}"):
+            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}")
+        fs = FileSystemStorage(location=f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}")
+        fs.save(translit_russian(file.name), file)
+        file_url = f"documents\\user_{request.user.id}\\{fileDirect}\\{translit_russian(file.name)}"
+        document.file = file_url
+        document.save()
+        response = redirect(f"/document/view?id={document.id}&type=1")
+        return response
 
 def translit_russian(text):
     """Выполняет транслитерацию русского текста в латиницу для названий файлов"""
-    translit_dict = {
-        ' ': '_',
-        'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ж': 'zh',
-        'з': 'z', 'и': 'i', 'й': 'j', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n',
-        'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f',
-        'х': 'h', 'ц': 'c', 'ч': 'ch', 'ш': 'sh', 'щ': 'sh', 'ъ': '', 'ы': 'y',
-        'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
-        'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ж': 'ZH',
-        'З': 'Z', 'И': 'I', 'Й': 'J', 'К': 'K', 'Л': 'L', 'М': 'M', 'Н': 'N',
-        'О': 'O', 'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U', 'Ф': 'F',
-        'Х': 'H', 'Ц': 'C', 'Ч': 'CH', 'Ш': 'SH', 'Щ': 'SH', 'Ъ': '', 'Ы': 'Y',
-        'Ь': '', 'Э': 'E', 'Ю': 'YU', 'Я': 'YA',
-    }
-    return ''.join(translit_dict.get(c, c) for c in text)
+    try:
+        translited = translit(text, reversed=True)
+        translited = str(translited).replace(' ', '_')
+        return translited
+    except Exception as exc:
+        print(exc)
+        return text
     
 
 def create_New_Document(request):
     """Обработчик запроса для создания документа"""
     if request.method == 'POST':
-        document = DocumentsPattern(
-            name=request.POST['name'],
-            description=request.POST['description'],
-            type=DocType.objects.get(id=request.POST['type']),
-            owner=Profile.objects.filter(user=request.user).first(),
-            picture="noimage.jpeg"
-        )
+        document = DocumentsPattern()
+        document.name = request.POST['name']
+        document.description = request.POST['description']
+        document.type = DocType.objects.get(id=request.POST['type'])
+        document.owner = Profile.objects.filter(user=request.user)[0]
+        document.picture = f"noimage.jpeg"
+        print(document)
         try:
-            fileDirect = DocumentsPattern.objects.latest('id').id + 1
-        except DocumentsPattern.DoesNotExist:
+            fileDirect = int(DocumentsPattern.objects.latest('id').id)+1
+        except Exception as exc:
+            print(exc)
             fileDirect = 0
-
-        user_dir = os.path.join(settings.MEDIA_ROOT, f"documents/user_{request.user.id}")
-        document_dir = os.path.join(user_dir, str(fileDirect))
-        os.makedirs(document_dir, exist_ok=True)
-
-        file_name = f"{translit_russian(document.name)}{translit_russian(str(document.owner))}"[:50]
-        file_url = os.path.join(document_dir, f"{file_name}.docx")
-        document.file = file_url.replace(settings.MEDIA_ROOT + "\\", "")
-
-        doc_file = Document(os.path.join(settings.MEDIA_ROOT, "blank.docx"))
-        doc_file.save(os.path.join(settings.MEDIA_ROOT, file_url))
-        
+        print(fileDirect)
+        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}"):
+            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}")
+        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}"):
+            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}")
+        file_name = f"{translit_russian(document.name)}{translit_russian(document.owner.__str__())}"[:50]
+        file_url = f"documents\\user_{request.user.id}\\{fileDirect}\\{file_name}.docx"
+        document.file = file_url
+        doc_file = Document(f"{settings.MEDIA_ROOT}\\blank.docx")
+        doc_file.save(f"{settings.MEDIA_ROOT}\\{file_url}")
         document.save()
         return redirect(f"/document/view?id={document.id}&type=1")
-    
+    form = DocumentForm()
     context = {
-        'form': DocumentForm(),
-        'title': 'Создание документа',
-        'profile': Profile.objects.filter(user=request.user).first() if request.user.is_authenticated else None
+        'form': form,
+        'title': 'Создание документа'
     }
+    if request.user.is_authenticated:
+        context['profile'] = Profile.objects.filter(user=request.user)[0]
     return render(request, 'document/new_document.html', context)
 
 @csrf_exempt
@@ -413,55 +407,50 @@ def replace_last(source_string, replace_what, replace_with):
 
 def ViewDocument(request):
     """Обработчик запроса для просмотра документа"""
-    try:
-        fileid = request.GET.get('id')
-        Doc = get_object_or_404(DocumentsPattern, pk=fileid)
-        file_path = Doc.file
-        file_path = os.path.join(settings.MEDIA_ROOT, str(file_path))
-        if request.user != Doc.owner.user:
-            res = AddDocumentToUser(request, fileid)
-            if "vksid" in request.GET:
-                vksid = request.GET.get("vksid")
-            else:
-                vksid = ""
-            if "numfirst" in request.GET:
-                numfirst = request.GET.get("numfirst")
-            else:
-                numfirst = ""
-            return redirect(f'/document/view?id={res["id"]}&type=0&vksid={vksid}&numfirst={numfirst}')
-        parent_document = Document_ParentDocument.objects.filter(document=Doc.id)
-        context = {
-            'title': 'Просмотр документа',
-            'Doc': Doc,
-            'fonts': Fonts.objects.order_by('id'),
-            'saved_elements': json.dumps({f"{el.name}:{el.id}": json.dumps(el.json) for el in SavedElements.objects.all()}),
-            'variable': json.dumps({var.id: f"{var.name}:{var.meaning}" for var in VariableBlock.objects.filter(doc=Doc.id)}),
-            'document_json': json.dumps(Doc.json),
-            'type': '0',
-            'id_parent': parent_document[0].parent.id if parent_document else Doc.id,
-            'sql_var_set': VariableSQLSet.objects.all(),
-            'sql_var_get': VariableSQLGet.objects.all(),
-            'sql_var_get_set': VariableSQLSet_VariableSQLGet.objects.all(),
-            'connections': Connection.objects.all(),
-            'vks': False,
-        }
-        if 'numfirst' in request.GET:
-            context['data'] = json.dumps({"s:3": replace_last(str(request.GET.get('numfirst')), '-', '/'), "vks_id": request.GET.get('vksid'), "file_path": str(Doc.file)})
-            context['vks'] = True
-        if(request.GET.get('type') == '1'):
-            document = Document(file_path)
-            context['type'] = '1'
-            context['document']= [(child, child.id) for child in document.childs]
-            context['sectPr'] = document.childs[-1]
+    fileid = request.GET.get('id')
+    Doc = get_object_or_404(DocumentsPattern, pk=fileid)
+    file_path = Doc.file
+    file_path = os.path.join(settings.MEDIA_ROOT, str(file_path))
+    if request.user != Doc.owner.user:
+        res = AddDocumentToUser(request, fileid)
+        if "vksid" in request.GET:
+            vksid = request.GET.get("vksid")
+        else:
+            vksid = ""
+        if "numfirst" in request.GET:
+            numfirst = request.GET.get("numfirst")
+        else:
+            numfirst = ""
+        return redirect(f'/document/view?id={res["id"]}&type=0&vksid={vksid}&numfirst={numfirst}')
+    parent_document = Document_ParentDocument.objects.filter(document=Doc.id)
+    context = {
+        'title': 'Просмотр документа',
+        'Doc': Doc,
+        'fonts': Fonts.objects.order_by('id'),
+        'saved_elements': json.dumps({f"{el.name}:{el.id}": json.dumps(el.json) for el in SavedElements.objects.all()}),
+        'variable': json.dumps({var.id: f"{var.name}:{var.meaning}" for var in VariableBlock.objects.filter(doc=Doc.id)}),
+        'document_json': json.dumps(Doc.json),
+        'type': '0',
+        'id_parent': parent_document[0].parent.id if parent_document else Doc.id,
+        'sql_var_set': VariableSQLSet.objects.all(),
+        'sql_var_get': VariableSQLGet.objects.all(),
+        'sql_var_get_set': VariableSQLSet_VariableSQLGet.objects.all(),
+        'connections': Connection.objects.all(),
+        'vks': False,
+    }
+    if 'numfirst' in request.GET:
+        context['data'] = json.dumps({"s:3": replace_last(str(request.GET.get('numfirst')), '-', '/'), "vks_id": request.GET.get('vksid'), "file_path": str(Doc.file)})
+        context['vks'] = True
+    if(request.GET.get('type') == '1'):
+        document = Document(file_path)
+        context['type'] = '1'
+        context['document']= [(child, child.id) for child in document.childs]
+        context['sectPr'] = document.childs[-1]
+    
+    if request.user.is_authenticated:
+        context['profile'] = Profile.objects.filter(user=request.user)[0]
         
-        if request.user.is_authenticated:
-            context['profile'] = Profile.objects.filter(user=request.user)[0]
-            
-        return render(request, 'document/document_view_v2.html', context)
-    except Exception as exc:
-        print(exc)
-        print(traceback.format_exc(exc.__traceback__))
-        return redirect('/')
+    return render(request, 'document/document_view_v2.html', context)
 
 def SavedElementFromJSON(json_stroke):
     """Функция создаёт элементы класса SavedElements из JSON-строки"""

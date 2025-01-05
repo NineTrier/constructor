@@ -1532,15 +1532,16 @@
             }
 
             async function saveCursorPosition(contentEditableElement) {
-              const selection = document.getSelection();
-              const anchorOffset = selection.anchorOffset;
-              return anchorOffset;
+                const selection = document.getSelection();
+                const anchorOffset = selection.anchorOffset;
+                return anchorOffset;
             }
             
             async function restoreCursorPosition(contentEditableElement, anchorOffset) {
-              const selection = document.getSelection();
-              selection.collapse(contentEditableElement, anchorOffset);
-              contentEditableElement.focus();
+                contentEditableElement.focus();
+                const selection = document.getSelection();
+                selection.collapse(contentEditableElement, anchorOffset);
+              
             }
 
             // Задать начальное значение параграфу
