@@ -485,11 +485,7 @@
     </body>
     <script lang="JavaScript">
             
-            function changeQuotes(text) {
-                return text.replace(/(\w)"(\w)/g, '$1\x27$2')
-                    .replace(/(^|\s|\()"/g, "$1«")
-                    .replace(/"(\;|\!|\?|\:|\.|\,|$|\)|\s)/g, "»$1");
-            }
+            
 
             // Класс Стек для Ctrl+Z
             function Stack() {
@@ -1470,6 +1466,11 @@
                 if(run.style.fontFamily == ""){
                     run.style.fontFamily = startFont;
                 }
+                function changeQuotes(text) {
+                    return text.replace(/(\w)"(\w)/g, '$1\x27$2')
+                        .replace(/(^|\s|\()"/g, "$1«")
+                        .replace(/"(\;|\!|\?|\:|\.|\,|$|\)|\s)/g, "»$1");
+                }
                 run.onclick = function(event){
                     if(event.ctrlKey || event.metaKey){
                         addActiveElement(run);
@@ -1482,12 +1483,14 @@
                 }
                 run.oninput = (evt)=>{
                     redSpan = run;
-                    const anchorOffset = saveCursorPosition(run);
-                    run.textContent = changeQuotes(run.textContent)
-                    restoreCursorPosition(run, anchorOffset);
                     run.setAttribute('data-invis', run.textContent);
                     span_value.value = run.getAttribute('data-invis');
                     FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
+                }
+                run.onkeydown = (evt) => {
+                    if (evt.key === 'Tab' || evt.key === 'Enter') {
+                        run.textContent = changeQuotes(run.textContent);
+                    }
                 }
                 run.onpaste = async function(event){
                     event.stopPropagation();
@@ -1531,17 +1534,17 @@
                 document.getSelection().collapseToEnd();
             }
 
-            async function saveCursorPosition(contentEditableElement) {
+            function saveCursorPosition(contentEditableElement) {
+                contentEditableElement.focus();
                 const selection = document.getSelection();
                 const anchorOffset = selection.anchorOffset;
                 return anchorOffset;
             }
             
-            async function restoreCursorPosition(contentEditableElement, anchorOffset) {
+            function restoreCursorPosition(contentEditableElement, anchorOffset) {
                 contentEditableElement.focus();
                 const selection = document.getSelection();
                 selection.collapse(contentEditableElement, anchorOffset);
-              
             }
 
             // Задать начальное значение параграфу
@@ -3407,6 +3410,10 @@
             var lastVersions = new Stack();
             var redSpan = undefined;
             var list_save = [];
+            let anchors_runs = {
+
+            }
+
             var errorModal = new bootstrap.Modal(document.getElementById('errorWindowModal'), {
                 keyboard: false
             })
@@ -3690,7 +3697,6 @@
 
         
             
-
             // setInterval(
             //     () => UpdateFile(), 600000
             // );

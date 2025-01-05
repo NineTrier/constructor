@@ -152,7 +152,8 @@ CORS_ORIGIN_WHITELIST = (
   'http://10.104.223.58:8080',
   'http://webservice.vas.arbitr.ru:8081',
   'http://10.104.223.96:8080',
-  'http://90.189.6.253:8081'
+  'http://90.189.6.253:8081',
+  'https://api.notion.com'
 )
 
 CORS_EXPOSE_HEADERS = [

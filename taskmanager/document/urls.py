@@ -1,11 +1,11 @@
 from django.urls import path
 from . import views
-# from .views import DocumentCreate
+from .views import DocumentCreate
 
 # Все адреса веб-сервиса для работы с документом
 urlpatterns = [
     # path(То что вставляется после \, То, что вызывается в данном случае, Название данного перенаправления)
-    #path('upload', DocumentCreate.as_view(), name='documents'), # загрузка документа на сервер
+    path('upload', DocumentCreate.as_view(), name='documents'), # загрузка документа на сервер
     path('download', views.download), # выгрузка документа
     path('view', views.ViewDocument), # просмотр документа
     path('update', views.UpdateDocument), # обновление документа
