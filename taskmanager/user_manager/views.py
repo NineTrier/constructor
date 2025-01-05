@@ -29,15 +29,15 @@ class Login(views.LoginView):
     def get_success_url(self):
         user = models.User.objects.filter(username=self.get_form_kwargs()['data']['username'])[0]
         profile_of_user = Profile.objects.filter(user=user)
-        # if not profile_of_user:
-        #     profile_of_user = Profile()
-        #     profile_of_user.user = user
-        #     profile_of_user.firstName = user.first_name
-        #     profile_of_user.lastName = user.last_name
-        #     profile_of_user.middleName = ""
-        #     profile_of_user.organisation = Organisation.objects.get(id=1)
-        #     profile_of_user.save()
-        #     return f'/accounts/change_profile/{user.id}/'
+        if not profile_of_user:
+            profile_of_user = Profile()
+            profile_of_user.user = user
+            profile_of_user.firstName = user.first_name
+            profile_of_user.lastName = user.last_name
+            profile_of_user.middleName = ""
+            profile_of_user.organisation = Organisation.objects.get(id=1)
+            profile_of_user.save()
+            return f'/accounts/change_profile/{user.id}/'
         return '/'
     
 @csrf_exempt

@@ -19,7 +19,7 @@ from sqlalchemy import inspect
 from sqlalchemy import text
 
 
-cx_Oracle.init_oracle_client(lib_dir=r"c:\oracle\instantclient_21_11")
+cx_Oracle.init_oracle_client(lib_dir= r"C:\instantclient_23_6")
 
 # Класс для создания подключения к базе данных
 class CreateConnection(CreateView):

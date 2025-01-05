@@ -2,11 +2,14 @@
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
-
+import cx_Oracle
 
 def main():
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'taskmanager.settings')
+    # добавляем путь к Oracle клиенту в переменную PATH
+    
+
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
@@ -19,4 +22,5 @@ def main():
 
 
 if __name__ == '__main__':
+    #cx_Oracle.init_oracle_client(lib_dir= r"C:\instantclient_23_6")
     main()

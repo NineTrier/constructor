@@ -18,7 +18,7 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
         </div>
         <div class="modal-body">
-            <label for="type_name">Название для типа данных:</label>
+            <label for="type_name">Название для типа документа:</label>
             <input id="type_name">
         </div>
         <div class="modal-footer">
@@ -47,13 +47,13 @@
         </div>
     </div>
     {% if profile.canAddOrganisationDocument %}
-    <div class="fieldWrapper">
+    <div class="fieldWrapper invisible">
         {{ form.documentOfOrganisation.errors }}
         <label for="{{ form.documentOfOrganisation.id_for_label }}">Документ для организации:</label>
         {{ form.documentOfOrganisation }}
     </div>
     {% endif %}
-    <div class="fieldWrapper">
+    <div class="fieldWrapper invisible">
         {{ form.description.errors }}
         <label for="{{ form.description.id_for_label }}">Описание:</label>
         {{ form.description }}

@@ -485,7 +485,12 @@
     </body>
     <script lang="JavaScript">
             
-        
+            function changeQuotes(text) {
+                return text.replace(/(\w)"(\w)/g, '$1\x27$2')
+                    .replace(/(^|\s|\()"/g, "$1«")
+                    .replace(/"(\;|\!|\?|\:|\.|\,|$|\)|\s)/g, "»$1");
+            }
+
             // Класс Стек для Ctrl+Z
             function Stack() {
                 this.count = 0
@@ -1477,6 +1482,11 @@
                 }
                 run.oninput = (evt)=>{
                     redSpan = run;
+                    const anchorOffset = saveCursorPosition(run);
+                    run.textContent = changeQuotes(run.textContent)
+                    restoreCursorPosition(run, anchorOffset);
+                    run.setAttribute('data-invis', run.textContent);
+                    span_value.value = run.getAttribute('data-invis');
                     FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
                 }
                 run.onpaste = async function(event){
@@ -1519,6 +1529,18 @@
                 contentEditableElement.focus();
                 document.execCommand('selectAll', false, null);
                 document.getSelection().collapseToEnd();
+            }
+
+            async function saveCursorPosition(contentEditableElement) {
+              const selection = document.getSelection();
+              const anchorOffset = selection.anchorOffset;
+              return anchorOffset;
+            }
+            
+            async function restoreCursorPosition(contentEditableElement, anchorOffset) {
+              const selection = document.getSelection();
+              selection.collapse(contentEditableElement, anchorOffset);
+              contentEditableElement.focus();
             }
 
             // Задать начальное значение параграфу
@@ -3340,7 +3362,7 @@
                     for(let[key, value] of Object.entries(filterManager.FilterHashTable)){
                         let dataSmall = {}
                         dataSmall['filters'] = value
-                        dataSmall['phrase'] = document.querySelector('#'+key).textContent
+                        dataSmall['phrase'] = document.querySelector('#'+key).getAttribute('data-invis')
                         dataBig[key] = dataSmall
                     }
                     $.ajax({

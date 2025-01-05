@@ -84,33 +84,16 @@ TEMPLATES = [
 WSGI_APPLICATION = 'taskmanager.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/4.1/ref/settings/#databases
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
 DATABASES = {
-    'default':  {
-        'ENGINE': 'django.db.backends.mysql',
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'Constructor',
         'USER': 'admin',
-        'NAME': 'diplomDB',
         'PASSWORD': 'admin',
-        'HOST': '10.104.224.125',
-        'PORT': '3306',
-        'OPTIONS': {
-         "init_command": "SET foreign_key_checks = 0;",
-        },
+        'HOST': 'localhost',
+        'PORT': '5433',
     }
 }
-
-
-# Password validation
-# https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -126,10 +109,6 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
-
-
-# Internationalization
-# https://docs.djangoproject.com/en/4.1/topics/i18n/
 
 LANGUAGE_CODE = 'ru'
 
@@ -154,7 +133,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # remove STATIC_ROOT
 MEDIA_URL = 'media/'
-MEDIA_ROOT = 'E:\\media'
+MEDIA_ROOT = 'C:\\media'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
