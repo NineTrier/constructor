@@ -25,7 +25,7 @@
             <a class="btn btn-primary" href="{% url 'create_connection' %}">Создать подключение</a>
             {% comment %} <a class="btn btn-primary" onclick="TestConnection();">Тест подключения</a> {% endcomment %}
             <a class="btn btn-primary" onclick="GetTables();">Получить таблицы</a>
-            
+            <a class="btn btn-primary" href="{% url 'upload_csv' %}">Загрузить CSV-файл из Notion</a>
         </div>
         {% comment %} <a class="btn btn-primary" onclick="SyncUsers();">Синхронизация пользователей</a> {% endcomment %}
         <div class="divSQLVariableContainer">

@@ -4,8 +4,8 @@ import re
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import CreateView
-from .models import DocumentsPattern, Fonts, SavedElements, VariableBlock, DocType, Document_ParentDocument
-from database_manager.models import Connection, VariableSQLGet, VariableSQLSet, VariableSQLSet_VariableSQLGet
+from .models import DocumentsPattern, DocumentPattern_Objects,Fonts, SavedElements, VariableBlock, DocType, Document_ParentDocument
+from database_manager.models import Object, Parameter
 from .forms import DocumentForm
 from django.core.files.storage import FileSystemStorage
 import os
@@ -413,44 +413,21 @@ def ViewDocument(request):
     file_path = os.path.join(settings.MEDIA_ROOT, str(file_path))
     if request.user != Doc.owner.user:
         res = AddDocumentToUser(request, fileid)
-        if "vksid" in request.GET:
-            vksid = request.GET.get("vksid")
-        else:
-            vksid = ""
-        if "numfirst" in request.GET:
-            numfirst = request.GET.get("numfirst")
-        else:
-            numfirst = ""
-        return redirect(f'/document/view?id={res["id"]}&type=0&vksid={vksid}&numfirst={numfirst}')
+        return redirect(f'/document/view?id={res["id"]}')
     parent_document = Document_ParentDocument.objects.filter(document=Doc.id)
+    objects = [{'object': obj.object, 'params':[parameter for parameter in Parameter.objects.filter(object=obj.object)]} for obj in DocumentPattern_Objects.objects.filter(document=Doc.id)]
+    print(objects)
     context = {
         'title': 'Просмотр документа',
         'Doc': Doc,
         'fonts': Fonts.objects.order_by('id'),
-        'saved_elements': json.dumps({f"{el.name}:{el.id}": json.dumps(el.json) for el in SavedElements.objects.all()}),
         'variable': json.dumps({var.id: f"{var.name}:{var.meaning}" for var in VariableBlock.objects.filter(doc=Doc.id)}),
         'document_json': json.dumps(Doc.json),
-        'type': '0',
-        'id_parent': parent_document[0].parent.id if parent_document else Doc.id,
-        'sql_var_set': VariableSQLSet.objects.all(),
-        'sql_var_get': VariableSQLGet.objects.all(),
-        'sql_var_get_set': VariableSQLSet_VariableSQLGet.objects.all(),
-        'connections': Connection.objects.all(),
-        'vks': False,
+        'objects': objects,
     }
-    if 'numfirst' in request.GET:
-        context['data'] = json.dumps({"s:3": replace_last(str(request.GET.get('numfirst')), '-', '/'), "vks_id": request.GET.get('vksid'), "file_path": str(Doc.file)})
-        context['vks'] = True
-    if(request.GET.get('type') == '1'):
-        document = Document(file_path)
-        context['type'] = '1'
-        context['document']= [(child, child.id) for child in document.childs]
-        context['sectPr'] = document.childs[-1]
-    
     if request.user.is_authenticated:
         context['profile'] = Profile.objects.filter(user=request.user)[0]
-        
-    return render(request, 'document/document_view_v2.html', context)
+    return render(request, 'document/document_view_v3.html', context)
 
 def SavedElementFromJSON(json_stroke):
     """Функция создаёт элементы класса SavedElements из JSON-строки"""
@@ -582,3 +559,24 @@ def UpperCase(stroke):
         newphrase = phrase.lower()
     return newphrase
     
+def connect_objects_to_document(request, pk):
+    if request.method == 'POST':
+        print(request.POST)
+        # Получить список выбранных объектов из запроса
+        selected_objects = request.POST.getlist('selectedObjects[]')
+        
+        print(selected_objects)
+
+        # Получить документ по идентификатору
+        document = DocumentsPattern.objects.get(pk=pk)
+
+        # Подключить выбранные объекты к документу
+        for obj_id in selected_objects:
+            obj = Object.objects.get(id=obj_id)
+            doc_obj = DocumentPattern_Objects()
+            doc_obj.document = document
+            doc_obj.object = obj
+            doc_obj.save()
+
+        # Вернуть успешный ответ
+        return HttpResponse()

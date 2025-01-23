@@ -4,19 +4,14 @@ from . import views
 # Все адреса веб-сервиса для работы с базой данных организации
 urlpatterns = [
     # path(То что вставляется после \, То, что вызывается в данном случае, Название данного перенаправления)
-    path('create/', views.CreateConnection.as_view(), name='create_connection'),
-    path('setting_database/', views.setting_database, name='setting_database'),
-    path('test_connection/', views.TestConnection, name='test_connection'),
-    path('create_sql_variable_get/<str:pk>/', views.CreateSQLVariableGet.as_view(), name='create_sql_variable_get'),
-    path('create_sql_variable_set/<str:pk>/', views.CreateSQLVariableSet.as_view(), name='create_sql_variable_set'),
-    path('save_variable_sql_get/', views.SaveSqlVariableGet, name='save_var'),
-    path('test_get/', views.TestGetFromDB, name='test_get'),
-    path('update_sql_set/', views.UpdateSQLVariableSet, name='update_set'),
-    path('update_sql_get/', views.UpdateSQLVariableGet, name='update_get'),
-    path('delete_sql_set/', views.DeleteSQLVariableSet, name='delete_set'),
-    path('delete_sql_get/', views.DeleteSQLVariableGet, name='delete_get'),
-    path('get_tables/', views.get_all_table, name='get_tables'),
-    path('get_table_body/', views.GetFromDBByTable),
-    path('update_table/', views.update_table, name='update_table'),
-    path('sync_user/', views.dataBaseUserSync, name='sync_user')
+    path('upload_csv/', views.upload_csv, name='upload_csv'),
+    path('upload_csv_to_get_columns/', views.upload_csv_and_get_columns, name='upload_csv_to_get_columns'),
+    path('view_data/', views.view_data, name='view_data'),
+    path('object_manager/', views.object_manager, name='object_manager'),
+    path('get_object/<int:pk>/', views.get_object, name='get_object'),
+    path('delete_object/<int:pk>/', views.DeleteObject, name='delete_object'),
+    path('get_data_from_object/<int:pk>/', views.post_data_from_object, name='get_data_from_object'),
+    path('get_object_parameters/<int:pk>/', views.get_object_parameters, name='get_object_parameters'),
+    path('get_objects_to_connect/', views.get_objects_to_connect, name='get_objects_to_connect'),
+    
 ]

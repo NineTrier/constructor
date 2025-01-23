@@ -113,3 +113,103 @@ th{
     height: 10px;
     border-radius: 100%;
 }
+
+#form_create_object, #form_create_object > div{
+    display: flex;
+    flex-direction: column;
+}
+
+#form_create_object > *, #form_create_object > div > *{
+    margin-bottom: 10px;
+}
+
+.invisible{
+    display: none!important;
+}
+
+.objectCon{
+    display: flex;
+    border-radius: 15px;
+    padding: 30px;
+    background-color: rgb(163, 163, 163);
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    min-width: 200px;
+}
+
+.objectCon:hover{
+    background-color: rgb(141, 141, 141);
+}
+
+.objectsContainer > *{
+    margin-right: 10px;
+    margin-bottom: 10px;
+}
+
+.objectParametersContainer{
+    display: flex;
+    flex-direction: column;
+    width:100%;
+}
+
+.obj_parameter{
+    padding: 15px;
+    display: flex;
+    flex-direction: row;
+    width:100%;
+}
+
+.ident{
+    padding: 15px;
+    display: flex;
+    flex-direction: row;
+    border: 1px solid black;
+    border-radius: 10px;
+    align-items: center;
+    justify-content: center;
+    margin-right: 10px;
+    margin-bottom: 10px;
+    text-wrap: nowrap;
+    cursor: pointer;
+}
+
+.ident:hover{
+    background-color: rgb(194, 194, 194);
+}
+
+.object_param_item > *{
+    margin-right: 10px;
+}
+
+.object_param_item{
+    margin-bottom: 15px;
+}
+
+.object_param_arr_delim_container > *{
+    margin-right: 10px;
+}
+
+.array_data_container{
+    display: flex;
+    flex-direction: row;
+    padding: 10px;
+    flex-wrap: wrap;
+    border: 1px solid rgb(126, 125, 125);
+    border-radius: 5px;
+
+}
+
+.array_data{
+    display: flex;
+    flex-direction: row;
+    padding: 10px;
+    margin-right: 10px;
+    margin-bottom: 10px;
+    background-color: rgb(194, 194, 194);
+    border: 1px solid rgb(126, 125, 125);
+    border-radius: 5px;
+    cursor: pointer;
+}

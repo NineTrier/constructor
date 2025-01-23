@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from user_manager.models import Profile, Organisation
+from database_manager.models import Object
 
 
 def user_directory_path(instance, filename):
@@ -32,6 +33,7 @@ class DocumentsPattern(models.Model):
     lastUpdate = models.DateTimeField(auto_now=True, null=True, blank=True)
     dateCreate = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     downloadsTimes = models.PositiveIntegerField(default=0,null=True, blank=True)
+    
 
     def __str__(self):
         return f"{self.name} от {self.owner}"
@@ -110,3 +112,9 @@ class CreatedDocument(models.Model):
     lastUpdate = models.DateTimeField(auto_now=True, null=True, blank=True)
     dateCreate = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     downloadsTimes = models.PositiveIntegerField(default=0,null=True, blank=True)
+    
+class DocumentPattern_Objects(models.Model):
+    document = models.ForeignKey(DocumentsPattern, on_delete=models.CASCADE, null=True, blank=True, related_name='object_document')
+    object = models.ForeignKey(Object, on_delete=models.CASCADE, null=True, blank=True, related_name='document_object')
+    
+

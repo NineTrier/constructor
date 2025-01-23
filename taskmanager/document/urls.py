@@ -22,5 +22,5 @@ urlpatterns = [
     path('doctype_add', views.CreateDocType), # добавление типа документа
     path('doctype_remove', views.DeleteDocType), # удаление типа документа
     path('acceptFilters', views.AcceptFilters),
-    
+    path('connect_objects_to_document/<int:pk>/', views.connect_objects_to_document, name='connect_objects_to_document'),
 ]

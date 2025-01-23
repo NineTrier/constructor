@@ -2,11 +2,12 @@
 <!doctype html>
 <html lang="en">
 <head>
-
+    {% block meta %}{% endblock %}
     <meta charset="UTF-8">
     <meta name="viewport"
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="csrf_token" content="{{ csrf_token }}">
     <title>{% block title %}{% endblock %}</title>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/selectize.js/0.12.6/js/standalone/selectize.min.js" integrity="sha256-+C0A5Ilqmu4QcSPxrlGpaZxJ04VjsRjKu+G82kl5UJk=" crossorigin="anonymous"></script>
@@ -18,7 +19,6 @@
     <link rel="stylesheet" href="https://use.fontawesome.com/releases/v6.2.1/css/all.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter" rel="stylesheet">
     
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     {% load static %}
     <link rel="stylesheet" type="text/css" href="{% static 'css/main/index.css' %}">
     {% block connection %}{% endblock %}
@@ -37,9 +37,9 @@
                     <!-- <a class="me-3 py-2 text-dark text-decoration-none" href="{% url 'documents' %}">Загрузить новый документ</a> -->
                     <a class="me-3 py-2 text-dark text-decoration-none" href="{% url 'newdocuments' %}">Создать шаблон</a>
                     {% endif %}
-                    <!-- {% if user.is_superuser %}
-                    <a href="{% url 'setting_database' %}" class="btn btn-labeled">Настройки БД</a>
-                    {% endif %} -->
+                    {% if user.is_superuser %}
+                    <a href="{% url 'object_manager' %}" class="btn btn-labeled">Объекты</a>
+                    {% endif %}
                 </nav>
                 <div id="profile_menu">
                     {% if user.is_authenticated %}
