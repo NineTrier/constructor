@@ -580,3 +580,25 @@ def connect_objects_to_document(request, pk):
 
         # Вернуть успешный ответ
         return HttpResponse()
+    
+def delete_object_from_document(request, pk):
+    if request.method == 'POST':
+        try:
+            print(request.POST)
+            # Получить список выбранных объектов из запроса
+            object_id = request.POST['object_id']
+            
+            print(object_id)
+
+            # Получить документ по идентификатору
+            document = DocumentsPattern.objects.get(pk=pk)
+
+            # Подключить выбранные объекты к документу
+            doc_obj = DocumentPattern_Objects.objects.filter(document=document, object=object_id)
+            doc_obj.delete()
+
+            # Вернуть успешный ответ
+            return HttpResponse()
+        except Exception as e:
+            print(e)
+            return HttpResponseNotModified('Не удалено. Ошибка удаления. ' + e)

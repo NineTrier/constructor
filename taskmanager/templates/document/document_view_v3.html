@@ -23,7 +23,7 @@
             <div class="context-menu" id="context_menu">
                 <div class="list-group">
                     <a class="list-group-item list-group-item-action" data-bs-toggle="modal" data-bs-target="#groupRadioModal" id="btnRadioGroup">Объединить в альтернативу</a>
-                    <a class="list-group-item list-group-item-action" id="btnDependence" onclick="goToDependence();">Добавить зависимость</a>
+                    <a class="list-group-item list-group-item-action" id="btnDependence" onclick="goToDependence();">Просмотр зависимостей</a>
                     <hr/>
                     <div id="advContextElement">
                         <a class="list-group-item list-group-item-action" onclick="ContextFilterClicked('nomn', 'ChangeCattle')">В именительный</a>
@@ -44,15 +44,6 @@
                     <!-- <a class="list-group-item list-group-item-action" onclick="OpenEventModal(event);">Зависимости</a> -->
                 </div>
             </div>
-            <!-- <div id="context_add_menu" hidden="true">
-                <div>
-                    <a type="button" class="btn btn-labeled" onclick="ButtonAddParagraph_Click()"><i class="fa-solid fa-plus"></i></a>
-                    <a type="button" class="btn btn-labeled" onclick="ButtonAddRun_Click()"><i class="fa-solid fa-square-plus"></i></a>
-                    <a class="btn btn-labeled deleteButton"><i class="fa-solid fa-trash"></i></a>
-                    <div class="vr"></div>
-                    <a class="btn btn-labeled" onclick="ButtonAddDependences()"><i class="fa-solid fa-link"></i></a>
-                </div>
-            </div> -->
             <div id="TopMenu">
                 <div id="TopHeader">
                     <div id="buttonBackContainer">
@@ -154,6 +145,8 @@
                     <label class="btn btn-labeled" for="btn_check_nothidden">Отображать скрытое</label>
                     <div class="vr"></div>
                     <a class="btn btn-labeled" onclick="filterManager.acceptAllFilters();">Применить фильтры</a>
+                    <div class="vr"></div>
+                    <a class="btn btn-labeled" onclick="eventManager.dispatchNotCalledEvent();">Запустить зависимости</a>
                     <div class="vr"></div>
                     <div class="dropdown">
                         <a class="btn btn-labeled" id="btnRadioInstruments" type="button" data-bs-toggle="dropdown" aria-expanded="false"></a>
@@ -427,17 +420,18 @@
                     
                     
                     <div id="Variables" class="invisible">
-                        <div><i class="fa-solid fa-bolt"></i><span>Переменные</span></div>
+                        <div class="d-flex flex-row align-items-center"><i class="fa-solid fa-bolt fa-xl me-2"></i><h3>Переменные</h3></div>
                         <div class="d-flex flex-column w-100">
-                            <span>Объекты</span>
+                            <h4>Объекты</h4>
                             <a type="button" class="btn btn-success" onclick="ConnectNewObject(event)">Подключить объект</a>
                             <div class="d-flex flex-column w-100">
-                                <span>Подключенные объекты:</span>
+                                <h5>Подключенные объекты:</h5>
                                 <div id="ObjectsList">
                                     {% for obj in objects %}
                                         <div class="object" id="object_{{ obj.object.id }}">
-                                            <div class="object_header">
-                                                <span>{{ obj.object.name }}</span>
+                                            <div class="d-flex flex-row align-items-center object_header">
+                                                <span style="font-weight: bold;">{{ obj.object.name }}</span>
+                                                <a class="btn btn-labeled" onclick="deleteObjectFromDocument({{ obj.object.id }})"><i class="fa-solid fa-trash" style="color: red;"></i></a>
                                             </div>
                                             <div class="object_body">
                                                 <div class="objectParametersContainer">
@@ -478,23 +472,17 @@
                         <div class="VariablesList" id="VariableMyself">
                         </div>
                     </div>
-                    <div id="Dependences" class="invisible">
+                    <div id="Dependences" class="w-100 invisible">
                         <h5>Зависимости</h5>
-                        <div>
+                        <div id="DependencesList" class="w-100">
                             <div id="EventCallerContainer">
                                 <label for="EventCallerID">Отправитель:</label>
-                                <select id="EventCallerID" class="elementsSelect" disabled>
-                                </select>
-                                <label for="EventType">Событие:</label>
-                                <select id="EventType" onchange="EventChanged();">
-                                    <option value="hidden">Спрятался</option>
-                                    <option value="unhidden">Появился</option>
+                                <select id="EventCallerID" class="form-select" onchange="EventCallerChanged()" class="elementsSelect" disabled>
                                 </select>
                             </div>
+                            <a type="button" class="btn btn-success invisible" id="btnAddReceiver" onclick="PopoverAddEventReceiver();">Добавить зависимость</a>
                             <div id="EventReceiversList">
                             </div>
-                            {% comment %} <a onclick="AddEventReceiver();"><i class="fa-solid fa-plus" style="color:green"></i></a> {% endcomment %}
-                            
                         </div>
                     </div>
                 </div>
@@ -573,12 +561,17 @@
             }
 
             function goToDependence(){
-                element = document.querySelectorAll('.selected')[0]
-                setEventCaller(document.querySelector('#EventCallerID'), element)
-                EventChanged()
+                let element = document.querySelectorAll('.selected')[0]
+                let caller_select = document.querySelector('#EventCallerID')
+                let currentElement = document.getElementById(caller_select.value)
+                if(currentElement !== undefined && currentElement !== null)
+                    currentElement.classList.remove('selected_event_caller')
+                setEventSelect(caller_select, element)
+                element.classList.add('selected_event_caller')
+                caller_select.dispatchEvent(new Event('change'))
             }
 
-            async function setEventCaller(EventSelect,element){
+            async function setEventSelect(EventSelect,element){
                 EventSelect.innerHTML = ""
                 EventSelect.insertAdjacentHTML('beforeend', `
                     <option value="`+ element.id +`">`+ element.getAttribute('data-name') +`</option>
@@ -1009,7 +1002,7 @@
                     var nam = objects_param.getAttribute('data-paramName');
                     var val = objects_param.querySelector('input')
                     if(nam == name){
-                        if(val !== undefined || val !== null)
+                        if(val !== undefined && val !== null)
                             span.textContent = val.value;
                         else
                             span.textContent = '{: '+ nam.textContent + ' :}'
@@ -1368,8 +1361,7 @@
                         //     draggedElement.querySelector('#context_add_menu').hidden = true;
                         //     document_main.appendChild(draggedElement.querySelector('#context_add_menu'));
                         // }
-                        var receiver = AddEventReceiver()
-                        setEventCaller(receiver.querySelector('.EventReceiverID'), document.querySelector('.dragged'))
+                        AddEventReceiver(document.querySelector('.dragged'),'hidden', 'hide', true)
                     }
                     // if(type == 'saved'){
                     //     var element = draggedElement.cloneNode(true);
@@ -1515,14 +1507,18 @@
                         .replace(/"(\;|\!|\?|\:|\.|\,|$|\)|\s)/g, "»$1");
                 }
                 run.onclick = function(event){
+                    if(document.querySelector('#document_main').classList.contains('get_event_receiver')){
+                        AddEventReceiver(run, 'hidden', 'hide', true)
+                    }
                     if(event.ctrlKey || event.metaKey){
                         addActiveElement(run);
                     }
                     else{
-
                         setActiveElement(run)
                     }
-
+                }
+                run.oncontextmenu = function(event){
+                    setActiveElement(run)
                 }
                 run.oninput = (evt)=>{
                     redSpan = run;
@@ -1595,6 +1591,9 @@
                 paragraph.onclick = (evt) => {
                     if(!evt.target.classList.contains('paragraph'))
                         return;
+                    if(document.querySelector('#document_main').classList.contains('get_event_receiver')){
+                        AddEventReceiver(paragraph,'hidden', 'hide', true)
+                    }
                     if(event.ctrlKey || event.metaKey){
                         addActiveElement(paragraph);
                     }
@@ -1602,6 +1601,9 @@
                         setActiveElement(paragraph)
                     }
                 }
+                // paragraph.oncontextmenu = function(event){
+                //     setActiveElement(paragraph)
+                // }
                 paragraph.ondblclick = (evt)=>{
                     if(paragraph.children.length == 0){
                         AddRunTo(paragraph);
@@ -2385,6 +2387,7 @@
 
             function TreeElementDblClick(evt){
                 evt.stopPropagation();
+                let tree_element = evt.target.closest('.tree_element');
                 var element = document_main.querySelector('#' + tree_element.getAttribute('data-idElement'));
                 setActiveElement(element);
             }
@@ -2977,27 +2980,32 @@
                 
             }
 
-            function ButtonAddDependences(){
-                for(let select of document.querySelectorAll('.elementsSelect')){
-                    FillSelectFromArrayOfElements(select, document_main.querySelectorAll('.docelement'))
-                }
-                var element = document.querySelector('.selected');
-                EventCallerID.value = element.id;
-                FillReceivers(element.id, EventType.value)
+            function EventCallerChanged(){
+                let caller = document.getElementById('EventCallerID')
+                if(caller.value === null || caller.value === undefined)
+                    return;
+                let btn = document.getElementById('btnAddReceiver')
+                btn.classList.remove('invisible')
+                var element = document.getElementById(caller.value);
+                FillReceivers(element.id)
             }
 
-            function EventChanged(){
-                var element = document.querySelector('#'+document.querySelector('#EventCallerID').value);
-                FillReceivers(element.id, EventType.value)
-            }
+            // function EventChanged(){
+            //     var element = document.querySelector('#'+document.querySelector('#EventCallerID').value);
+            //     FillReceivers(element.id, EventType.value)
+            // }
 
-            function FillReceivers(sender, event){
+            function FillReceivers(sender){
                 EventReceiversList.innerHTML = "";
-                var receivers = eventManager.getReceivers(sender, event)
-                for(let [key, value] of Object.entries(receivers)){
-                    let rec = AddEventReceiver();
-                    setEventCaller(rec.querySelector('.EventReceiverID'), document.querySelector('#' + value))
-                    rec.querySelector('.EventReceiverDoing').value = key;
+                var receivers = eventManager.getReceivers(sender)
+                for(let receiver of receivers){
+                    console.log(receiver)
+                    let receiver_element = document.getElementById(receiver.receiver)
+                    if(receiver_element === null || receiver_element === undefined){
+                        eventManager.deleteEventListener(receiver.id)
+                        continue
+                    }
+                    let rec = AddEventReceiver(receiver_element, receiver.event.type, receiver.operation, false, receiver.id, receiver.event.uslovie);
                 }
             }
 
@@ -3025,52 +3033,142 @@
                     return
                 }
                 var receiverContainer = evt.target.closest('.EventReceiver');
-                var receiver = receiverContainer.querySelector('.EventReceiverID').value
                 var operation = receiverContainer.querySelector('.EventReceiverDoing').value
-                var event = EventType.value;
-                eventManager.addEventListener(event, operation, sender, receiver)
+                var event = receiverContainer.querySelector('.EventType').value
+                let id = receiverContainer.getAttribute('data-idDependence')
+                let usl = receiverContainer.querySelector('.EventTypeUslovie').value
+                if(id === undefined || id === null || id === '')
+                    id = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+                if(!eventManager.addEventListener(event, operation, sender, receiverContainer.getAttribute('data-idElement'), id, usl)){
+                    alert('Такое событие уже существует, оно не будет сохранено')
+                    return;
+                }
                 receiverContainer.querySelector('.btnChangeReceiver').classList.remove('invisible')
                 receiverContainer.querySelector('.btnApproveReceiver').classList.add('invisible');
+                receiverContainer.setAttribute('data-idDependence', id)
             }
 
             function DeleteDependence(evt){
-                var sender = EventCallerID.value;
                 var receiverContainer = evt.target.closest('.EventReceiver');
-                var receiver = receiverContainer.querySelector('.EventReceiverID').value
-                var operation = receiverContainer.querySelector('.EventReceiverDoing').value
-                var event = EventType.value;
-                eventManager.deleteEventListener(event, operation, sender, receiver)
-                receiverContainer.parentElement.removeChild(receiverContainer)
+                let id = receiverContainer.getAttribute('data-idDependence')
+                console.log(id)
+                if(id === undefined || id === null || id === '')
+                    receiverContainer.parentElement.removeChild(receiverContainer)
+                let deleted = eventManager.deleteEventListener(id)
+                if(deleted)
+                    receiverContainer.parentElement.removeChild(receiverContainer)
             }
 
             function ChangeDependence(evt){
+                var receiverContainer = evt.target.closest('.EventReceiver');
                 receiverContainer.querySelector('.btnApproveReceiver').classList.remove('invisible')
                 receiverContainer.querySelector('.btnChangeReceiver').classList.add('invisible');
             }
 
-            function AddEventReceiver(){
+            function closeModal(evt){
+                let elem = evt.target.closest('.modal-backdrop')
+                let modal = document.getElementById('document_main')
+                elem.parentElement.removeChild(elem);
+                modal.classList.remove('get_event_receiver')
+            }
+
+            function PopoverAddEventReceiver(){
+                let modal = document.getElementById('document_main')
+                let overlay = document.querySelector('#overlay-modal')
+                let body = document.querySelector('body')
+                modal.classList.add('get_event_receiver')
+                body.insertAdjacentHTML('beforeend', `
+                    <div class="modal-backdrop show" onclick="closeModal(event)"></div>
+                `)
+            }
+
+            function mouseOverReceiverContainer(evt){
+                let id = evt.target.closest('.EventReceiver').getAttribute('data-idElement')
+                if(id === undefined || id === null || id === '')
+                    return;
+                let element = document.getElementById(id)
+                if(element === null || element === undefined)
+                    return;
+                element.classList.add('hovered_dependence');
+            }
+
+            function mouseOutReceiverContainer(evt){
+                let id = evt.target.closest('.EventReceiver').getAttribute('data-idElement')
+                if(id === undefined || id === null || id === '')
+                    return;
+                let element = document.getElementById(id)
+                if(element === null || element === undefined)
+                    return;
+                element.classList.remove('hovered_dependence');
+            }
+
+            function event_type_changed(evt){
+                let event_type = evt.target.closest('.EventType')
+                let parent = event_type.parentNode;
+                console.log(event_type.value)
+                if(event_type.value == 'find'){
+                    parent.querySelector('.EventTypeUslovie').classList.remove('invisible')
+                }
+                else{
+                    parent.querySelector('.EventTypeUslovie').classList.add('invisible')
+                }
+            }
+
+            function getTextFromParagraph(paragraph){
+                if(paragraph === null || paragraph === undefined || !paragraph.classList.contains('paragraph'))
+                    return
+                text = ""
+                for(let run of paragraph.querySelectorAll('.runs')){
+                    text += run.textContent + " "
+                }
+                return text.trim()
+            }
+
+            function AddEventReceiver(element, event_type, operation, is_new, id='', usl=''){
+                let elem_type = ""
+                let btn_add_invis = !is_new?'invisible':''
+                let btn_red_invis = is_new?'invisible':''
+                if(element.classList.contains('runs'))
+                    elem_type = "Текст"
+                else if(element.classList.contains('paragraph'))
+                    elem_type = "Параграф"
                 document.querySelector('#EventReceiversList').insertAdjacentHTML('beforeend',
                 `
-                <div class="EventReceiver">
-                    <div class="EventReceiverIDContainer">
-                        <span>Получатель:</span>
-                        <select class="EventReceiverID elementsSelect" disabled>
-                        </select>
+                <div class="EventReceiver row ms-3 me-3" data-idElement="`+ element.id +`" data-idDependence="`+id+`" onmouseover="mouseOverReceiverContainer(event);" onmouseout="mouseOutReceiverContainer(event);">
+                    <div class="d-flex flex-column col-10">
+                        <div class="EventReceiverIDContainer row mb-3">
+                            <span class="col">Получатель: `+ elem_type +` `+ element.id +` `+ element.getAttribute('data-name') +`</span>
+                        </div>
+                        <div class="EventReceiverIfContainer row mb-3">
+                            <span class="col">Событие отправителя:</span>
+                            <select class="EventType form-select col" onchange="event_type_changed(event)">
+                                <option value="hidden">Спрятался</option>
+                                <option value="unhidden">Появился</option>
+                                <option value="find">Текст содержит</option>
+                            </select>
+                            <input type="text" class="form-control invisible EventTypeUslovie" value="`+usl+`">
+                        </div>
+                        <div class="EventReceiverDoingContainer row mb-3">
+                            <span class="col">Действие:</span>
+                            <select class="EventReceiverDoing form-select col">
+                                <option value="hide">Спрятать</option>
+                                <option value="unhide">Показать</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="EventReceiverDoingContainer">
-                        <span>Действие:</span>
-                        <select class="EventReceiverDoing">
-                            <option value="hide">Спрятать</option>
-                            <option value="unhide">Показать</option>
-                        </select>
+                    <div class="d-flex flex-column col-1">
+                        <a type="button" class="btn btn-labeled btnApproveReceiver `+ btn_add_invis +`" onclick="AddDependence(event);"><i class="fa-solid fa-check" style="color:green"></i></a>
+                        <a type="button" class="btn btn-labeled btnChangeReceiver `+ btn_red_invis +`" onclick="ChangeDependence(event);"><i class="fa-solid fa-pen"></i></a>
+                        <a type="button" class="btn btn-labeled btnDeleteReceiver" onclick="DeleteDependence(event);"><i class="fa-solid fa-trash" style="color:red"></i></a>
                     </div>
-                    <a type="button" class="btn btn-labeled btnApproveReceiver" onclick="AddDependence(event);"><i class="fa-solid fa-check" style="color:green"></i></a>
-                    <a type="button" class="btn btn-labeled btnChangeReceiver invisible" onclick="ChangeDependence(event);"><i class="fa-solid fa-pen"></i></a>
-                    <a type="button" class="btn btn-labeled btnDeleteReceiver" onclick="DeleteDependence(event);"><i class="fa-solid fa-xmark" style="color:red"></i></a>
                 </div>
                 `)
                 var receiver = document.querySelector('#EventReceiversList > .EventReceiver:last-child');
                 //FillSelectFromArrayOfElements(receiver.querySelector('.EventReceiverID'), document_main.querySelectorAll('.docelement'))
+                //setEventSelect(receiver.querySelector('.EventReceiverID'), element)
+                receiver.querySelector('.EventReceiverDoing').value = operation;
+                receiver.querySelector('.EventType').value = event_type;
+                receiver.querySelector('.EventType').dispatchEvent(new Event('change'))
                 return receiver;
             }
 
@@ -3123,6 +3221,29 @@
                 .catch(error => console.error(error));
             }
 
+            function deleteObjectFromDocument(id){
+                if(!confirm('Вы точно хотите отвязать объект от документа?'))
+                    return;
+                let form_data = new FormData()
+                let csrf_token = document.querySelector('meta[name="csrf_token"]').getAttribute('content')
+                let doc_id = document.querySelector('meta[name="doc_id"]').getAttribute('content')
+                form_data.append('object_id', id)
+                
+                fetch('/document/delete_object_from_document/'+doc_id + '/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrf_token
+                    },
+                    body: form_data
+                })
+                .then(response => {
+                    console.log(response);
+                    alert('Успешно удалено! Пока не доделал удаление в реальном времени, нужно сохранить документ и перезагрузить страницу')
+                    //todo: Дописать удаление объекта
+                })
+                .catch(error => alert(error));
+            }
+
             function addObjects() {
                 let select = document.getElementById('objectSelect');
                 let selectedObjects = Array.from(select.selectedOptions).map(option => option.value);
@@ -3139,10 +3260,11 @@
                     },
                     body: form_data
                 })
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log(data);
+                    .then(response => {
+                        console.log(response);
                         $('#objectConnectModal').modal('hide');
+                        alert('Успешно удалено! Пока не доделал добавление в реальном времени, нужно сохранить документ и перезагрузить страницу')
+                        //todo: Дописать добавление объекта
                     })
                     .catch(error => console.error(error));
             }
@@ -3235,64 +3357,146 @@
                     this.eventHashTable = {}
                     this.events = ['hidden', 'unhidden']
                     this.operations = ['hide', 'unhide']
-                    for(let i = 0; i < this.events.length; i++){
-                        this.eventHashTable[this.events[i]] = {};
-                    }                
+                    this.reverseOperations = {'hide':'unhide', 'unhide':'hide'}
+                    // for(let i = 0; i < this.events.length; i++){
+                    //     this.eventHashTable[this.events[i]] = {};
+                    // }                
                 }
 
-                getReceivers(sender, eventtype){
-                    var receivers = {}
-                    try{
-                        for(let [key, value] of Object.entries(this.eventHashTable[eventtype][sender])){
-                            receivers[value] = key;
-                        }
-                        return receivers;
-                    }
-                    catch(error){
-                        console.log(error)
-                        return receivers;
-                    }
+                // getReceivers(sender, eventtype){
+                //     var receivers = {}
+                //     try{
+                //         for(let [key, value] of Object.entries(this.eventHashTable[eventtype][sender])){
+                //             receivers[key] = value;
+                //         }
+                //         return receivers;
+                //     }
+                //     catch(error){
+                //         console.log(error)
+                //         return receivers;
+                //     }
                     
+                // }
+
+                getReceivers(sender){
+                    if(this.eventHashTable[sender] === undefined || this.eventHashTable[sender] === null)
+                        return []
+                    return this.eventHashTable[sender]['events'];
                 }
 
-                async addEventListener(event, operation, sender, receiver) {
-                    if(!this.eventHashTable[event][sender]){
-                        this.eventHashTable[event][sender] = {};
-                    }
-                    this.eventHashTable[event][sender][receiver] = operation;
-                }
-
-                async deleteEventListener(event, operation, sender, receiver){
-                    if(!this.eventHashTable[event][sender]){
+                findEventByReceiver(event, operation, sender, receiver, uslovie=''){
+                    if (this.eventHashTable[sender] === undefined || this.eventHashTable[sender] === null)
                         return false;
+                    for(let ev of this.eventHashTable[sender]['events']){
+                        if(ev.event.type == event && ev.event.uslovie == uslovie && ev.operation == operation && ev.receiver == receiver)
+                            return ev;
                     }
-                    delete this.eventHashTable[event][sender][receiver]
+                    return false
+                }
+
+                addEventListener(event, operation, sender, receiver, id, uslovie='') {
+                    if(!this.eventHashTable[sender]){
+                        this.eventHashTable[sender] = {'events': []};
+                    }
+                    if(this.findEventByReceiver(event, operation, sender, receiver, uslovie))
+                        return false;
+                    this.eventHashTable[sender]['events'].push({'id': id, 'event': {'type': event, 'uslovie': uslovie},'operation': operation, 'receiver': receiver});
+                    console.log(this.eventHashTable)
                     return true;
                 }
 
-                async eventDispatch(sender, event){
-                    if(!this.eventHashTable[event][sender])
-                            return
-                    try {
-                        for(let [key, value] of Object.entries(this.eventHashTable[event][sender])){
+                deleteEventListener(id) {
+                    for (const sender in this.eventHashTable) {
+                        const events = this.eventHashTable[sender]['events'];
+                        const index = events.findIndex((ev) => ev.id == id);
+                        if (index !== -1) {
+                            events.splice(index, 1);
+                            return true;
+                        }
+                    }
+                    return false;
+                }
 
-                                if(value == 'hide'){
-                                    var element = document.querySelector('.tree_element[data-idElement="'+ key +'"] .hideCheckbox');
+                async dispatchNotCalledEvent(){
+                    for (const sender in this.eventHashTable) {
+                        const events = this.eventHashTable[sender]['events'];
+                        let sender_element = document.getElementById(sender)
+                        if(sender_element == null || sender_element == undefined)
+                            continue
+                        for(let event of events){
+                            if(event.event.type != 'find')
+                                continue
+                            let uslovie = event.event.uslovie
+                            let receiver = event.receiver
+                            let operation = event.operation
+                            let sender_text = ""
+                            if(sender_element.classList.contains('runs'))
+                                sender_text = sender_element.textContent
+                            else if(sender_element.classList.contains('paragraph'))
+                                sender_text = getTextFromParagraph(sender_element)
+                            if(sender_text.includes(uslovie)){
+                                switch (operation) {
+                                    case 'hide':
+                                        var element = document.querySelector('.tree_element[data-idElement="'+ receiver +'"] .hideCheckbox');
+                                        element.checked = false;
+                                        element.dispatchEvent(new Event('change'));
+                                        break;
+                                    case 'unhide':
+                                        var element = document.querySelector('.tree_element[data-idElement="'+ receiver +'"] .hideCheckbox');
+                                        element.checked = true;
+                                        element.dispatchEvent(new Event('change'));
+                                        break;
+                                    default:
+                                        break;
+                                }
+                            }
+                            else{
+                                switch (operation) {
+                                    case this.reverseOperations['hide']:
+                                        var element = document.querySelector('.tree_element[data-idElement="'+ receiver +'"] .hideCheckbox');
+                                        element.checked = false;
+                                        element.dispatchEvent(new Event('change'));
+                                        break;
+                                    case this.reverseOperations['unhide']:
+                                        var element = document.querySelector('.tree_element[data-idElement="'+ receiver +'"] .hideCheckbox');
+                                        element.checked = true;
+                                        element.dispatchEvent(new Event('change'));
+                                        break;
+                                    default:
+                                        break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                async eventDispatch(sender, event){
+                    if(this.eventHashTable[sender] === undefined || this.eventHashTable[sender] === null)
+                        return;
+                    for(let receiver of this.eventHashTable[sender]['events']){
+                        try {
+                            if(receiver.event.type !== event)
+                                continue
+                            switch (receiver.operation) {
+                                case 'hide':
+                                    var element = document.querySelector('.tree_element[data-idElement="'+ receiver.receiver +'"] .hideCheckbox');
                                     element.checked = false;
                                     element.dispatchEvent(new Event('change'));
-                                }
-                                else if(key == 'unhide'){
-                                    var element = document.querySelector('.tree_element[data-idElement="'+ key +'"] .hideCheckbox');
+                                    break;
+                                case 'unhide':
+                                    var element = document.querySelector('.tree_element[data-idElement="'+ receiver.receiver +'"] .hideCheckbox');
                                     element.checked = true;
                                     element.dispatchEvent(new Event('change'));
-                                }
-                            
-                            
-                        }
-                    } catch (error) {
-                                console.log(error)
+                                    break;
+                                default:
+                                    break;
                             }
+                        } catch (error) {
+                            console.log(error)
+                            continue
+                        }
                     }
+                }
             }
 
             function getDataFromReference(element){
@@ -3423,7 +3627,9 @@
 
             switchAdminMode(false);
 
-            RadioGroupsFromJSON("{{ document_json|escapejs }}")
+            RadioGroupsFromJSON("{{ document_json|escapejs }}");
+
+            UpdateVariableList();
             
             // if('{{ vks }}' == 'True')
                 //  AutoFillFromRequest("{{ data|escapejs }}")
@@ -3632,6 +3838,9 @@
             // setInterval(
             //     () => UpdateFile(), 600000
             // );
+            setInterval(
+                () => eventManager.dispatchNotCalledEvent(), 100
+            );
         });
     </script>
 </html>

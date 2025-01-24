@@ -23,4 +23,5 @@ urlpatterns = [
     path('doctype_remove', views.DeleteDocType), # удаление типа документа
     path('acceptFilters', views.AcceptFilters),
     path('connect_objects_to_document/<int:pk>/', views.connect_objects_to_document, name='connect_objects_to_document'),
+    path('delete_object_from_document/<int:pk>/', views.delete_object_from_document, name='delete_object_from_document'),
 ]
