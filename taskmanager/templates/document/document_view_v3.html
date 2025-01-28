@@ -1003,10 +1003,10 @@
                     var nam = objects_param.getAttribute('data-paramName');
                     var val = objects_param.querySelector('input')
                     if(nam == name){
-                        if(val !== undefined && val !== null)
+                        if(val !== undefined && val !== null && val.value != '')
                             span.textContent = val.value;
                         else
-                            span.textContent = '{: '+ nam.textContent + ' :}'
+                            span.textContent = '{: '+ nam + ' :}'
                         span.classList.add('reference_to_data');
                         span.classList.add('object_param_ref');
                         span.setAttribute('data-idObjParam', objects_param.getAttribute('data-idParam'))

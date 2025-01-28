@@ -123,6 +123,15 @@ th{
     margin-bottom: 10px;
 }
 
+#form_update_csv_object, #form_update_csv_object > div{
+    display: flex;
+    flex-direction: column;
+}
+
+#form_update_csv_object > *, #form_update_csv_object > div > *{
+    margin-bottom: 10px;
+}
+
 .invisible{
     display: none!important;
 }
