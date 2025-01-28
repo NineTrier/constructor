@@ -330,6 +330,7 @@
                 <div id="leftMenu">
                     <a class="btn btn-labeled" data-bs-toggle="modal" data-bs-target="#groupRadioModal" id="btnRadioGroup"><i class="fa-solid fa-list-ol fa-xl"></i></a>
                     <a class="btn btn-labeled" id="btnDependence" onclick="goToDependence();"><i class="fa-solid fa-timeline fa-xl"></i></a>
+                    <a class="btn btn-labeled" id="btnAddImage" onclick="ButtonAddImage_Click();"><i class="fa-solid fa-image fa-xl"></i></a>
                 </div>
                 <div>
                     <div class="document" id="document_main" style="{{ sectPr.to_css }}">
@@ -2297,39 +2298,50 @@
                 }
             }
 
-            // Функция реагирует на клик в радиогруппе
-            async function RadioInputChanged(evt){
-                for(let other of document.querySelectorAll('input[name="'+ evt.target.name +'"]')){
-                    var elem = document_main.querySelector('#'+other.closest('.tree_element').getAttribute('data-idElement')); 
-                    elem.hidden = !other.checked;
-                    if(other.closest('.tree_element').querySelector('ul')){
-                        for(let run of other.closest('.tree_element').querySelector('ul').children){
-                            run.firstElementChild.disabled = !other.parentElement.firstElementChild.checked;
-                            run.firstElementChild.readonly = !other.parentElement.firstElementChild.checked;
-                        }
+
+            async function elementHiddenDispatchEvent(elem){
+                if(elem.hidden){
+                    eventManager.eventDispatch(elem.id, 'hidden');
+                }
+                else{
+                    eventManager.eventDispatch(elem.id, 'unhidden');
+                }
+            }
+
+            async function TreeElementChange(tree_element){                
+                if(tree_element === undefined || tree_element === null)
+                    return
+                
+                var elem = document.getElementById(tree_element.getAttribute('data-idElement')); 
+                if(elem === undefined || elem === null)
+                    return
+
+                var checked = tree_element.querySelector('.hideCheckbox').checked;
+                elem.hidden = !checked;
+                elementHiddenDispatchEvent(elem)
+                // other.dispatchEvent(new Event('change'));
+                if(tree_element.querySelector('ul')){
+                    for(let tree_elem_child of tree_element.querySelector('ul').children){
+                        let hide = tree_elem_child.querySelector('.hideCheckbox')
+                        hide.readonly = !checked;
+                        hide.checked = checked;
+                        hide.dispatchEvent(new Event('change'));
                     }
                 }
             }
 
+            // Функция реагирует на клик в радиогруппе
+            async function RadioInputChanged(evt){
+                for(let other of document.querySelectorAll('input[name="'+ evt.target.name +'"]')){
+                    TreeElementChange(other.closest('.tree_element'));
+                }
+            }
+
             function TreeElementInput1OnChange(evt){
-                evt.stopPropagation();
-                console.log(evt.target)
-                var element = document_main.querySelector('#' + evt.target.closest('.tree_element').getAttribute('data-idElement'));
-                element.hidden = !evt.target.checked;
-                if(element.hidden){
-                    eventManager.eventDispatch(element.id, 'hidden');
-                }
-                else{
-                    eventManager.eventDispatch(element.id, 'unhidden');
-                }
-                if(evt.target.closest('.tree_element').querySelector('ul')){
-                    for(let run of evt.target.closest('.tree_element').querySelector('ul').children){
-                        run.firstElementChild.disabled = !evt.target.checked;
-                        run.firstElementChild.readonly = !evt.target.checked;
-                        document_main.querySelector('#'+run.getAttribute('data-idElement')).hidden =  !evt.target.checked;
-                    }
-                }
-                if(evt.target.type == 'radio'){
+                let tree_element = evt.target.closest('.tree_element');
+                var hide = tree_element.querySelector('.hideCheckbox')
+                TreeElementChange(tree_element);
+                if(hide.type == 'radio'){
                     RadioInputChanged(evt);
                 }
             }
@@ -3843,7 +3855,10 @@
             //     () => UpdateFile(), 600000
             // );
             setInterval(
-                () => eventManager.dispatchNotCalledEvent(), 100
+                () => {
+                    eventManager.dispatchNotCalledEvent(),
+                    filterManager.acceptAllFilters()
+                }, 100
             );
         });
     </script>
