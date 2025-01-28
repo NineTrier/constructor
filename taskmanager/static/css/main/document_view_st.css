@@ -371,8 +371,8 @@ td.paragraph{
     display: flex;
     flex-direction: column;
     position: sticky;
-    top: 200px;
-    height: 100vh;
+    top: 220px;
+    height: 12vh;
     background-color: white;
 }
 
@@ -580,9 +580,6 @@ input[type="number"]::-webkit-inner-spin-button{
     max-width: 200px;
 }
 
-#modal_radioGroup_list{
-}
-
 #modal_radioGroup_list > li{
     margin-top: 7px;
     border-radius: 5px;
@@ -590,7 +587,7 @@ input[type="number"]::-webkit-inner-spin-button{
 
 #document_tree{
     overflow: auto;
-    max-height: 70vh;
+    max-height: 60vh;
     max-width: 100%;
     background-color: white;
     padding:0px;
@@ -613,10 +610,13 @@ input[type="number"]::-webkit-inner-spin-button{
 
 #tree_develop_container{
     padding: 10px;
+    padding-top: 25px;
+    padding-bottom: 25px;
     display: flex;
     flex-direction: row;
     align-items: center;
     border-bottom: 1px solid #D9D9D9;
+    margin-bottom: 15px;
 }
 
 .variable_ref{
@@ -700,7 +700,7 @@ input[type="number"]::-webkit-inner-spin-button{
     max-width: 800px;
     display: flex;
     flex-direction: column;
-    max-height: 85vh;
+    max-height: 78vh;
     margin-left: auto;
     flex-grow: 1;
     position: sticky;

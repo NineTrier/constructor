@@ -22,7 +22,7 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-            <form>
+            <form id="objectModalForm">
                 {% csrf_token %}
                 <div class="objectParametersContainer">
                     {% for parameter in parameters %}
@@ -55,9 +55,45 @@
     </div>
   </div>
 
+  <div class="modal fade" id="objectUpdateFileModal" tabindex="-1" aria-labelledby="objectUpdateFileModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="objectUpdateFileModalLabel">Обновить данные</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+            <form method="post" enctype="multipart/form-data" action="#" id="form_update_csv_object">
+                {% csrf_token %}
+                <span>CSV-файл:</span>
+                <input type="file" name="csv_file" class="form-control" accept=".csv" required>
+                <div class="fieldWrapper invisible" id="drop_column_block">
+                    <span>Фильтрация данных:</span>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" name="need_drop" id="check1">
+                        <label class="form-check-label" for="check1">Убрать строки, где значение не задано</label>
+                      </div>
+                    <select name="drop_column" class="form-select invisible">
+                        <option value="-1">Выберите столбец, по которому убрать строки таблицы</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-success w-50">Сохранить объект</button>
+            </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+          <!-- <button type="button" class="btn btn-primary">Save changes</button> -->
+        </div>
+      </div>
+    </div>
+  </div>
+
 <div class="container">
     <div class="header-bar mt-2">
         <h1>Объект {{ object.name }}</h1>
+        <a type="button" class="btn btn-labeled" onclick="updateCSV(event)">
+            <i class="fa-solid fa-rotate"></i>
+        </a>
         <a type="button" class="btn btn-labeled" onclick="delete_object(event)">
             <i class="fa-solid fa-trash" style="color: red"></i>
         </a>
@@ -90,7 +126,7 @@
             headers: {
                         'X-CSRFToken': csrf_token
                     },
-            body: new FormData(document.querySelector('form')),
+            body: new FormData(document.querySelector('#objectModalForm')),
         })
         .then(response => response.text())
         .then(columns =>{
@@ -154,6 +190,72 @@
         input.value = element.querySelector('span').textContent
         input.dispatchEvent(new Event('change'));
         
+    }
+
+    function fill_select(select, data){
+        for (const d of data) {
+            let option = document.createElement('option');
+            option.value = d;
+            option.text = d;
+            select.appendChild(option);
+        }
+    }
+
+    function fill_selects_from_columns(columns){
+        let select1 = document.querySelector('select[name="drop_column"]');
+        select1.innerHTML = '<option value="-1">Выберите столбец, по которому сбросить строки таблицы</option>';
+        fill_select(select1, columns.split(';'))
+    }
+
+    document.querySelector('input[type="file"]').addEventListener('change', function() {
+        // Отправить запрос на сервер
+        fetch('/database/upload_csv_to_get_columns/', {
+            method: 'POST',
+            body: new FormData(document.querySelector('#form_update_csv_object')),
+        })
+        .then(response => response.text())
+        .then(columns =>{
+            console.log(columns);
+            fill_selects_from_columns(columns)
+            // fill_columns_list(columns)
+            // identificator_block.classList.remove('invisible');
+            drop_column_block.classList.remove('invisible');
+            // view_data_block.classList.remove('invisible');
+        })
+        .catch(error => console.error(error));
+    });
+
+    document.querySelector('button[type="submit"]').addEventListener('click', function(event) {
+        // Отправить запрос на сервер
+        event.preventDefault();
+        // if(!validate_form()){
+        //     alert('Ошибка введённых данных')
+        //     return;
+        // }    
+        fetch('/database/update_csv/'+document.querySelector('meta[name="object_id"]').getAttribute('content')+'/', {
+            method: 'POST',
+            body: new FormData(document.querySelector('#form_update_csv_object')),
+        })
+        .then(response => response.text())
+        .then(message =>{
+            console.log(message);
+            location.reload()
+        })
+        .catch(error => console.error(error));
+    });
+
+    document.querySelector('input[name="need_drop"]').addEventListener('change', function(evt) {
+        console.log(evt.target.checked);
+        let select =  drop_column_block.querySelector('select')
+        if(evt.target.checked)
+            select.classList.remove('invisible');
+        else
+            select.classList.add('invisible');
+    });
+
+    function updateCSV(evt){
+        var modal = new bootstrap.Modal(document.getElementById('objectUpdateFileModal'))
+        modal.show()
     }
 </script>
 {% endblock %}

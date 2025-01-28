@@ -640,6 +640,56 @@ def upload_csv(request):
     # отображаем форму
     return render(request, 'database_manager/upload_csv.html')
 
+def update_csv(request, pk):
+    """
+    Обработчик формы загрузки CSV-файла.
+    
+    - если метод POST, то загружает файл, читает его,
+      обрабатывает, сохраняет в файл, создает объект Object,
+      создает параметры Parameter для каждого столбца,
+      указывает, какой столбец является идентификатором
+    - если метод GET, то отображает форму загрузки CSV-файла
+    """
+    if request.method == 'POST':
+        
+        object = Object.objects.filter(id=int(pk))[0]
+        
+        # открываем файл, загруженный в объект
+        with open(f'{settings.MEDIA_ROOT}\{object.data}', 'rb') as f:
+            # считываем файл
+            data_obj = pickle.load(f)
+            f.close()
+            
+        # читаем файл
+        csv_file = request.FILES['csv_file']
+        df = pd.read_csv(csv_file)
+        print(df)
+        
+        if len(data_obj.columns.tolist()) != len(df.columns.tolist()):
+            return HttpResponseNotModified("Количество столбцов разное. Для загрузки данных из этого CSV создайте новый объект.")
+        
+        # если выбран столбец для удаления, то удаляем
+        drop_column = request.POST.get('drop_column', '-1')
+        if drop_column != '-1':
+            df.dropna(subset=[drop_column], inplace=True)
+
+        # приводим все значения к строке и убираем лишние пробелы
+        df = df.map(lambda x: str(x).strip())
+
+        file_path = object.data
+        
+        df.columns = data_obj.columns.tolist()
+        print(df)
+        # сохраняем файл
+        if os.path.exists(file_path.path):
+            os.remove(file_path.path)
+        df.to_pickle(file_path.path)
+        # возвращаем ответ
+        return HttpResponse(f'/database/get_object/{object.id}')
+
+    # отображаем форму
+    return render(request, 'database_manager/upload_csv.html')
+
 def DeleteObject(request, pk):
     """Функция для обработки запроса по удалению переменной SQL-параметра"""
     try:
@@ -651,4 +701,4 @@ def DeleteObject(request, pk):
     except Exception as exc:
         print(exc)
         response = HttpResponseNotModified()
-        return response
+        return response 

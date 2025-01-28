@@ -5,6 +5,7 @@ from . import views
 urlpatterns = [
     # path(То что вставляется после \, То, что вызывается в данном случае, Название данного перенаправления)
     path('upload_csv/', views.upload_csv, name='upload_csv'),
+    path('update_csv/<int:pk>/', views.update_csv, name='update_csv'),
     path('upload_csv_to_get_columns/', views.upload_csv_and_get_columns, name='upload_csv_to_get_columns'),
     path('view_data/', views.view_data, name='view_data'),
     path('object_manager/', views.object_manager, name='object_manager'),
