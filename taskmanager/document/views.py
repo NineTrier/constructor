@@ -513,7 +513,8 @@ def GetGenderFIO(phrase):
         res = {'femn': 0, 'masc': 0, 'neut': 0}
         for word in phrase.split():
             parsed_word = morph.parse(word)[0]
-            res[parsed_word.tag.gender] += 1
+            if parsed_word.tag.gender:
+                res[parsed_word.tag.gender] += 1
         res_sorted = sorted(res, key=lambda x: res[x], reverse=True)
         return res_sorted[0]
     else:

@@ -3525,7 +3525,7 @@
                     return ref.querySelector('.variable_mean').value
                 }
                 if(element.classList.contains('object_param_ref')){
-                    let ref = document.querySelector('.obj_parameter[data-idObjParam="'+ element.getAttribute('data-idObjParam') +'"]')
+                    let ref = document.querySelector('.obj_parameter[data-idParam="'+ element.getAttribute('data-idObjParam') +'"]')
                     if(ref === undefined || ref === null)
                         return element.textContent
                     return ref.querySelector('input').value 
@@ -3856,9 +3856,13 @@
             // );
             setInterval(
                 () => {
-                    eventManager.dispatchNotCalledEvent(),
-                    filterManager.acceptAllFilters()
+                    eventManager.dispatchNotCalledEvent()
                 }, 1000
+            );
+            setInterval(
+                () => {
+                    filterManager.acceptAllFilters()
+                }, 10000
             );
         });
     </script>
