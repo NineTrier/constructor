@@ -487,7 +487,7 @@
                                 <label for="EventCallerID">Отправитель:</label>
                                 <select id="EventCallerID" class="form-select" onchange="EventCallerChanged()" class="elementsSelect" disabled>
                                 </select>
-                                <a type="button" class="btn btn-warning w-25" onclick="document.getElementById('EventCallerID').innerHTML='';document.getElementById('btnAddReceiver').classList.add('invisible')">Очистить</a>
+                                <a type="button" class="btn btn-warning w-25" onclick="onClearEventCallerIdBtnClick()">Очистить</a>
                             </div>
                             <a type="button" class="btn btn-success invisible" id="btnAddReceiver" onclick="PopoverAddEventReceiver();">Добавить зависимость</a>
                             <div id="EventReceiversList">
@@ -3044,6 +3044,13 @@
                 
             }
 
+            function onClearEventCallerIdBtnClick(){
+                document.getElementById('EventCallerID').innerHTML='';
+                document.getElementById('btnAddReceiver').classList.add('invisible')
+                let sender = document.getElementById('EventCallerID').value
+                FillReceivers(sender)
+            }
+
             function EventCallerChanged(){
                 let caller = document.getElementById('EventCallerID')
                 if(caller.value === null || caller.value === undefined)
@@ -3446,6 +3453,11 @@
                     openFindDataModal(data, object_id)
                 })
                 .catch(error => console.error(error));
+            }
+
+            function FillEvents(){
+                let sender = document.getElementById('EventCallerID').value
+                FillReceivers(sender)
             }
 
             class EventManager{
@@ -4001,12 +4013,12 @@
                     filterManager.acceptAllFilters();
                 }, 5000
             );
-            setInterval(
-                () => {
-                    let sender = document.getElementById('EventCallerID').value
-                    FillReceivers(sender)
-                }, 1000
-            );
+            // setInterval(
+            //     () => {
+            //         let sender = document.getElementById('EventCallerID').value
+            //         FillReceivers(sender)
+            //     }, 1000
+            // );
         });
     </script>
 </html>
