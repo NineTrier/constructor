@@ -3049,6 +3049,9 @@
                 document.getElementById('btnAddReceiver').classList.add('invisible')
                 let sender = document.getElementById('EventCallerID').value
                 FillReceivers(sender)
+                for(let elem of document.querySelectorAll('.hovered_event_caller')){
+                    elem.classList.remove('hovered_event_caller')
+                }
             }
 
             function EventCallerChanged(){
@@ -3796,6 +3799,8 @@
             RadioGroupsFromJSON("{{ document_json|escapejs }}");
 
             UpdateVariableList();
+
+            FillReceivers()
             
             // if('{{ vks }}' == 'True')
                 //  AutoFillFromRequest("{{ data|escapejs }}")
