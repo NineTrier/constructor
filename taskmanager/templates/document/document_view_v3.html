@@ -451,13 +451,13 @@
                                                                     <i class="fa-solid fa-star"></i>
                                                                     <span class="identificator obj_parameter_name">{{ parameter.name }}</span>
                                                                 </div>
-                                                                <input type="text" class="form-control identificator col" data-id="{{ parameter.id }}" name="{{ parameter.name }}" onclick="getObjectData(event, '{{ obj.object.id }}')" onchange="onChangeVariableMean(event);">
+                                                                <input type="text" class="form-control identificator col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.name }}" onclick="getObjectData(event, '{{ obj.object.id }}')" onchange="onChangeVariableMean(event);">
                                                             {% else %}
                                                                 <span class="col-2 obj_parameter_name">{{ parameter.name }}</span>
                                                                 {% if parameter.data_type == 'TXT' %}
-                                                                <input type="text" class="form-control col" data-id="{{ parameter.id }}" name="{{ parameter.name }}" onchange="onChangeVariableMean(event);" readonly>
+                                                                <input type="text" class="form-control col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.name }}" onchange="onChangeVariableMean(event);" readonly>
                                                                 {% elif parameter.data_type == 'ARRAY' %}
-                                                                <div class="col array_data_container"></div> 
+                                                                <div class="col array_data_container obj_parameter_value"></div> 
                                                                 {% endif %}
                                                             {% endif %}
                                                         </div>
@@ -487,6 +487,7 @@
                                 <label for="EventCallerID">Отправитель:</label>
                                 <select id="EventCallerID" class="form-select" onchange="EventCallerChanged()" class="elementsSelect" disabled>
                                 </select>
+                                <a type="button" class="btn btn-warning w-25" onclick="document.getElementById('EventCallerID').innerHTML=''">Очистить</a>
                             </div>
                             <a type="button" class="btn btn-success invisible" id="btnAddReceiver" onclick="PopoverAddEventReceiver();">Добавить зависимость</a>
                             <div id="EventReceiversList">
@@ -1002,16 +1003,34 @@
                 SaveNotComplete();
             }
 
+            function getDataFromObjectArray(element){
+                let text = '';
+                let arr_datas = element.querySelectorAll('.array_data span')
+                if(arr_datas.length == 0)
+                    return '';
+                for(let i=0; i < arr_datas.length-1; i++){
+                    text += arr_datas[i].textContent.trim() + ', ';
+                }
+                text += arr_datas[arr_datas.length-1].textContent.trim()
+                return text
+            }
+
             // Создаёт соединение между переменной и текстовым элементом
             function CreateConnectObject(span, regmatch){
                 var name = span.getAttribute('data-invis').trim();
                 name = name.slice(3, name.length-3);
                 for(let objects_param of document.getElementsByClassName('obj_parameter')){
                     var nam = objects_param.getAttribute('data-paramName');
-                    var val = objects_param.querySelector('input')
+                    var val = objects_param.querySelector('.obj_parameter_value')
                     if(nam == name){
-                        if(val !== undefined && val !== null && val.value != '')
-                            span.textContent = val.value;
+                        if(val !== undefined && val !== null && val.value != ''){
+                            if (val.classList.contains('array_data_container')){
+                                span.textContent = changeQuotes(getDataFromObjectArray(val));
+                            }else{
+                                span.textContent = changeQuotes(val.value);
+                            }
+                        }
+                            
                         else
                             span.textContent = '{: '+ nam + ' :}'
                         span.classList.add('reference_to_data');
@@ -1031,7 +1050,7 @@
                     var val = variable.getElementsByClassName('variable_mean')[0];
                     if(nam.textContent == name){
                         if(val.value != '')
-                            span.textContent = val.value;
+                            span.textContent = changeQuotes(val.value);
                         else
                             span.textContent = '{: '+ nam.textContent + ' :}'
                         span.classList.add('reference_to_data');
@@ -1364,13 +1383,6 @@
                     for(let span of spans){
                         CheckOnVariableInSpan(span);
                     }
-                    if(evt.target.closest('#EventReceiversList')){
-                        // if(draggedElement.querySelector('#context_add_menu')){
-                        //     draggedElement.querySelector('#context_add_menu').hidden = true;
-                        //     document_main.appendChild(draggedElement.querySelector('#context_add_menu'));
-                        // }
-                        AddEventReceiver(document.querySelector('.dragged'),'hidden', 'hide', true)
-                    }
                     // if(type == 'saved'){
                     //     var element = draggedElement.cloneNode(true);
                     //     var paragraph = evt.target.closest('.paragraph');
@@ -1501,6 +1513,12 @@
                 img.contentEditable = false;
             }
 
+            function changeQuotes(text) {
+                return text.replace(/(\w)"(\w)/g, '$1\x27$2')
+                    .replace(/(^|\s|\()"/g, "$1«")
+                    .replace(/"(\;|\!|\?|\:|\.|\,|$|\)|\s)/g, "»$1");
+            }
+
             // Задать начальное значение текстовому элементу
             async function SetDefaultRun(run){
                 if(run.style.fontSize == ""){
@@ -1509,14 +1527,11 @@
                 if(run.style.fontFamily == ""){
                     run.style.fontFamily = startFont;
                 }
-                function changeQuotes(text) {
-                    return text.replace(/(\w)"(\w)/g, '$1\x27$2')
-                        .replace(/(^|\s|\()"/g, "$1«")
-                        .replace(/"(\;|\!|\?|\:|\.|\,|$|\)|\s)/g, "»$1");
-                }
+                
                 run.onclick = function(event){
                     if(document.querySelector('#document_main').classList.contains('get_event_receiver')){
-                        AddEventReceiver(run, 'hidden', 'hide', true)
+                        let sender = document.getElementById('EventCallerID').value
+                        AddEventReceiver(run, document.getElementById(sender), 'hidden', 'hide', true)
                     }
                     if(event.ctrlKey || event.metaKey){
                         addActiveElement(run);
@@ -1600,7 +1615,8 @@
                     if(!evt.target.classList.contains('paragraph'))
                         return;
                     if(document.querySelector('#document_main').classList.contains('get_event_receiver')){
-                        AddEventReceiver(paragraph,'hidden', 'hide', true)
+                        let sender = document.getElementById('EventCallerID').value
+                        AddEventReceiver(paragraph, sender, 'hidden', 'hide', true)
                     }
                     if(event.ctrlKey || event.metaKey){
                         addActiveElement(paragraph);
@@ -3041,17 +3057,20 @@
             //     FillReceivers(element.id, EventType.value)
             // }
 
-            function FillReceivers(sender){
+            function FillReceivers(sender=null){
                 EventReceiversList.innerHTML = "";
                 var receivers = eventManager.getReceivers(sender)
                 for(let receiver of receivers){
-                    console.log(receiver)
-                    let receiver_element = document.getElementById(receiver.receiver)
-                    if(receiver_element === null || receiver_element === undefined){
-                        eventManager.deleteEventListener(receiver.id)
-                        continue
-                    }
-                    let rec = AddEventReceiver(receiver_element, receiver.event.type, receiver.operation, false, receiver.id, receiver.event.uslovie);
+                    for(let event of receiver.events){
+                        console.log(receiver)
+                        let receiver_element = document.getElementById(event.receiver)
+                        let sender_element = document.getElementById(receiver.sender)
+                        if(receiver_element === null || receiver_element === undefined){
+                            eventManager.deleteEventListener(event.id)
+                            continue
+                        }
+                        let rec = AddEventReceiver(receiver_element, sender_element, event.event.type, event.operation, false, event.id, event.event.uslovie);
+                    } 
                 }
             }
 
@@ -3083,11 +3102,14 @@
                 var event = receiverContainer.querySelector('.EventType').value
                 let id = receiverContainer.getAttribute('data-idDependence')
                 let usl = receiverContainer.querySelector('.EventTypeUslovie').value
-                if(id === undefined || id === null || id === '')
+                if(id === undefined || id === null || id === ''){
                     id = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-                if(!eventManager.addEventListener(event, operation, sender, receiverContainer.getAttribute('data-idElement'), id, usl)){
-                    alert('Такое событие уже существует, оно не будет сохранено')
-                    return;
+                    eventManager.addEventListener(event, operation, sender, receiverContainer.getAttribute('data-idElement'), id, usl);
+                    console.log('Добавлено')
+                }
+                else{
+                    eventManager.updateEventListener(id, event, operation, sender, receiverContainer.getAttribute('data-idElement'), usl);
+                    console.log('Обновлено')
                 }
                 receiverContainer.querySelector('.btnChangeReceiver').classList.remove('invisible')
                 receiverContainer.querySelector('.btnApproveReceiver').classList.add('invisible');
@@ -3136,6 +3158,13 @@
                 if(element === null || element === undefined)
                     return;
                 element.classList.add('hovered_dependence');
+                let id_sender = evt.target.closest('.EventReceiver').getAttribute('data-idSender')
+                if(id_sender === undefined || id_sender === null || id_sender === '')
+                    return;
+                let sender = document.getElementById(id_sender)
+                if(sender === null || sender === undefined)
+                    return;
+                sender.classList.add('hovered_event_caller');
             }
 
             function mouseOutReceiverContainer(evt){
@@ -3146,6 +3175,13 @@
                 if(element === null || element === undefined)
                     return;
                 element.classList.remove('hovered_dependence');
+                let id_sender = evt.target.closest('.EventReceiver').getAttribute('data-idSender')
+                if(id_sender === undefined || id_sender === null || id_sender === '')
+                    return;
+                let sender = document.getElementById(id_sender)
+                if(sender === null || sender === undefined)
+                    return;
+                sender.classList.remove('hovered_event_caller');
             }
 
             function event_type_changed(evt){
@@ -3170,18 +3206,26 @@
                 return text.trim()
             }
 
-            function AddEventReceiver(element, event_type, operation, is_new, id='', usl=''){
+            function AddEventReceiver(element, sender, event_type, operation, is_new, id='', usl=''){
                 let elem_type = ""
+                let send_type = ""
                 let btn_add_invis = !is_new?'invisible':''
                 let btn_red_invis = is_new?'invisible':''
                 if(element.classList.contains('runs'))
                     elem_type = "Текст"
                 else if(element.classList.contains('paragraph'))
                     elem_type = "Параграф"
+                if(sender.classList.contains('runs'))
+                    send_type = "Текст"
+                else if(sender.classList.contains('paragraph'))
+                    send_type = "Параграф"
                 document.querySelector('#EventReceiversList').insertAdjacentHTML('beforeend',
                 `
-                <div class="EventReceiver row ms-3 me-3" data-idElement="`+ element.id +`" data-idDependence="`+id+`" onmouseover="mouseOverReceiverContainer(event);" onmouseout="mouseOutReceiverContainer(event);">
+                <div class="EventReceiver row ms-3 me-3" data-idElement="`+ element.id +`" data-idSender="`+ sender.id +`" data-idDependence="`+id+`" onmouseover="mouseOverReceiverContainer(event);" onmouseout="mouseOutReceiverContainer(event);">
                     <div class="d-flex flex-column col-10">
+                        <div class="EventReceiverIDContainer row mb-3">
+                            <span class="col">Отправитель: `+ send_type +` `+ sender.id +` `+ sender.getAttribute('data-name') +`</span>
+                        </div>
                         <div class="EventReceiverIDContainer row mb-3">
                             <span class="col">Получатель: `+ elem_type +` `+ element.id +` `+ element.getAttribute('data-name') +`</span>
                         </div>
@@ -3192,7 +3236,7 @@
                                 <option value="unhidden">Появился</option>
                                 <option value="find">Текст содержит</option>
                             </select>
-                            <input type="text" class="form-control invisible EventTypeUslovie" value="`+usl+`">
+                            <input type="text" class="form-control invisible EventTypeUslovie mt-2" value="`+usl+`">
                         </div>
                         <div class="EventReceiverDoingContainer row mb-3">
                             <span class="col">Действие:</span>
@@ -3424,10 +3468,17 @@
                     
                 // }
 
-                getReceivers(sender){
-                    if(this.eventHashTable[sender] === undefined || this.eventHashTable[sender] === null)
-                        return []
-                    return this.eventHashTable[sender]['events'];
+                getReceivers(sender=null){
+                    if(this.eventHashTable[sender] === undefined || this.eventHashTable[sender] === null){
+                        if(sender !== null && sender !== undefined && sender !== '') 
+                            return []
+                        const allEvents = [];
+                        for(const sender in this.eventHashTable){
+                            allEvents.push({'sender': sender, 'events': this.eventHashTable[sender]['events']});
+                        }
+                        return allEvents;
+                    }
+                    return [{'sender': sender, 'events': this.eventHashTable[sender]['events']}];
                 }
 
                 findEventByReceiver(event, operation, sender, receiver, uslovie=''){
@@ -3440,14 +3491,48 @@
                     return false
                 }
 
+                findEventListenerById(id, sender) {
+                    if (!this.eventHashTable[sender]) {
+                        console.error('Sender not found in eventHashTable');
+                        return null;
+                    }
+                    const events = this.eventHashTable[sender]['events'];
+                    const event = events.find((event) => event.id === id);
+                    return event;
+                }
+
                 addEventListener(event, operation, sender, receiver, id, uslovie='') {
                     if(!this.eventHashTable[sender]){
                         this.eventHashTable[sender] = {'events': []};
                     }
-                    if(this.findEventByReceiver(event, operation, sender, receiver, uslovie))
-                        return false;
+                    // if(this.findEventByReceiver(event, operation, sender, receiver, uslovie))
+                    //     return false;
                     this.eventHashTable[sender]['events'].push({'id': id, 'event': {'type': event, 'uslovie': uslovie},'operation': operation, 'receiver': receiver});
                     console.log(this.eventHashTable)
+                    return true;
+                }
+
+                updateEventListener(id, event, operation, sender, receiver, uslovie = '') {
+                    if (!this.eventHashTable[sender]) {
+                        console.error('Sender not found in eventHashTable');
+                        return false;
+                    }
+                    const events = this.eventHashTable[sender]['events'];
+                    const eventIndex = events.findIndex((event) => event.id === id);
+                    if (eventIndex === -1) {
+                        console.error('Event not found with id', id);
+                        return false;
+                    }
+                    events[eventIndex] = {
+                        'id': id,
+                        'event': {
+                            'type': event,
+                            'uslovie': uslovie
+                        },
+                        'operation': operation,
+                        'receiver': receiver
+                    };
+                    console.log(this.eventHashTable);
                     return true;
                 }
 
@@ -3562,7 +3647,11 @@
                     let ref = document.querySelector('.obj_parameter[data-idParam="'+ element.getAttribute('data-idObjParam') +'"]')
                     if(ref === undefined || ref === null)
                         return element.textContent
-                    return ref.querySelector('input').value 
+                    let val = ref.querySelector('.obj_parameter_value')
+                    if (val.classList.contains('array_data_container'))
+                        return getDataFromObjectArray(val)
+                    else
+                        return val.value
                 }
             }
 
@@ -3588,7 +3677,7 @@
                         let dataSmall = {}
                         let element = document.getElementById(key)
                         if(element === undefined || element === null){
-                            this.deleteFilter(key, filter)
+                            this.deleteFilter(key, value)
                             continue
                         }
                         dataSmall['filters'] = value
@@ -3903,8 +3992,14 @@
             );
             setInterval(
                 () => {
-                    filterManager.acceptAllFilters()
-                }, 10000
+                    filterManager.acceptAllFilters();
+                }, 5000
+            );
+            setInterval(
+                () => {
+                    let sender = document.getElementById('EventCallerID').value
+                    FillReceivers(sender)
+                }, 1000
             );
         });
     </script>

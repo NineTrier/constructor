@@ -25,13 +25,15 @@ from pymorphy2.shapes import restore_capitalization
 raskrit = {
     'ООО': 'Общество с ограниченной ответственностью',
     'ИП':'Индивидуальный предприниматель',
+    'ПАО': 'Публичное акционерное общество',
+    'АО': 'Акционерное общество'
 }
 
 matchers ={ 
     r'\s?Арбитражн\w*\sсуд\w?': r'\s?Арбитражн\w*\sсуд\w?\s',
-    r'\s?Обществ\w*\sс\sограниченной': r'\s?Обществ\w*\sс\sограниченной\s',
+    r'\s?Обществ\w*\sс\sограниченной\sответственностью\w*': r'\s?Обществ\w+?\s',
     r'\s?Индивидуальн\w*\sпредпринимател\w?': r'\s?Индивидуальн\w*\sпредпринимател\w?\s',
-
+    r'\s?Акционерн\w*\sобществ\w?': r'\s?Акционерн\w*\sобществ\w?\s',
 }
 
 morph = pymorphy2.MorphAnalyzer()
@@ -505,49 +507,67 @@ def ItFIO(phrase):
         parsed_word = morph.parse(word)[0]
         if 'Name' in parsed_word.tag or 'Surn' in parsed_word.tag or 'Patr' in parsed_word.tag:
             res += 1
-    print(res)
     return res == 3
 
 def GetGenderFIO(phrase):
-    if ItFIO(phrase):
-        res = {'femn': 0, 'masc': 0, 'neut': 0}
-        for word in phrase.split():
-            parsed_word = morph.parse(word)[0]
-            if parsed_word.tag.gender:
-                res[parsed_word.tag.gender] += 1
-        res_sorted = sorted(res, key=lambda x: res[x], reverse=True)
-        return res_sorted[0]
-    else:
-        return 'masc'
+    res = {'femn': 0, 'masc': 0, 'neut': 0}
+    for word in phrase.split():
+        parsed_word = morph.parse(word)[0]
+        if parsed_word.tag.gender:
+            res[parsed_word.tag.gender] += 1
+    res_sorted = sorted(res, key=lambda x: res[x], reverse=True)
+    return res_sorted[0]
+
+def remove_quoted_text(phrase):
+    pattern = r'(["«].*?["»])'
+    match = re.search(pattern, phrase, re.DOTALL)
+    if match:
+        return True, match.group(0)
+    return False, ''
 
 def ChangeCattle(stroke):
     phrase = str(stroke['phrase'])
-    gend = GetGenderFIO(phrase)
-    print(gend)
+    print(phrase)
+    ret_quotes = {}
+    have, found = remove_quoted_text(phrase)
+    while have:
+        phrase = phrase.replace(found, f'(*{len(ret_quotes)}*)')
+        ret_quotes[len(ret_quotes)] = found
+        have, found = remove_quoted_text(phrase)
+    print(phrase)
+    print(ret_quotes)
+    if ItFIO(phrase):
+        gend = GetGenderFIO(phrase)
+        print(gend)
+        params = {gend, stroke['filters']['ChangeCattle']}
+    else:
+        params = {stroke['filters']['ChangeCattle']}
     newphrase = ''
     for key, value in matchers.items():
-        result = re.match(key, phrase)
+        print(key, value)
+        result = re.search(key, phrase, re.DOTALL)
         if result:
-            splitted_phrase = re.split(value, phrase)[1]
-            phrase = result.group(0)
-            for word in phrase.split():
-                try:
-                    parsed_word = morph.parse(word)[0]
-                    newphrase += restore_capitalization(parsed_word.inflect({gend, stroke['filters']['ChangeCattle']}).word, word)+ ' '
-                except:
-                    newphrase += word + ' '
-            newphrase += splitted_phrase
-            return newphrase
+            phrase1 = result.group(0)
+            print(phrase1)
+            try:
+                splitted_phrase = re.split(value, phrase1)[1]
+                print(splitted_phrase)
+                phrase = phrase.replace(splitted_phrase, f'(*{len(ret_quotes)}*)')
+                ret_quotes[len(ret_quotes)] = splitted_phrase
+            except IndexError:
+                splitted_phrase = ''
         else:
             continue
+    print(phrase)
     for word in phrase.split():
         try:
             parsed_word = morph.parse(word)[0]
-            print(parsed_word.tag)
-            newphrase += restore_capitalization(parsed_word.inflect({gend,stroke['filters']['ChangeCattle']}).word, word)+ ' '
+            newphrase += restore_capitalization(parsed_word.inflect(params).word, word)+ ' '
         except:
             newphrase += word+ ' '
             continue
+    for key, value in ret_quotes.items():
+        newphrase = newphrase.replace(f'(*{key}*)', value)
     return newphrase.strip()
 
 def UpperCase(stroke):

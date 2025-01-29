@@ -555,6 +555,10 @@ input[type="number"]::-webkit-inner-spin-button{
     border: 2px dotted rgb(255, 36, 36)!important;
 }
 
+.docelement.hovered_event_caller{
+    border: 2px dotted rgb(255, 36, 36)!important;
+}
+
 #rightRadioMenu{
     overflow: auto;
     background-color: var(--color-primary);
@@ -780,13 +784,18 @@ input[type="number"]::-webkit-inner-spin-button{
 
 #EventCallerContainer{
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
+}
+
+#EventCallerContainer > *{
+    margin-right: 5px;
 }
 
 #EventReceiversList{
     display: flex;
     flex-direction: column;
-    height: 200px;
+    height: 50vh;
     margin-top: 10px;
     overflow: auto;
 }

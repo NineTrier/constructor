@@ -253,7 +253,7 @@ class Text(Element):
             t = create_element("w:t")
             for k in list(self.attrib.keys()):
                 create_attribute(t, f"xml:{k}", self.attrib[k])
-            t.text = self.textElem
+            t.text = self.textElem + ' '
             return t
         except Exception as exc:
             print(exc, "Text to lxml", self.textElem)
