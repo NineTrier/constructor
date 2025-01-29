@@ -1531,7 +1531,8 @@
                 run.onclick = function(event){
                     if(document.querySelector('#document_main').classList.contains('get_event_receiver')){
                         let sender = document.getElementById('EventCallerID').value
-                        AddEventReceiver(run, document.getElementById(sender), 'hidden', 'hide', true)
+                        let sender_element = document.getElementById(sender)
+                        AddEventReceiver(run, sender_element, 'hidden', 'hide', true)
                     }
                     if(event.ctrlKey || event.metaKey){
                         addActiveElement(run);
@@ -1616,7 +1617,8 @@
                         return;
                     if(document.querySelector('#document_main').classList.contains('get_event_receiver')){
                         let sender = document.getElementById('EventCallerID').value
-                        AddEventReceiver(paragraph, sender, 'hidden', 'hide', true)
+                        let sender_element = document.getElementById(sender)
+                        AddEventReceiver(paragraph, sender_element, 'hidden', 'hide', true)
                     }
                     if(event.ctrlKey || event.metaKey){
                         addActiveElement(paragraph);
@@ -3207,6 +3209,10 @@
             }
 
             function AddEventReceiver(element, sender, event_type, operation, is_new, id='', usl=''){
+                if(element === null || element === undefined)
+                    return
+                if(sender === null || sender === undefined)
+                    return
                 let elem_type = ""
                 let send_type = ""
                 let btn_add_invis = !is_new?'invisible':''
