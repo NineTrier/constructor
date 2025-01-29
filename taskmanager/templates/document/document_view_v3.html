@@ -589,7 +589,7 @@
                     element.classList.add('selected');
                 let tree_elem = document.querySelector('.tree_element[data-idElement="'+ element.id +'"]');
                 tree_elem.classList.add('selectedTreeElement');
-                let radioGroup = document.querySelector('#' + document_main.querySelector('.selected').getAttribute('data-idRadioGroup'));
+                let radioGroup = document.getElementById(document_main.querySelector('.selected').getAttribute('data-idRadioGroup'));
                 if(radioGroup){
                     radioGroup.classList.add('selectedRadioGroup');
                     document.querySelector('#btnRadioInstruments').style.backgroundColor = radioGroup.querySelector('input').value
@@ -660,9 +660,9 @@
                 element.classList.add('selected');
                 let tree_elem = document.querySelector('.tree_element[data-idElement="'+ element.id +'"]');
                 tree_elem.classList.add('selectedTreeElement');
-                let radioGroup = document.querySelector('#' + document_main.querySelector('.selected').getAttribute('data-idRadioGroup'));
+                let radioGroup = document.getElementById( document_main.querySelector('.selected').getAttribute('data-idRadioGroup'));
                 if(radioGroup){
-                    let radioGroup = document.querySelector('#' + document_main.querySelectorAll('.selected')[0].getAttribute('data-idRadioGroup'));
+                    let radioGroup = document.getElementById(document_main.querySelectorAll('.selected')[0].getAttribute('data-idRadioGroup'));
                     radioGroup.classList.add('selectedRadioGroup');
                 }
                 // Если это текстовый элемент то выделяем его и ставим коретку в конец
@@ -2347,7 +2347,7 @@
             }
 
             async function CheckUserCanSeeFlags(tree_element){
-                var element = document_main.querySelector('#' + tree_element.getAttribute('data-idElement'))
+                var element = document_main.getElementById(tree_element.getAttribute('data-idElement'))
                 var label_eye = tree_element.querySelector('.setUserCheckboxLabel > i');
                 if(element.classList.contains('userCanSeeInTree')){
                     tree_element.classList.add('userCanSee');  
@@ -2362,7 +2362,7 @@
             }
 
             async function ChangeUserCanSee(tree_element, checked){
-                var element = document_main.querySelector('#' + tree_element.getAttribute('data-idElement'))
+                var element = document_main.getElementById(tree_element.getAttribute('data-idElement'))
                 var label_eye = tree_element.querySelector('.setUserCheckboxLabel > i');
                 tree_element.querySelector('.setUserCheckbox').checked = checked
                 if(checked){
@@ -2392,7 +2392,7 @@
 
             function TreeElementSpanOnInput(evt){
                 evt.preventDefault();
-                var element = document_main.querySelector('#' + evt.target.closest('.tree_element').getAttribute('data-idElement'));
+                var element = document_main.getElementById(evt.target.closest('.tree_element').getAttribute('data-idElement'));
                 element.setAttribute('data-name', evt.target.textContent);
                 //UpdateTreeElementInRadio(evt.target.closest('.tree_element').getAttribute('data-idElement'));
             }
@@ -2400,7 +2400,7 @@
             function TreeElementDblClick(evt){
                 evt.stopPropagation();
                 let tree_element = evt.target.closest('.tree_element');
-                var element = document_main.querySelector('#' + tree_element.getAttribute('data-idElement'));
+                var element = document_main.getElementById(tree_element.getAttribute('data-idElement'));
                 setActiveElement(element);
             }
 
@@ -3552,7 +3552,11 @@
                     let dataBig = {}
                     for(let[key, value] of Object.entries(filterManager.FilterHashTable)){
                         let dataSmall = {}
-                        let element = document.querySelector('#'+key)
+                        let element = document.getElementById(key)
+                        if(element === undefined || element === null){
+                            this.deleteFilter(key, filter)
+                            continue
+                        }
                         dataSmall['filters'] = value
                         if(!element.classList.contains('reference_to_data'))
                             dataSmall['phrase'] = element.getAttribute('data-invis')
@@ -3569,7 +3573,7 @@
                             switch(xhr.status){
                                 case 200:
                                     for(let[key, value] of Object.entries(JSON.parse(res)))
-                                        document.querySelector('#'+key).textContent = value
+                                        document.getElementById(key).textContent = value
                                     break;
                                 case 304:
                                     console.log('bad')
@@ -3580,7 +3584,12 @@
                 }
 
                 deleteFilter(element, filter){
-                    delete this.FilterHashTable[element][filter]
+                    try {
+                        delete this.FilterHashTable[element][filter]
+                        return true
+                    } catch (error) {
+                        return false
+                    }
                 }
 
                 fromJSON(json_stroke){
@@ -3658,8 +3667,8 @@
                         continue;
                     if(element.getAttribute('data-idRadioGroup') == "radioGroup-1")
                         continue
-                        //unsetRadio(element, document.querySelector('#' + element.getAttribute('data-idRadioGroup')))
-                    setRadio(element, document.querySelector('#' + element.getAttribute('data-idRadioGroup')))
+                        //unsetRadio(element, document.getElementById(element.getAttribute('data-idRadioGroup')))
+                    setRadio(element, document.getElementById(element.getAttribute('data-idRadioGroup')))
                 }
                 FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
 
