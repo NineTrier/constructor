@@ -92,6 +92,13 @@
                         {% endfor %}
                     </select>
                     <div class="vr"></div>
+                    <i class="fa-solid fa-fill-drip me-2 ms-2"></i>
+                    <input type="color" list="redColors" id="colorsBackgroundRun" onchange="backgroundColorChanged()" value="#FFFFFF"/>
+                    <datalist id="redColors">
+                        <option value="#FFFFFF"></option>
+                        <option value="#FFFF00"></option>
+                    </datalist>
+                    <div class="vr"></div>
                     <div class="inputNumber">
                         <div class="inputNumber">
                             <a class="btn btn-labeled inputButton" onclick="this.nextElementSibling.stepDown(); this.nextElementSibling.onchange();"><i class="fa-solid fa-minus fa-sm"></i></a>
@@ -142,12 +149,12 @@
                     </div>
                     <div class="vr"></div>
                     <input type="checkbox" class="btn-check" id="btn_check_nothidden" autocomplete="off" onchange="SetNotHidden();">
-                    <label class="btn btn-labeled" for="btn_check_nothidden">Отображать скрытое</label>
+                    <label class="btn btn-labeled" for="btn_check_nothidden"><i class="fa-solid fa-eye-low-vision"></i></label>
                     <div class="vr"></div>
-                    <a class="btn btn-labeled" onclick="filterManager.acceptAllFilters();">Применить фильтры</a>
+                    <!-- <a class="btn btn-labeled" onclick="filterManager.acceptAllFilters();">Применить фильтры</a>
                     <div class="vr"></div>
                     <a class="btn btn-labeled" onclick="eventManager.dispatchNotCalledEvent();">Запустить зависимости</a>
-                    <div class="vr"></div>
+                    <div class="vr"></div> -->
                     <div class="dropdown">
                         <a class="btn btn-labeled" id="btnRadioInstruments" type="button" data-bs-toggle="dropdown" aria-expanded="false"></a>
                         <ul class="dropdownRadioMenu dropdown-menu" aria-labelledby="btnRadioInstruments">
@@ -1836,11 +1843,27 @@
                 });
             }
 
+            function rgbToHex(rgb){
+                const hexColor = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+                if (hexColor) {
+                    const r = parseInt(hexColor[1]);
+                    const g = parseInt(hexColor[2]);
+                    const b = parseInt(hexColor[3]);
+                    const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+                    return hex;
+                }
+                return rgb
+            }
+
             // Функция, которая применяет стилевые настройки элемента и выставляет эти значения на меню
             async function ApplyStyleText(element){
                 fontSizeElement.value = String(parseInt(element.style.fontSize.split("px")[0])-3);
                 font_select.value = element.style.fontFamily.replaceAll('"', '');
                 font_select.style.fontFamily = element.style.fontFamily;
+                if(element.style.backgroundColor != '')
+                    colorsBackgroundRun.value = rgbToHex(element.style.backgroundColor);
+                else
+                    colorsBackgroundRun.value = '#ffffff';
                 span_value.disabled = false; 
                 span_value.value = element.getAttribute('data-invis');
                     
@@ -1906,6 +1929,15 @@
                 font_select.style.fontFamily = font_select.value;
                 for(let run of document.querySelectorAll('.selectedRun')){
                     run.style.fontFamily = font_select.value;
+                }
+            }
+
+            async function backgroundColorChanged(){  
+                for(let run of document.querySelectorAll('.selectedRun')){
+                    if(colorsBackgroundRun.value == '#FFFFFF')
+                        run.style.backgroundColor = '';
+                    else
+                        run.style.backgroundColor = colorsBackgroundRun.value;
                 }
             }
 
@@ -2346,8 +2378,10 @@
                 }
             }
 
+            
+
             async function CheckUserCanSeeFlags(tree_element){
-                var element = document_main.getElementById(tree_element.getAttribute('data-idElement'))
+                var element = document.getElementById(tree_element.getAttribute('data-idElement'))
                 var label_eye = tree_element.querySelector('.setUserCheckboxLabel > i');
                 if(element.classList.contains('userCanSeeInTree')){
                     tree_element.classList.add('userCanSee');  
@@ -2362,7 +2396,7 @@
             }
 
             async function ChangeUserCanSee(tree_element, checked){
-                var element = document_main.getElementById(tree_element.getAttribute('data-idElement'))
+                var element = document.getElementById(tree_element.getAttribute('data-idElement'))
                 var label_eye = tree_element.querySelector('.setUserCheckboxLabel > i');
                 tree_element.querySelector('.setUserCheckbox').checked = checked
                 if(checked){
@@ -2392,7 +2426,7 @@
 
             function TreeElementSpanOnInput(evt){
                 evt.preventDefault();
-                var element = document_main.getElementById(evt.target.closest('.tree_element').getAttribute('data-idElement'));
+                var element = document.getElementById(evt.target.closest('.tree_element').getAttribute('data-idElement'));
                 element.setAttribute('data-name', evt.target.textContent);
                 //UpdateTreeElementInRadio(evt.target.closest('.tree_element').getAttribute('data-idElement'));
             }
@@ -2400,7 +2434,7 @@
             function TreeElementDblClick(evt){
                 evt.stopPropagation();
                 let tree_element = evt.target.closest('.tree_element');
-                var element = document_main.getElementById(tree_element.getAttribute('data-idElement'));
+                var element = document.getElementById(tree_element.getAttribute('data-idElement'));
                 setActiveElement(element);
             }
 

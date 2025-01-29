@@ -970,3 +970,6 @@ input[type="number"]::-webkit-inner-spin-button{
     cursor: pointer;
 }
 
+#colorsBackgroundRun{
+    width: 30px;
+}

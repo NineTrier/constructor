@@ -1,5 +1,6 @@
 from .WordAPI import *
 from abc import ABC, abstractmethod
+import re
 
 vst = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 vsts = {"{http://schemas.openxmlformats.org/wordprocessingml/2006/main}": "w",
@@ -87,11 +88,21 @@ class Background(Property):
             if k == "w:fill":
                 f"background-color: #{v};\n"
         return css
+    
+    def convert_rgb_to_hex(self, rgb):
+        match = re.match(r'^rgb\((\d+),\s*(\d+),\s*(\d+)\)$', rgb)
+        if match:
+            r, g, b = map(int, match.groups())
+            return f'#{r:02x}{g:02x}{b:02x}'
+        return rgb
 
     def from_json(self, json: dict):
         for k, v in json.items():
             if k == "backgroundColor":
-                self.attrib['w:fill'] = v
+                print(k, v)
+                hexColor = self.convert_rgb_to_hex(v)
+                print(k, hexColor)
+                self.attrib['w:fill'] = hexColor
                 self.enabled = True
 
 
