@@ -1025,17 +1025,17 @@
                     if(nam == name){
                         if(val !== undefined && val !== null && val.value != ''){
                             if (val.classList.contains('array_data_container')){
-                                span.textContent = changeQuotes(getDataFromObjectArray(val));
+                                span.textContent = getDataFromObjectArray(val);
                             }else{
-                                span.textContent = changeQuotes(val.value);
+                                span.textContent = val.value;
                             }
                         }
-                            
                         else
                             span.textContent = '{: '+ nam + ' :}'
                         span.classList.add('reference_to_data');
                         span.classList.add('object_param_ref');
                         span.setAttribute('data-idObjParam', objects_param.getAttribute('data-idParam'))
+                        span.addEventListener("beforeinput", (e)=>{e.preventDefault();});
                         return true;
                     }
                 }
@@ -1050,12 +1050,14 @@
                     var val = variable.getElementsByClassName('variable_mean')[0];
                     if(nam.textContent == name){
                         if(val.value != '')
-                            span.textContent = changeQuotes(val.value);
+                            span.textContent = val.value;
                         else
                             span.textContent = '{: '+ nam.textContent + ' :}'
+                        
                         span.classList.add('reference_to_data');
                         span.classList.add('variable_ref');
                         span.setAttribute('data-idVar', variable.getAttribute('data-idVar'))
+                        span.addEventListener("beforeinput", (e)=>{e.preventDefault();});
                         return true;
                     }
                 }
@@ -1072,6 +1074,7 @@
                         span.classList.remove('variable_ref');
                         span.classList.remove('object_param_ref');
                         span.contentEditable = true;
+                        span.addEventListener("beforeinput", (e)=>{});
                     }
                 }
                 else{
@@ -1079,6 +1082,8 @@
                     span.classList.remove('variable_ref');
                     span.classList.remove('object_param_ref');
                     span.contentEditable = true;
+                    span.addEventListener("beforeinput", (e)=>{});
+                    
                 }
             }
 
@@ -1547,14 +1552,15 @@
                 run.oninput = (evt)=>{
                     redSpan = run;
                     run.setAttribute('data-invis', run.textContent);
+                    run.setAttribute('data-name', String(run.textContent).substring(0, run.textContent.length > 50 ? 50 : run.textContent.length));
                     span_value.value = run.getAttribute('data-invis');
                     FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
                 }
-                run.onkeydown = (evt) => {
-                    if (evt.key === 'Tab' || evt.key === 'Enter') {
-                        run.textContent = changeQuotes(run.textContent);
-                    }
-                }
+                // run.onkeydown = (evt) => {
+                //     if (evt.key === 'Tab' || evt.key === 'Enter') {
+                //         run.textContent = changeQuotes(run.textContent);
+                //     }
+                // }
                 run.onpaste = async function(event){
                     event.stopPropagation();
                     event.preventDefault();
@@ -2177,7 +2183,7 @@
             // Функция переводит элементы внутри параграфа в JSON
             function ChildrenToJSON(elem, id){
                 let o = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
-                return JSON.stringify({'text': elem.textContent, 
+                return JSON.stringify({'text': changeQuotes(elem.textContent), 
                 'data-invis': elem.getAttribute('data-invis'), 
                 'data-name': elem.getAttribute('data-name'), 
                 'data-idRadioGroup': elem.getAttribute('data-idRadioGroup'), 
@@ -3085,6 +3091,10 @@
                             continue
                         }
                         let rec = AddEventReceiver(receiver_element, sender_element, event.event.type, event.operation, false, event.id, event.event.uslovie);
+                        for(let elem of rec.querySelectorAll('select, input')){
+                            console.log(elem)
+                            elem.setAttribute('disabled', true);
+                        }
                     } 
                 }
             }
@@ -3108,14 +3118,15 @@
 
             function AddDependence(evt){
                 var sender = EventCallerID.value;
-                if(!sender){
+                var receiverContainer = evt.target.closest('.EventReceiver');
+                let id = receiverContainer.getAttribute('data-idDependence')
+                if(!sender && !id){
                     alert('Невозможно добавить зависимость. Не выбран отправитель')
                     return
                 }
-                var receiverContainer = evt.target.closest('.EventReceiver');
+                
                 var operation = receiverContainer.querySelector('.EventReceiverDoing').value
                 var event = receiverContainer.querySelector('.EventType').value
-                let id = receiverContainer.getAttribute('data-idDependence')
                 let usl = receiverContainer.querySelector('.EventTypeUslovie').value
                 if(id === undefined || id === null || id === ''){
                     id = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -3123,11 +3134,14 @@
                     console.log('Добавлено')
                 }
                 else{
-                    eventManager.updateEventListener(id, event, operation, sender, receiverContainer.getAttribute('data-idElement'), usl);
+                    eventManager.updateEventListener(id, event, operation, receiverContainer.getAttribute('data-idElement'), usl);
                     console.log('Обновлено')
                 }
                 receiverContainer.querySelector('.btnChangeReceiver').classList.remove('invisible')
                 receiverContainer.querySelector('.btnApproveReceiver').classList.add('invisible');
+                for(let elem of receiverContainer.querySelectorAll('select, input')){
+                    elem.setAttribute('disabled', true);
+                }
                 receiverContainer.setAttribute('data-idDependence', id)
             }
 
@@ -3146,6 +3160,9 @@
                 var receiverContainer = evt.target.closest('.EventReceiver');
                 receiverContainer.querySelector('.btnApproveReceiver').classList.remove('invisible')
                 receiverContainer.querySelector('.btnChangeReceiver').classList.add('invisible');
+                for(let elem of receiverContainer.querySelectorAll('select, input')){
+                    elem.removeAttribute('disabled');
+                }
             }
 
             function closeModal(evt){
@@ -3203,7 +3220,7 @@
                 let event_type = evt.target.closest('.EventType')
                 let parent = event_type.parentNode;
                 console.log(event_type.value)
-                if(event_type.value == 'find'){
+                if(event_type.value == 'find' || event_type.value == 'unfind'){
                     parent.querySelector('.EventTypeUslovie').classList.remove('invisible')
                 }
                 else{
@@ -3254,6 +3271,7 @@
                                 <option value="hidden">Спрятался</option>
                                 <option value="unhidden">Появился</option>
                                 <option value="find">Текст содержит</option>
+                                <option value="unfind">Текст не содержит</option>
                             </select>
                             <input type="text" class="form-control invisible EventTypeUslovie mt-2" value="`+usl+`">
                         </div>
@@ -3466,31 +3484,86 @@
                 FillReceivers(sender)
             }
 
+            function getPreviousElementParagraph(parent) {
+                const previousElement = parent.previousElementSibling;
+
+                if (!previousElement || !previousElement.classList.contains('docelement')) {
+                    return element;
+                }
+                if (previousElement.hidden) {
+                    let elem = getPreviousElementParagraph(previousElement);
+                    if(previousElement === elem)
+                        return element
+                    else
+                        return elem
+                }
+                return previousElement.querySelector('.docelement:not([hidden]):last-child');
+            }
+
+            function getNextElementParagraph(parent) {
+                const nextElement = parent.nextElementSibling;
+
+                if (!nextElement || !nextElement.classList.contains('docelement')) {
+                    return element;
+                }
+                if (nextElement.hidden) {
+                    let elem = getNextElementParagraph(nextElement);
+                    if(nextElement === elem)
+                        return element
+                    else
+                        return elem
+                }
+                return nextElement.querySelector('.docelement:not([hidden])');
+            }
+
+            function getPreviousElementRun(element) {
+                const previousElement = element.previousElementSibling;
+                if (!previousElement || !previousElement.classList.contains('docelement')) {
+                    return getPreviousElementParagraph(element.parentElement);
+                }
+                if (previousElement.hidden) {
+                    let elem = getPreviousElementRun(element.parentElement);
+                    if(previousElement === elem)
+                        return element
+                    else
+                        return elem
+                }
+                return previousElement;
+            }
+
+            function getNextElementRun(element) {
+                const nextElement = element.nextElementSibling;
+                if (!nextElement ||!nextElement.classList.contains('docelement')) {
+                    return getNextElementParagraph(element.parentElement);
+                }
+                if (nextElement.hidden) {
+                    let elem = getNextElementRun(element.parentElement);
+                    if(nextElement === elem)
+                    return element
+                    else
+                    return elem
+                }
+                return nextElement;
+            }
+
+
             class EventManager{
                 constructor(){
                     this.eventHashTable = {}
                     this.events = ['hidden', 'unhidden']
                     this.operations = ['hide', 'unhide']
-                    this.reverseOperations = {'hide':'unhide', 'unhide':'hide'}
-                    // for(let i = 0; i < this.events.length; i++){
-                    //     this.eventHashTable[this.events[i]] = {};
-                    // }                
+                    this.reverseOperations = {'hide':'unhide', 'unhide':'hide'}           
                 }
 
-                // getReceivers(sender, eventtype){
-                //     var receivers = {}
-                //     try{
-                //         for(let [key, value] of Object.entries(this.eventHashTable[eventtype][sender])){
-                //             receivers[key] = value;
-                //         }
-                //         return receivers;
-                //     }
-                //     catch(error){
-                //         console.log(error)
-                //         return receivers;
-                //     }
-                    
-                // }
+                getEvents(){
+                    const allEvents = [];
+                    for(const [sender, value] of Object.entries(this.eventHashTable)){
+                        for(const event of value['events']){
+                            allEvents.push({'sender': sender, 'id': event.id, 'event': event});
+                        }
+                    }
+                    return allEvents;
+                }
 
                 getReceivers(sender=null){
                     if(this.eventHashTable[sender] === undefined || this.eventHashTable[sender] === null){
@@ -3515,12 +3588,8 @@
                     return false
                 }
 
-                findEventListenerById(id, sender) {
-                    if (!this.eventHashTable[sender]) {
-                        console.error('Sender not found in eventHashTable');
-                        return null;
-                    }
-                    const events = this.eventHashTable[sender]['events'];
+                findEventListenerById(id) {
+                    const events = this.getEvents();
                     const event = events.find((event) => event.id === id);
                     return event;
                 }
@@ -3536,18 +3605,18 @@
                     return true;
                 }
 
-                updateEventListener(id, event, operation, sender, receiver, uslovie = '') {
-                    if (!this.eventHashTable[sender]) {
-                        console.error('Sender not found in eventHashTable');
+                updateEventListener(id, event, operation, receiver, uslovie = '') {
+                    const sender = this.findEventListenerById(id)?.sender;
+                    if (!sender) {
+                        console.error('Event not found with id', id);
                         return false;
                     }
-                    const events = this.eventHashTable[sender]['events'];
-                    const eventIndex = events.findIndex((event) => event.id === id);
+                    const eventIndex = this.eventHashTable[sender]['events'].findIndex((event) => event.id === id);
                     if (eventIndex === -1) {
                         console.error('Event not found with id', id);
                         return false;
                     }
-                    events[eventIndex] = {
+                    this.eventHashTable[sender]['events'][eventIndex] = {
                         'id': id,
                         'event': {
                             'type': event,
@@ -3556,7 +3625,6 @@
                         'operation': operation,
                         'receiver': receiver
                     };
-                    console.log(this.eventHashTable);
                     return true;
                 }
 
@@ -3572,9 +3640,22 @@
                     return false;
                 }
 
-                // performFind(event){
-                    
-                // }
+                switchOperation(operation, receiver){
+                    switch (operation) {
+                        case 'hide':
+                            var element = document.querySelector('.tree_element[data-idElement="'+ receiver +'"] .hideCheckbox');
+                            element.checked = false;
+                            element.dispatchEvent(new Event('change'));
+                            break;
+                        case 'unhide':
+                            var element = document.querySelector('.tree_element[data-idElement="'+ receiver +'"] .hideCheckbox');
+                            element.checked = true;
+                            element.dispatchEvent(new Event('change'));
+                            break;
+                        default:
+                            break;
+                    }
+                }
 
                 async dispatchNotCalledEvent(){
                     for (const sender in this.eventHashTable) {
@@ -3583,7 +3664,7 @@
                         if(sender_element == null || sender_element == undefined)
                             continue
                         for(let event of events){
-                            if(event.event.type != 'find')
+                            if(String(event.event.type).indexOf('find') == -1)
                                 continue
                             let uslovie = event.event.uslovie
                             let receiver = event.receiver
@@ -3593,37 +3674,25 @@
                                 sender_text = sender_element.textContent
                             else if(sender_element.classList.contains('paragraph'))
                                 sender_text = getTextFromParagraph(sender_element)
-                            if(sender_text.includes(uslovie)){
-                                switch (operation) {
-                                    case 'hide':
-                                        var element = document.querySelector('.tree_element[data-idElement="'+ receiver +'"] .hideCheckbox');
-                                        element.checked = false;
-                                        element.dispatchEvent(new Event('change'));
-                                        break;
-                                    case 'unhide':
-                                        var element = document.querySelector('.tree_element[data-idElement="'+ receiver +'"] .hideCheckbox');
-                                        element.checked = true;
-                                        element.dispatchEvent(new Event('change'));
-                                        break;
-                                    default:
-                                        break;
-                                }
-                            }
-                            else{
-                                switch (operation) {
-                                    case this.reverseOperations['hide']:
-                                        var element = document.querySelector('.tree_element[data-idElement="'+ receiver +'"] .hideCheckbox');
-                                        element.checked = false;
-                                        element.dispatchEvent(new Event('change'));
-                                        break;
-                                    case this.reverseOperations['unhide']:
-                                        var element = document.querySelector('.tree_element[data-idElement="'+ receiver +'"] .hideCheckbox');
-                                        element.checked = true;
-                                        element.dispatchEvent(new Event('change'));
-                                        break;
-                                    default:
-                                        break;
-                                }
+                            switch (event.event.type) {
+                                case 'find':
+                                    if(sender_text.includes(uslovie)){
+                                        this.switchOperation(operation, receiver)
+                                    }
+                                    else{
+                                        this.switchOperation(this.reverseOperations[operation], receiver)
+                                    }
+                                    break;
+                                case 'unfind':
+                                    if(!sender_text.includes(uslovie)){
+                                        this.switchOperation(operation, receiver)
+                                    }
+                                    else{
+                                        this.switchOperation(this.reverseOperations[operation], receiver)
+                                    }
+                                    break;
+                                default:
+                                    break;
                             }
                         }
                     }
@@ -3636,20 +3705,7 @@
                         try {
                             if(receiver.event.type !== event)
                                 continue
-                            switch (receiver.operation) {
-                                case 'hide':
-                                    var element = document.querySelector('.tree_element[data-idElement="'+ receiver.receiver +'"] .hideCheckbox');
-                                    element.checked = false;
-                                    element.dispatchEvent(new Event('change'));
-                                    break;
-                                case 'unhide':
-                                    var element = document.querySelector('.tree_element[data-idElement="'+ receiver.receiver +'"] .hideCheckbox');
-                                    element.checked = true;
-                                    element.dispatchEvent(new Event('change'));
-                                    break;
-                                default:
-                                    break;
-                            }
+                            this.switchOperation(receiver.operation, receiver.receiver)
                         } catch (error) {
                             console.log(error)
                             continue
@@ -3719,8 +3775,10 @@
                         success: function(res, status, xhr){
                             switch(xhr.status){
                                 case 200:
-                                    for(let[key, value] of Object.entries(JSON.parse(res)))
+                                    for(let[key, value] of Object.entries(JSON.parse(res))){
+                                    if (String(value).length > 0)
                                         document.getElementById(key).textContent = value
+                                    }
                                     break;
                                 case 304:
                                     console.log('bad')
@@ -3875,6 +3933,9 @@
                         SaveLastVersion();
                         if(!redSpan.classList.contains('reference_to_data'))
                             redSpan.setAttribute('data-invis', redSpan.textContent);
+                        if(redSpan.classList.contains('reference_to_data')){
+                            setEndOfContenteditable(redSpan)
+                        }
                         var indexStart = getCaretPosition(redSpan);
                         var run_splitted = [redSpan.textContent.substring(0, indexStart), redSpan.textContent.substring(indexStart)];
                         
@@ -3907,20 +3968,28 @@
                             event.stopPropagation();
                             if(redSpan == undefined)
                                 return;
-                            let previousElement = redSpan.previousElementSibling;
-                            let parent = redSpan.parentElement;
-                            if(!previousElement || !previousElement.classList.contains('docelement')){
-                                let previousPar = parent.previousElementSibling;
-                                if(!previousPar || !previousPar.classList.contains('docelement'))
-                                    return;
-                                setActiveElement(previousPar.lastElementChild);
-                            }
-                            else{
-                                if(!previousElement.classList.contains('docelement'))
-                                    return; 
-                                setActiveElement(previousElement); 
-                            }
+                            const previousElement = getPreviousElementRun(redSpan);
+                            setActiveElement(previousElement);
                         }
+                        // if (event.ctrlKey || event.metaKey) { // Зажатый Ctrl
+                        //     event.preventDefault();
+                        //     event.stopPropagation();
+                        //     if(redSpan == undefined)
+                        //         return;
+                        //     let previousElement = redSpan.previousElementSibling;
+                        //     let parent = redSpan.parentElement;
+                        //     if(!previousElement || !previousElement.classList.contains('docelement')){
+                        //         let previousPar = parent.previousElementSibling;
+                        //         if(!previousPar || !previousPar.classList.contains('docelement'))
+                        //             return;
+                        //         setActiveElement(previousPar.lastElementChild);
+                        //     }
+                        //     else{
+                        //         if(!previousElement.classList.contains('docelement'))
+                        //             return; 
+                        //         setActiveElement(previousElement); 
+                        //     }
+                        // }
                         break;
                     case 38: // Нажатие на стрелочку вверх. Переключение на верхний параграф
                         if (event.ctrlKey || event.metaKey) { // Зажатый Ctrl
@@ -3928,32 +3997,19 @@
                             event.stopPropagation();
                             if(redSpan == undefined)
                                 return;
-                            let parent = redSpan.parentElement;
-                            let previousPar = parent.previousElementSibling;
-                            if(!previousPar || !previousPar.classList.contains('docelement'))
-                                return;
-                            setActiveElement(previousPar.firstElementChild);
+                            // let parent = redSpan.parentElement;
+                            // let previousPar = parent.previousElementSibling;
+                            // if(!previousPar || !previousPar.classList.contains('docelement'))
+                            //     return;
+                            setActiveElement(getPreviousElementParagraph(redSpan.parentElement));
                         }
                         break;
                     case 39: // Нажатие на стрелочку вправо. Переключение на правый элемент
                         if (event.ctrlKey || event.metaKey) { // Зажатый Ctrl
                             event.preventDefault();
                             event.stopPropagation();
-                            if(redSpan == undefined)
-                                return;
-                            let nextElement = redSpan.nextElementSibling;
-                            let parent = redSpan.parentElement;
-                            if(!nextElement || !nextElement.classList.contains('docelement')){
-                                let nextPar = parent.nextElementSibling;
-                                if(!nextPar || !nextPar.classList.contains('docelement'))
-                                    return;
-                                setActiveElement(nextPar.firstElementChild);
-                            }
-                            else{
-                                if(!nextElement.classList.contains('docelement'))
-                                    return;
-                                setActiveElement(nextElement); 
-                            }
+                            const nextElement = getNextElementRun(redSpan);
+                            setActiveElement(nextElement);
                         }
                         break;
                     case 40: // Нажатие на стрелочку вниз. Переключение на нижний параграф
@@ -3962,11 +4018,11 @@
                             event.stopPropagation();
                             if(redSpan == undefined)
                                 return;
-                            let parent = redSpan.parentElement;
-                            let nextPar = parent.nextElementSibling;
-                            if(!nextPar || !nextPar.classList.contains('docelement'))
-                                return;
-                            setActiveElement(nextPar.firstElementChild);
+                            // let parent = redSpan.parentElement;
+                            // let nextPar = parent.nextElementSibling;
+                            // if(!nextPar || !nextPar.classList.contains('docelement'))
+                            //     return;
+                            setActiveElement(getNextElementParagraph(redSpan.parentElement));
                         }
                         break;
                     case 46: // Нажатие на Delete. Удаление элемента
