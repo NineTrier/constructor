@@ -3086,7 +3086,7 @@
                         console.log(receiver)
                         let receiver_element = document.getElementById(event.receiver)
                         let sender_element = document.getElementById(receiver.sender)
-                        if(receiver_element === null || receiver_element === undefined){
+                        if(receiver_element === null || receiver_element === undefined || sender_element === undefined || sender_element === null){
                             eventManager.deleteEventListener(event.id)
                             continue
                         }
