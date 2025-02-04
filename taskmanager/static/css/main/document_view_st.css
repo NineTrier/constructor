@@ -592,7 +592,7 @@ input[type="number"]::-webkit-inner-spin-button{
 }
 
 #document_tree{
-    overflow: auto;
+    overflow-y: auto;
     max-height: 60vh;
     max-width: 100%;
     background-color: white;
@@ -629,9 +629,19 @@ input[type="number"]::-webkit-inner-spin-button{
     cursor: pointer;
 }
 
+#fixedVariables{
+    max-height: 25vh;
+    overflow-y: auto;
+    margin-bottom: 5px;
+}
+
 .reference_to_data{
     background-color: rgb(160, 226, 160)!important;
     cursor: pointer;
+}
+
+.smaller{
+    max-height: 40vh!important;
 }
 
 #variable_fixed{

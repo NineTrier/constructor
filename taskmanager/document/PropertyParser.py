@@ -105,6 +105,60 @@ class Background(Property):
                 self.attrib['w:fill'] = hexColor
                 self.enabled = True
 
+class Highlight(Property):
+
+    def __init__(self, elem=None):
+        super().__init__()
+        self.tag = "w:highlight"
+        if elem is not None:
+            self.attrib = get_attributes(elem.attrib)
+            self.enabled = True
+
+    def to_css(self) -> str:
+        css = """"""
+        for k, v in self.attrib.items():
+            if k == "w:val":
+                f"background-color: #{v};\n"
+        return css
+    
+    def rgb_to_word_color(self, rgb):
+        colors = {
+            'rgb(255, 255, 255)': 'none',
+            'rgb(255, 255, 0)': 'yellow',
+            'rgb(0, 0, 0)': 'black',
+            'rgb(0, 0, 255)': 'blue',
+            'rgb(0, 255, 255)': 'cyan',
+            'rgb(0, 128, 0)': 'green',
+            'rgb(255, 0, 255)': 'magenta',
+            'rgb(255, 0, 0)': 'red',
+            'rgb(255, 255, 255)': 'white',
+            'rgb(0, 0, 128)': 'darkBlue',
+            'rgb(0, 128, 128)': 'darkCyan',
+            'rgb(0, 128, 0)': 'darkGreen',
+            'rgb(128, 0, 128)': 'darkMagenta',
+            'rgb(128, 0, 0)': 'darkRed',
+            'rgb(128, 128, 0)': 'darkYellow',
+            'rgb(128, 128, 128)': 'darkGray',
+            'rgb(192, 192, 192)': 'lightGray'
+        }
+        return colors.get(rgb, 'unknown')
+    
+    def convert_rgb_to_hex(self, rgb):
+        match = re.match(r'^rgb\((\d+),\s*(\d+),\s*(\d+)\)$', rgb)
+        if match:
+            r, g, b = map(int, match.groups())
+            return f'#{r:02x}{g:02x}{b:02x}'
+        return rgb
+
+    def from_json(self, json: dict):
+        for k, v in json.items():
+            if k == "backgroundColor":
+                print(k, v)
+                textColor = self.rgb_to_word_color(v)
+                print(k, textColor)
+                self.attrib['w:val'] = textColor
+                self.enabled = True
+
 
 class Spacing(Property):
 
@@ -576,7 +630,8 @@ class PropertiesCollection:
         self.properties = {}
         self.tag = tag
         self.properties = {"Align": Align(None),
-                           "Background": Background(None),
+                        #    "Background": Background(None),
+                           "Highlight": Highlight(None),
                            "Spacing": Spacing(None),
                            "Indent": Indent(None),
                            "FontFamily": FontFamily(None),

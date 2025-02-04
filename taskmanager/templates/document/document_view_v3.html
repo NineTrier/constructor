@@ -97,6 +97,21 @@
                     <datalist id="redColors">
                         <option value="#FFFFFF"></option>
                         <option value="#FFFF00"></option>
+                        <option value="#000000"></option>
+                        <option value="#0000FF"></option>
+                        <option value="#00FFFF"></option>
+                        <option value="#008000"></option>
+                        <option value="#FF00FF"></option>
+                        <option value="#FF0000"></option>
+                        <option value="#FFFFFF"></option>
+                        <option value="#000080"></option>
+                        <option value="#008080"></option>
+                        <option value="#008000"></option>
+                        <option value="#800080"></option>
+                        <option value="#800000"></option>
+                        <option value="#808000"></option>
+                        <option value="#808080"></option>
+                        <option value="#C0C0C0"></option>
                     </datalist>
                     <div class="vr"></div>
                     <div class="inputNumber">
@@ -704,6 +719,7 @@
                     fixVariables.classList.add('invisible')
                     variables.classList.add('invisible')
                     tree.classList.remove('invisible')
+                    tree.querySelector('#document_tree').classList.remove('smaller')
                 }
                 else{
                     Context.classList.add('invisible')
@@ -711,6 +727,7 @@
                     fixVariables.classList.remove('invisible')
                     variables.classList.add('invisible')
                     tree.classList.remove('invisible')
+                    tree.querySelector('#document_tree').classList.add('smaller')
                 }
                 for(let tree_elem of document.querySelectorAll('.tree_element')){
                     if(enable){
@@ -2180,10 +2197,21 @@
                 'userCanSee': elem.classList.contains('userCanSeeInTree')});
             }
 
+            function addSpaceIfNecessary(elem) {
+                const nextElement = elem.nextElementSibling;
+                const nextText = nextElement ? nextElement.textContent : '';
+                let text = elem.textContent;
+                const punctuationMarks = ['.', ',', '!', '?', ';', ':'];
+                if (nextText && !punctuationMarks.includes(nextText[0])) {
+                    return text + ' ';
+                }
+                return text;
+            }
+
             // Функция переводит элементы внутри параграфа в JSON
             function ChildrenToJSON(elem, id){
                 let o = Object.fromEntries(Object.entries(elem.style).filter(([_, v]) => v != ''));
-                return JSON.stringify({'text': changeQuotes(elem.textContent), 
+                return JSON.stringify({'text': changeQuotes(addSpaceIfNecessary(elem)), 
                 'data-invis': elem.getAttribute('data-invis'), 
                 'data-name': elem.getAttribute('data-name'), 
                 'data-idRadioGroup': elem.getAttribute('data-idRadioGroup'), 
@@ -3530,6 +3558,7 @@
                 }
                 return previousElement;
             }
+            
 
             function getNextElementRun(element) {
                 const nextElement = element.nextElementSibling;
