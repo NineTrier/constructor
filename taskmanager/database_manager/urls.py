@@ -14,5 +14,5 @@ urlpatterns = [
     path('get_data_from_object/<int:pk>/', views.post_data_from_object, name='get_data_from_object'),
     path('get_object_parameters/<int:pk>/', views.get_object_parameters, name='get_object_parameters'),
     path('get_objects_to_connect/', views.get_objects_to_connect, name='get_objects_to_connect'),
-    
+    path('file_changer/<int:pk>/', views.generate_excel_file, name='file_changer'),
 ]

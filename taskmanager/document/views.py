@@ -177,7 +177,7 @@ def download(request):
     if os.path.exists(file_path):
         with open(file_path, 'rb') as fh:
             response = HttpResponse(fh.read(), content_type="application/vnd.ms-word")
-            response['Content-Disposition'] = 'inline; filename=' + os.path.basename(file_path)
+            response['Content-Disposition'] = 'inline; filename=' + f'{translit_russian(document.name)}.docx'
             return response
     raise Http404
 
@@ -426,6 +426,39 @@ def ViewDocument(request):
         'variable': json.dumps({var.id: f"{var.name}:{var.meaning}" for var in VariableBlock.objects.filter(doc=Doc.id)}),
         'document_json': json.dumps(Doc.json),
         'objects': objects,
+    }
+    if request.user.is_authenticated:
+        context['profile'] = Profile.objects.filter(user=request.user)[0]
+    return render(request, 'document/document_view_v3.html', context)
+
+def CreateDocumentMultiple(request):
+    if request.method == 'GET':
+        documents = request.POST.getlist('object_documents[]')
+        idents = request.POST.getlist('object_idents[]')
+        for doc_id in documents:
+            return redirect(f'/document/view?id={res["id"]}')
+
+def ViewDocumentAndCreateDocument(request):
+    """Обработчик запроса для просмотра документа"""
+    fileid = request.GET.get('id')
+    
+    Doc = get_object_or_404(DocumentsPattern, pk=fileid)
+    file_path = Doc.file
+    file_path = os.path.join(settings.MEDIA_ROOT, str(file_path))
+    if request.user != Doc.owner.user:
+        res = AddDocumentToUser(request, fileid)
+        return redirect(f'/document/view?id={res["id"]}')
+    parent_document = Document_ParentDocument.objects.filter(document=Doc.id)
+    objects = [{'object': obj.object, 'params':[parameter for parameter in Parameter.objects.filter(object=obj.object)]} for obj in DocumentPattern_Objects.objects.filter(document=Doc.id)]
+    print(objects)
+    context = {
+        'title': 'Просмотр документа',
+        'Doc': Doc,
+        'fonts': Fonts.objects.order_by('id'),
+        'variable': json.dumps({var.id: f"{var.name}:{var.meaning}" for var in VariableBlock.objects.filter(doc=Doc.id)}),
+        'document_json': json.dumps(Doc.json),
+        'objects': objects,
+        'create_document': True,
     }
     if request.user.is_authenticated:
         context['profile'] = Profile.objects.filter(user=request.user)[0]

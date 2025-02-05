@@ -9,7 +9,7 @@ from document.models import DocumentPattern_Objects
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views.decorators.csrf import csrf_exempt
-from django.http import HttpResponse, JsonResponse, Http404, HttpResponseNotModified, HttpResponseForbidden
+from django.http import HttpResponse, JsonResponse, StreamingHttpResponse, FileResponse, Http404, HttpResponseNotModified, HttpResponseForbidden
 from django.conf import settings
 from django.db.models.sql.query import Query
 from django.db import connection
@@ -18,6 +18,8 @@ import uuid
 import json
 import re
 import os
+from django.views.decorators.http import require_http_methods
+
 import cx_Oracle
 
 from sqlalchemy.engine import create_engine
@@ -528,11 +530,13 @@ def get_object(request, pk):
         'object': object,
         'parameters': Parameter.objects.filter(object=object),
         'idents': idents,
+        'documents': [doc.document for doc in DocumentPattern_Objects.objects.filter(object=object)],
     }
     if request.method == 'POST':
         return HttpResponse(json.dumps({
             'object': object.to_dict(),
             'idents': idents,
+            'documents': [{doc.document.id: doc.document.name} for doc in DocumentPattern_Objects.objects.filter(object=object)], 
         }))
     return render(request, 'database_manager/get_object.html', context)
 
@@ -571,9 +575,13 @@ def post_data_from_object(request, pk):
         
         for key, value in data_dict[0].items():
             param = Parameter.objects.filter(object=object,name=key)[0]
-            data_dict[0][key] = {'data_type': param.data_type, 'value': value}
+            print('---------------', key, value)
             if param.data_type == 'ARRAY':
                 data_dict[0][key] = {'data_type': param.data_type, 'value': value.split(param.array_separator)}
+            elif param.data_type == 'DATE':
+                data_dict[0][key] = {'data_type': param.data_type, 'value': param.parse_date(value)}
+            else:
+                data_dict[0][key] = {'data_type': param.data_type, 'value': value}
         # возвращаем словарь в формате JSON
         response = HttpResponse(json.dumps(data_dict))
         return response
@@ -616,6 +624,7 @@ def upload_csv(request):
         col_names = request.POST.getlist('col[]')
         col_types = request.POST.getlist('col_type[]')
         arr_delim = request.POST.getlist('arr_delim[]')
+        date_format = request.POST.getlist('date_format[]')
         
         print(col_names)
         # создаем параметры Parameter для каждого столбца
@@ -625,7 +634,8 @@ def upload_csv(request):
                 name=col_names[i],
                 data_type=col_types[i],
                 array_separator=arr_delim[i],
-                identificator=(col == ident)
+                identificator=(col == ident),
+                date_format=date_format[i]
             )
             for i, col in enumerate(df.columns)
         ]
@@ -702,3 +712,25 @@ def DeleteObject(request, pk):
         print(exc)
         response = HttpResponseNotModified()
         return response 
+
+@require_http_methods(['POST'])
+def generate_excel_file(request, pk):
+    object = get_object_or_404(Object, pk=pk)
+    ident = Parameter.objects.get(object=object, identificator=True)
+    documents = DocumentPattern_Objects.objects.filter(object=object)
+    doc_list = [f"{doc.document.name}**{doc.document.id}**" for doc in documents]
+    
+    df_object = pd.read_pickle(f'{settings.MEDIA_ROOT}\{object.data}')
+    ident_list = df_object[ident.name].values.tolist()
+    dict_to_df = {f'{ident.name}**{ident.object.id}**': ident_list}
+    df = pd.DataFrame({**dict_to_df, **{doc: ['-'] * len(ident_list) for doc in doc_list}})
+    
+    temp_dir = os.path.join(settings.MEDIA_ROOT, 'generated_files')
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+    
+    file_path = os.path.join(temp_dir, 'file_changer.xlsx')
+    df.to_excel(file_path, index=False)
+    if os.path.exists(file_path):
+        return FileResponse(open(file_path, 'rb'), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    raise Http404

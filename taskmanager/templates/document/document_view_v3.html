@@ -173,7 +173,7 @@
                     <div class="dropdown">
                         <a class="btn btn-labeled" id="btnRadioInstruments" type="button" data-bs-toggle="dropdown" aria-expanded="false"></a>
                         <ul class="dropdownRadioMenu dropdown-menu" aria-labelledby="btnRadioInstruments">
-                            <li><a class="dropdownRadioGroup dropdown-item" onclick="radioGroupClickInstrument(event)" data-idRadioGroup="radioGroup-1" type="button" style="background-color:#ffffff"></a></li>
+                            <li class="dropdownRadioGroup" onclick="radioGroupClickInstrument(event)" data-idRadioGroup="radioGroup-1" type="button"><a class="dropdown-item"  style="background-color:#ffffff"></a><span>Без альтернативы</span></li>
                         </ul>
                     </div>
                 </div>
@@ -474,7 +474,7 @@
                                                                 <input type="text" class="form-control identificator col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.name }}" onclick="getObjectData(event, '{{ obj.object.id }}')" onchange="onChangeVariableMean(event);">
                                                             {% else %}
                                                                 <span class="col-2 obj_parameter_name">{{ parameter.name }}</span>
-                                                                {% if parameter.data_type == 'TXT' %}
+                                                                {% if parameter.data_type == 'TXT' or parameter.data_type == 'DATE' %}
                                                                 <input type="text" class="form-control col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.name }}" onchange="onChangeVariableMean(event);" readonly>
                                                                 {% elif parameter.data_type == 'ARRAY' %}
                                                                 <div class="col array_data_container obj_parameter_value"></div> 
@@ -589,6 +589,15 @@
                 }
             }
 
+            async function goToDeveloperOption(id_option){
+                let tree_develop = document.getElementById('tree_develop')
+                let option = document.getElementById(id_option)
+                tree_develop.checked = true
+                tree_develop.dispatchEvent(new Event('change'))
+                option.checked = true
+                option.dispatchEvent(new Event('change'))
+            }
+
             function goToDependence(){
                 let element = document.querySelectorAll('.selected')[0]
                 let caller_select = document.querySelector('#EventCallerID')
@@ -598,6 +607,7 @@
                 setEventSelect(caller_select, element)
                 element.classList.add('selected_event_caller')
                 caller_select.dispatchEvent(new Event('change'))
+                
             }
 
             async function setEventSelect(EventSelect,element){
@@ -970,6 +980,11 @@
                 }
             }
 
+            async function radioGroupNameChanged(evt){
+                var radioGroup = evt.target.closest(".RadioGroup")
+                const id = radioGroup.id
+                document.querySelector('.dropdownRadioGroup[data-idRadioGroup="'+ id +'"] > span').textContent = evt.target.textContent
+            }
 
             // Восстанавливает радиогруппы из JSON
             async function RadioGroupsFromJSON(data){
@@ -983,12 +998,12 @@
                     <div class="RadioGroup" id="` + key['id'] + `" onclick="radioGroupClick(event);">
                         <div class="containerTextColorRadioGroup">
                             <input type="color" onchange="RadioGroupColorChanged(event);" value="`+ key['color'] +`">
-                            <span contenteditable="true">`+ key['name'] +`</span>
+                            <span contenteditable="true" oninput="radioGroupNameChanged(event);">`+ key['name'] +`</span>
                         </div>
                     </div>
                     `)
                     document.querySelector(".dropdown-menu").insertAdjacentHTML('beforeend', `
-                        <li><a class="dropdownRadioGroup dropdown-item" onclick="radioGroupClickInstrument(event)" data-idRadioGroup="`+ key['id'] +`" type="button" style="background-color:`+ key['color'] +`"></a></li>
+                        <li class="dropdownRadioGroup" onclick="radioGroupClickInstrument(event)" data-idRadioGroup="`+ key['id'] +`" type="button"><a class="dropdown-item" style="background-color:`+ key['color'] +`"></a><span>`+key['name']+`</span></li>
                     `)
                     // for(let child of key['childs']){
                     //     var treeElementInRadio = document.querySelector('.TreeElementInModalList[data-idElement="'+child['data-idElement']+'"]');
@@ -2050,21 +2065,33 @@
                 return li;
             }
 
+            function getRandomColor() {
+                const letters = '0123456789ABCDEF';
+                let color = '#';
+
+                for (let i = 0; i < 6; i++) {
+                    color += letters[Math.floor(Math.random() * 16)];
+                }
+
+                return color;
+            }
+
             // Функция добавления радиогруппы
             async function addRadioGroup(){
                 const length = modal_radioGroup_list.children.length
-                var color = "#97c0ff"
+                var color = getRandomColor()
                 var id = 'radioGroup' + length
+                var name = 'Новая альтернатива' + length
                 modal_radioGroup_list.insertAdjacentHTML('beforeend', `
                 <div class="RadioGroup" id="` + id + `" onclick="radioGroupClick(event);">
                     <div class="containerTextColorRadioGroup">
                         <input onchange="RadioGroupColorChanged(event);" type="color" value="`+ color +`">
-                        <span contenteditable="true">`+ 'Новая альтернатива' + length  +`</span>
+                        <span contenteditable="true" oninput="radioGroupNameChanged(event);">`+ name  +`</span>
                     </div>
                 </div>
                 `)
                 document.querySelector(".dropdown-menu").insertAdjacentHTML('beforeend', `
-                    <li><a class="dropdownRadioGroup dropdown-item" onclick="radioGroupClickInstrument(event)" data-idRadioGroup="`+ id +`" type="button" style="background-color:`+ color +`"></a></li>
+                    <li class="dropdownRadioGroup" onclick="radioGroupClickInstrument(event)" data-idRadioGroup="`+ id +`" type="button"><a class="dropdown-item" style="background-color:`+ color +`"></a><span>`+name+`</span></li>
                 `)
             }
 
@@ -2084,6 +2111,8 @@
                     tree_element_radioGroupIndicator.style.backgroundColor = radio.querySelector('input').value;
                     tree_element_radioGroupIndicator.classList.remove('invisible')
                 }
+                element.classList.add('selectedRadioGroupDocelement');
+                element.style.borderLeftColor = radio.querySelector('input').value
             }
 
             function unsetRadio(element, radio){
@@ -2103,6 +2132,8 @@
                     tree_element_radioGroupIndicator.style.backgroundColor = radio.querySelector('input').value;;
                     tree_element_radioGroupIndicator.classList.add('invisible');
                 }
+                element.classList.remove('selectedRadioGroupDocelement');
+                element.style.borderLeftColor = ''  
             }
 
             async function radioGroupClick(event){
@@ -2492,7 +2523,9 @@
                 evt.stopPropagation();
                 let tree_element = evt.target.closest('.tree_element');
                 var element = document.getElementById(tree_element.getAttribute('data-idElement'));
+                
                 setActiveElement(element);
+                goToDeveloperOption('optionTreeElement')
             }
 
             function TreeElementBtnlClick(evt){
@@ -2780,6 +2813,7 @@
                 if("{{ type }}" == "1"){
                     document.location.href = "/"
                 }
+                setTimeout(SaveNotComplete, 2000);
             }
 
             // Функция оповещает, что сохранение не было
@@ -3446,7 +3480,7 @@
                         data_value = value['value']
                         if(data_value == 'nan')
                             data_value = ''
-                        if(data_type == 'TXT'){
+                        if(data_type == 'TXT' || data_type == 'DATE'){
                             let inp = form.querySelector('input[name="'+key+'"]')
                             inp.value = data_value
                             inp.dispatchEvent(new Event('change'))
@@ -3548,7 +3582,10 @@
                     else
                         return elem
                 }
-                return previousElement.querySelector('.docelement:not([hidden]):last-child');
+                if (previousElement.querySelector('.docelement:not([hidden]):last-child'))
+                    return previousElement.querySelector('.docelement:not([hidden]):last-child');
+                else
+                    return getPreviousElementParagraph(previousElement);
             }
 
             function getNextElementParagraph(parent) {
@@ -3564,7 +3601,10 @@
                     else
                         return elem
                 }
-                return nextElement.querySelector('.docelement:not([hidden])');
+                if (nextElement.querySelector('.docelement:not([hidden])'))
+                    return nextElement.querySelector('.docelement:not([hidden])');
+                else
+                    return getNextElementParagraph(nextElement);
             }
 
             function getPreviousElementRun(element) {
@@ -3573,7 +3613,7 @@
                     return getPreviousElementParagraph(element.parentElement);
                 }
                 if (previousElement.hidden) {
-                    let elem = getPreviousElementRun(element.parentElement);
+                    let elem = getPreviousElementRun(previousElement);
                     if(previousElement === elem)
                         return element
                     else
@@ -3589,7 +3629,7 @@
                     return getNextElementParagraph(element.parentElement);
                 }
                 if (nextElement.hidden) {
-                    let elem = getNextElementRun(element.parentElement);
+                    let elem = getNextElementRun(nextElement);
                     if(nextElement === elem)
                     return element
                     else
@@ -3696,13 +3736,17 @@
                     switch (operation) {
                         case 'hide':
                             var element = document.querySelector('.tree_element[data-idElement="'+ receiver +'"] .hideCheckbox');
-                            element.checked = false;
-                            element.dispatchEvent(new Event('change'));
+                            if(element.checked == true){
+                                element.checked = false;
+                                element.dispatchEvent(new Event('change'));
+                            }
                             break;
                         case 'unhide':
                             var element = document.querySelector('.tree_element[data-idElement="'+ receiver +'"] .hideCheckbox');
-                            element.checked = true;
-                            element.dispatchEvent(new Event('change'));
+                            if(element.checked == false){
+                                element.checked = true;
+                                element.dispatchEvent(new Event('change'));
+                            }
                             break;
                         default:
                             break;
@@ -3731,17 +3775,17 @@
                                     if(sender_text.includes(uslovie)){
                                         this.switchOperation(operation, receiver)
                                     }
-                                    else{
-                                        this.switchOperation(this.reverseOperations[operation], receiver)
-                                    }
+                                    // else{
+                                    //     this.switchOperation(this.reverseOperations[operation], receiver)
+                                    // }
                                     break;
                                 case 'unfind':
                                     if(!sender_text.includes(uslovie)){
                                         this.switchOperation(operation, receiver)
                                     }
-                                    else{
-                                        this.switchOperation(this.reverseOperations[operation], receiver)
-                                    }
+                                    // else{
+                                    //     this.switchOperation(this.reverseOperations[operation], receiver)
+                                    // }
                                     break;
                                 default:
                                     break;

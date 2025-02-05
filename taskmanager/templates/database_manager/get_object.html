@@ -88,6 +88,33 @@
     </div>
   </div>
 
+  <div class="modal fade" id="createDocumentsModal" tabindex="-1" aria-labelledby="createDocumentsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="createDocumentsModalLabel">Обновить данные</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="createDocumentsModal_body">
+            <form method="post" enctype="multipart/form-data" action="#" id="form_create_documents">
+                {% csrf_token %}
+                <span class="mt-5">Для каких объектов создать документы:</span>
+                <select name="object_idents[]" class="form-select " multiple>
+                </select>
+                <span class="mt-5">Документы:</span>
+                <select name="object_documents[]" class="form-select" multiple>
+                </select>
+                <button type="submit" class="btn btn-success w-50 mt-5" >Создать документы</button>
+            </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+          <!-- <button type="button" class="btn btn-primary">Save changes</button> -->
+        </div>
+      </div>
+    </div>
+  </div>
+
 <div class="container">
     <div class="header-bar mt-2">
         <h1>Объект {{ object.name }}</h1>
@@ -96,6 +123,12 @@
         </a>
         <a type="button" class="btn btn-labeled" onclick="delete_object(event)">
             <i class="fa-solid fa-trash" style="color: red"></i>
+        </a>
+        <a type="button" class="btn btn-labeled" onclick="fileChangerExcelDownload(event)">
+            <i class="fa-solid fa-file-excel"></i>
+        </a>
+        <a type="button" class="btn btn-labeled" onclick="openModalCreateDocuments(event)">
+            <i class="fa-solid fa-file-word"></i>
         </a>
     </div>
     <div class="d-flex flex-row row">
@@ -182,6 +215,27 @@
         }
     }
 
+    function fileChangerExcelDownload(evt) {
+        const csrfToken = document.querySelector('meta[name="csrf_token"]').getAttribute('content');
+        const objectId = document.querySelector('meta[name="object_id"]').getAttribute('content');
+
+        fetch(`/database/file_changer/${objectId}/`, {
+            method: 'POST',
+            headers: {
+            'X-CSRFToken': csrfToken,
+            },
+            body: new FormData(),
+        })
+        .then(response => response.blob())
+        .then(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'file_changer.xlsx';
+            a.click();
+        })
+        .catch(error => console.error('Error:', error));
+    }
     function click_to_ident(evt){
         evt.stopPropagation()
         evt.preventDefault()
@@ -198,6 +252,18 @@
             option.value = d;
             option.text = d;
             select.appendChild(option);
+        }
+    }
+
+    function fill_select_from_dicts(select, data){
+        removeSelect2(select);
+        for(const dict of data){
+            for (const [key, value] of Object.entries(dict)) {
+                let option = document.createElement('option');
+                option.value = key;
+                option.text = value;
+                select.appendChild(option);
+            }
         }
     }
 
@@ -225,7 +291,7 @@
         .catch(error => console.error(error));
     });
 
-    document.querySelector('button[type="submit"]').addEventListener('click', function(event) {
+    document.querySelector('#form_update_csv_object button[type="submit"]').addEventListener('click', function(event) {
         // Отправить запрос на сервер
         event.preventDefault();
         // if(!validate_form()){
@@ -244,6 +310,25 @@
         .catch(error => console.error(error));
     });
 
+    document.querySelector('#form_create_documents button[type="submit"]').addEventListener('click', function(event) {
+        // Отправить запрос на сервер
+        event.preventDefault();
+        // if(!validate_form()){
+        //     alert('Ошибка введённых данных')
+        //     return;
+        // }    
+        fetch('/document/createDocumentsMultiple', {
+            method: 'GET',
+            body: new FormData(document.querySelector('#form_create_documents')),
+        })
+        .then(response => response.text())
+        .then(message =>{
+            console.log(message);
+            // location.reload()
+        })
+        .catch(error => console.error(error));
+    });
+
     document.querySelector('input[name="need_drop"]').addEventListener('change', function(evt) {
         console.log(evt.target.checked);
         let select =  drop_column_block.querySelector('select')
@@ -253,9 +338,54 @@
             select.classList.add('invisible');
     });
 
+    function removeSelect2(select1){
+        let select = $(select1);
+        try {
+            if (select.is('.select2-hidden-accessible')) {
+                select.select2('destroy');
+            }
+            select.empty();
+        } catch (error) {
+            select.empty();
+        }
+    }
+
     function updateCSV(evt){
         var modal = new bootstrap.Modal(document.getElementById('objectUpdateFileModal'))
         modal.show()
+    }
+
+    function openModalCreateDocuments(evt){
+        const csrfToken = document.querySelector('meta[name="csrf_token"]').getAttribute('content');
+        const objectId = document.querySelector('meta[name="object_id"]').getAttribute('content');
+        let select_idents = document.querySelector('select[name="object_idents[]"]')
+        let select_documents = document.querySelector('select[name="object_documents[]"]')
+        fetch('/database/get_object/'+objectId + '/' , {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log(data);
+            fill_select(select_idents, data.idents)
+            fill_select_from_dicts(select_documents, data.documents)
+            $(select_idents).select2({
+                width: '100%', // ширина select2
+                dropdownParent: $('#createDocumentsModal'),
+                multiple: true,
+            });
+            $(select_documents).select2({
+                width: '100%', // ширина select2
+                dropdownParent: $('#createDocumentsModal'),
+                multiple: true,
+            });
+            var modal = new bootstrap.Modal(document.getElementById('createDocumentsModal'))
+            modal.show()
+        })
+        .catch(error => console.error(error));
+        
     }
 </script>
 {% endblock %}

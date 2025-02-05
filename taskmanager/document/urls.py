@@ -8,6 +8,8 @@ urlpatterns = [
     path('upload', DocumentCreate.as_view(), name='documents'), # загрузка документа на сервер
     path('download', views.download), # выгрузка документа
     path('view', views.ViewDocument), # просмотр документа
+    path('viewAndCreate', views.ViewDocumentAndCreateDocument), # просмотр документа
+    path('createDocumentsMultiple', views.CreateDocumentMultiple), # просмотр документа
     path('update', views.UpdateDocument), # обновление документа
     path('new', views.create_New_Document, name='newdocuments'), # создание нового документа
     # path('savedelement/delete', views.DeleteSavedElement), # удаление сохранённого элемента
