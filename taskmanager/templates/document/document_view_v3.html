@@ -607,7 +607,7 @@
                 setEventSelect(caller_select, element)
                 element.classList.add('selected_event_caller')
                 caller_select.dispatchEvent(new Event('change'))
-                
+                goToDeveloperOption('optionDependence')
             }
 
             async function setEventSelect(EventSelect,element){
