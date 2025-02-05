@@ -332,6 +332,11 @@
                             <div class="header-bar mt-2">
                                 <h1 id="objectFindDataModalName">Объект</h1>
                             </div>
+                            <div class="d-flex flex-row row mb-5">
+                                <span>Идентификатор:</span>
+                                <input id="filter-input" class="form-control" type="text" list="idents_list" oninput="onFilterInputInput(event)">
+                            </div>
+                            <datalist id="idents_list"></datalist>
                             <div class="d-flex flex-row row">
                                 <div class="d-flex flex-column col">
                                     <div class="objectFindDataModalContainer row">
@@ -2199,8 +2204,8 @@
 
             function addSpaceIfNecessary(elem) {
                 const nextElement = elem.nextElementSibling;
-                const nextText = nextElement ? nextElement.textContent : '';
-                let text = elem.textContent;
+                const nextText = nextElement ? nextElement.textContent.trim() : '';
+                let text = elem.textContent.trim();
                 const punctuationMarks = ['.', ',', '!', '?', ';', ':'];
                 if (nextText && !punctuationMarks.includes(nextText[0])) {
                     return text + ' ';
@@ -3477,6 +3482,7 @@
             function openFindDataModal(data, obj_id){
                 let container = document.querySelector('.objectFindDataModalContainer')
                 let name = document.querySelector('#objectFindDataModalName')
+                let datalist = document.getElementById('idents_list')
                 name.innerHTML = data.object.name
                 for(let ident of data.idents){
                     container.insertAdjacentHTML('beforeend', `
@@ -3484,8 +3490,25 @@
                             <span>`+ident+`<span>
                         </div>
                     `)
+                    datalist.insertAdjacentHTML('beforeend', `
+                        <option value="`+ident+`"></option>
+                    `)
                 }
                 $('#objectFindDataModal').modal('show');
+            }
+
+            function onFilterInputInput(evt){
+                let filterInput = evt.target
+                let identElements = document.querySelectorAll('.ident');
+                const filterValue = filterInput.value.toLowerCase();
+                identElements.forEach((element) => {
+                    const textContent = element.textContent.toLowerCase();
+                    if (textContent.includes(filterValue)) {
+                        element.style.display = 'block';
+                    } else {
+                        element.style.display = 'none';
+                    }
+                });
             }
 
             function getObjectData(evt, object_id){
