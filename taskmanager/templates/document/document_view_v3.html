@@ -2206,7 +2206,7 @@
                 const nextElement = elem.nextElementSibling;
                 const nextText = nextElement ? nextElement.textContent.trim() : '';
                 let text = elem.textContent.trim();
-                const punctuationMarks = ['.', ',', '!', '?', ';', ':'];
+                const punctuationMarks = ['.', ',', '!', '?', ';', ':', ')'];
                 if (nextText && !punctuationMarks.includes(nextText[0])) {
                     return text + ' ';
                 }
