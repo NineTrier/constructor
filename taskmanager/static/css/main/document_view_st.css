@@ -82,15 +82,38 @@ span{
     padding-bottom: 5px;
     border-top: 1px solid #D9D9D9;
     border-bottom: 1px solid #D9D9D9;
-    padding-left: 55px;
-    padding-right: 50px;
+    padding-left: 20px;
+    padding-right: 20px;
     align-items: center;
+}
+
+#filters_menu{
+    display: flex;
+    text-align: center;
+    background-color: var(--color-primary);
+    padding-top: 5px;
+    padding-bottom: 5px;
+    border-top: 1px solid #D9D9D9;
+    border-bottom: 1px solid #D9D9D9;
+    padding-left: 20px;
+    align-items: center;
+}
+
+.btn-group-toggle{
+    border: 1px solid #646464;
+}
+
+#filters_menu .vr{
+    margin-right: 10px;
+    margin-left: 10px;
 }
 
 #menu .vr{
     margin-right: 10px;
     margin-left: 10px;
 }
+
+
 
 * { box-sizing: border-box; }
 
@@ -394,7 +417,7 @@ td.paragraph{
     display: flex;
     flex-direction: column;
     position: sticky;
-    top: 220px;
+    top: 240px;
     height: 12vh;
     background-color: white;
 }
@@ -682,7 +705,7 @@ input[type="number"]::-webkit-inner-spin-button{
 }
 
 ::-webkit-scrollbar {
-    width: 5px;
+    width: 10px;
     margin-left: 6px;
 }
   
@@ -694,7 +717,7 @@ input[type="number"]::-webkit-inner-spin-button{
   
 ::-webkit-scrollbar-thumb {
     border-radius: 5px;
-    background: linear-gradient(180deg, black , gray);
+    background: linear-gradient(180deg, rgb(99, 98, 98) , rgb(148, 148, 148));
 }
 
 #errorWindowModal{
@@ -707,7 +730,7 @@ input[type="number"]::-webkit-inner-spin-button{
 }
 
 .selectedRun{
-    background-color: #a5bcfc;
+    background-color: #a5bcfc!important;
 }
 
 #context_add_menu{
@@ -745,8 +768,9 @@ input[type="number"]::-webkit-inner-spin-button{
     margin-left: auto;
     flex-grow: 1;
     position: sticky;
-	top: 200px;
+	top: 240px;
     background-color: var(--color-document);
+    margin-right: 1px;
 }
 
 #Dependences{

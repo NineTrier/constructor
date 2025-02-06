@@ -177,37 +177,45 @@
                         </ul>
                     </div>
                 </div>
+                <div id="filters_menu">
+                    <span style="margin-right: 10px;font-weight: bold;">Фильтры:</span>
+                    <span class="me-2">Падеж:</span>
+                  <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                    <input type="radio" class="btn-check filter_radio" name="filterCattle" onchange="radioButtonFilterChanged(event);" id="filter_cattle_nomn" value="nomn">
+                    <label class="btn btn-labeled" for="filter_cattle_nomn">И.П</label>
+                    <input type="radio" class="btn-check filter_radio" name="filterCattle" onchange="radioButtonFilterChanged(event);" id="filter_cattle_gent" value="gent">
+                    <label class="btn btn-labeled" for="filter_cattle_gent">Р.П</label>
+                    <input type="radio" class="btn-check filter_radio" name="filterCattle" onchange="radioButtonFilterChanged(event);" id="filter_cattle_datv" value="datv">
+                    <label class="btn btn-labeled" for="filter_cattle_datv">Д.П</label>
+                    <input type="radio" class="btn-check filter_radio" name="filterCattle" onchange="radioButtonFilterChanged(event);" id="filter_cattle_accs" value="accs">
+                    <label class="btn btn-labeled" for="filter_cattle_accs">В.П</label>
+                    <input type="radio" class="btn-check filter_radio" name="filterCattle" onchange="radioButtonFilterChanged(event);" id="filter_cattle_ablt" value="ablt">
+                    <label class="btn btn-labeled" for="filter_cattle_ablt">Т.П</label>
+                    <input type="radio" class="btn-check filter_radio" name="filterCattle" onchange="radioButtonFilterChanged(event);" id="filter_cattle_loct" value="loct">
+                    <label class="btn btn-labeled" for="filter_cattle_loct">П.П</label>
+                    <input type="radio" class="btn-check filter_radio" name="filterCattle" onchange="radioButtonFilterChanged(event);" id="filter_cattle_not" value="delFilters" checked>
+                    <label class="btn btn-labeled" for="filter_cattle_not">Нет</label>
+                  </div>
+                  <div class="vr"></div>
+                  <span class="me-2">Заглавность:</span>
+                  <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                    <input type="radio" class="btn-check filter_radio" name="filterCase" onchange="radioButtonFilterChanged(event);" id="filter_case_upper" value="Upper">
+                    <label class="btn btn-labeled " for="filter_case_upper">Заглавные</label>
+                    <input type="radio" class="btn-check filter_radio" name="filterCase" onchange="radioButtonFilterChanged(event);" id="filter_case_lower" value="Lower">
+                    <label class="btn btn-labeled" for="filter_case_lower">Строчные</label>
+                    <input type="radio" class="btn-check filter_radio" name="filterCase" onchange="radioButtonFilterChanged(event);" id="filter_case_not" value="delFilters" checked>
+                    <label class="btn btn-labeled" for="filter_case_not">Нет</label>
+                  </div>
+                  <div class="vr"></div>
+                  <span class="me-2">Раскрытие:</span>
+                  <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                    <input type="radio" class="btn-check filter_radio" name="filterRascrit" onchange="radioButtonFilterChanged(event);" id="filter_raskrit_true" value="True">
+                    <label class="btn btn-labeled" for="filter_raskrit_true">Раскрыть</label>
+                    <input type="radio" class="btn-check filter_radio" name="filterRascrit" onchange="radioButtonFilterChanged(event);" id="filter_raskrit_not" value="delFilters" checked>
+                    <label class="btn btn-labeled" for="filter_raskrit_not">Нет</label>
+                  </div>
+                </div>
                 <input list="variable_list" value="" id="span_value" class="form-control" disabled/>
-            </div>
-           
-            <div class="modal fade" id="filtersModal" tabindex="-1" aria-labelledby="filtersModalLabel" aria-hidden="true">
-                <div class="modal-dialog" id="modal_filters">
-                <div class="modal-content">
-                    <div class="modal-header">
-                    <h5 class="modal-title" id="filtersModalLabel">Фильтры элемента</h5>
-                    </div>
-                    <div class="modal-body">
-                        <label for="elementFiltersSelect">Элемент:</label>
-                        <select id="elementFiltersSelect">
-            
-                        </select>
-                        <label for="filterForElement">Какой фильтр применить:</label>
-                        <select id="filterForElement">
-                            <option value="ChangeCattle">Поменять падеж (Меняет только словам в именительном падеже)</option>
-                        </select>
-                        <select id="dopParametersForFilter">
-                            <option value="gent">Родительный</option>
-                            <option value="datv">Винительный</option>
-                            <option value="accs">Дательный</option>
-                            <option value="ablt">Творительный</option>
-                            <option value="loct">Предложный<option>
-                        </select>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn-success" onclick="filterManager.addFilter(document.querySelector('#elementFiltersSelect'))"></button>
-                    </div>
-                </div>
-                </div>
             </div>
             
             <div class="modal fade" id="groupRadioModal" tabindex="-1" aria-labelledby="groupRadioModalLabel" aria-hidden="true">
@@ -235,35 +243,6 @@
                 </div>
                 </div>
             </div>
-            
-            <!-- <div class="modal fade" id="eventModal" tabindex="-1" aria-labelledby="eventModalLabel" aria-hidden="true">
-                <div class="modal-dialog" id="modal_event">
-                <div class="modal-content">
-                    <div class="modal-header">
-                    <h5 class="modal-title" id="eventModalLabel">События</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
-                    </div>
-                    <div class="modal-body" id="modal_event_body">
-                        <div id="EventCallerContainer">
-                            <label for="EventCallerID">Отправитель:</label>
-                            <select id="EventCallerID" class="elementsSelect">
-                            </select>
-                            <label for="EventType">Событие:</label>
-                            <select id="EventType">
-                                <option value="0">Спрятался</option>
-                                <option value="1">Появился</option>
-                            </select>
-                        </div>
-                        <div id="EventReceiversList">
-                        </div>
-                        <a onclick="AddEventReceiver();"><i class="fa-solid fa-plus" style="color:green"></i></a>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-success" onclick="addDependence(event);">Добавить зависимость</button>
-                    </div>
-                </div>
-                </div>
-            </div> -->
             
             <div class="modal fade" id="errorWindowModal" tabindex="-1" aria-labelledby="errorWindowModalLabel" aria-hidden="true">
                 <div class="modal-dialog" id="modal_error">
@@ -351,7 +330,7 @@
                 </div>
             </div>
             <datalist id="variable_list">
-
+                <option value="{: Дата сегодня :}" class="option_variable_list"></option>
             </datalist>
             <div class="mainDocument">
                 <div id="leftMenu">
@@ -474,7 +453,9 @@
                                                                 <input type="text" class="form-control identificator col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.name }}" onclick="getObjectData(event, '{{ obj.object.id }}')" onchange="onChangeVariableMean(event);">
                                                             {% else %}
                                                                 <span class="col-2 obj_parameter_name">{{ parameter.name }}</span>
-                                                                {% if parameter.data_type == 'TXT' or parameter.data_type == 'DATE' %}
+                                                                {% if parameter.data_type == 'TXT' %}
+                                                                <input type="text" class="form-control col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.name }}" onchange="onChangeVariableMean(event);" readonly>
+                                                                {% elif parameter.data_type == 'DATE' %}
                                                                 <input type="text" class="form-control col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.name }}" onchange="onChangeVariableMean(event);" readonly>
                                                                 {% elif parameter.data_type == 'ARRAY' %}
                                                                 <div class="col array_data_container obj_parameter_value"></div> 
@@ -498,6 +479,12 @@
                             </a>
                         </div>
                         <div class="VariablesList" id="VariableMyself">
+                            <div class="variable" data-idvar="system;date_today" ondblclick="SelectVar(event);" style="background-color: white;">
+                                <input id="btn_thumbtack_system;date_today" onchange="FixVariable(event);" type="checkbox" class="btn-check variable_thumbtack variable_thumbtack_not_checked" style="">
+                                <label class="btn btn-labeled" style="" for="btn_thumbtack_system;date_today"><i class="fa-solid fa-thumbtack"></i></label>
+                                <span class="variable_name" contenteditable="true" oninput="onInputVariableName(event);">Дата сегодня</span>
+                                <input class="variable_mean" type="date" value="">
+                            </div>
                         </div>
                     </div>
                     <div id="Dependences" class="w-100 invisible">
@@ -1060,15 +1047,11 @@
                     var nam = objects_param.getAttribute('data-paramName');
                     var val = objects_param.querySelector('.obj_parameter_value')
                     if(nam == name){
-                        if(val !== undefined && val !== null && val.value != ''){
-                            if (val.classList.contains('array_data_container')){
-                                span.textContent = getDataFromObjectArray(val);
-                            }else{
-                                span.textContent = val.value;
-                            }
-                        }
+                        if(val.value != '')
+                            span.textContent = getDataFromReference(span)
                         else
                             span.textContent = '{: '+ nam + ' :}'
+                        
                         span.classList.add('reference_to_data');
                         span.classList.add('object_param_ref');
                         span.setAttribute('data-idObjParam', objects_param.getAttribute('data-idParam'))
@@ -1086,8 +1069,9 @@
                     var nam = variable.getElementsByClassName('variable_name')[0];
                     var val = variable.getElementsByClassName('variable_mean')[0];
                     if(nam.textContent == name){
+                        
                         if(val.value != '')
-                            span.textContent = val.value;
+                            span.textContent = getDataFromReference(span)
                         else
                             span.textContent = '{: '+ nam.textContent + ' :}'
                         
@@ -1970,12 +1954,54 @@
                 }
             }
 
+            async function ApplyFiltersMenu(element){
+                let filtersOfElement = filterManager.FilterHashTable[element.id]
+                let radioCattle = document.querySelector('input[name="filterCattle"][value="delFilters"]');
+                let radioCase = document.querySelector('input[name="filterCase"][value="delFilters"]');
+                let radioRaskrit = document.querySelector('input[name="filterRascrit"][value="delFilters"]');
+                radioCattle.checked = true;
+                radioCattle.dispatchEvent(new Event('change'))
+                radioCase.checked = true;
+                radioCase.dispatchEvent(new Event('change'))
+                radioRaskrit.checked = true;
+                radioRaskrit.dispatchEvent(new Event('change'))
+                for(let [key, value] of Object.entries(filtersOfElement)){
+                    console.log(key, value)
+                    switch (key) {
+                        case 'ChangeCattle':
+                            let radioCattle = document.querySelector('input[name="filterCattle"][value="'+value+'"]');
+                            if(radioCattle === null || radioCattle === undefined)
+                                break;
+                            radioCattle.checked = true;
+                            radioCattle.dispatchEvent(new Event('change'))
+                            break;
+                        case 'ChangeCase':
+                            let radioCase = document.querySelector('input[name="filterCase"][value="'+value+'"]');
+                            if(radioCase === null || radioCase === undefined)
+                                break;
+                            radioCase.checked = true;
+                            radioCase.dispatchEvent(new Event('change'))
+                            break;
+                        case 'Raskrit':
+                            let radioRaskrit = document.querySelector('input[name="filterRascrit"][value="'+value+'"]');
+                            if(radioRaskrit === null || radioRaskrit === undefined)
+                                break;
+                            radioRaskrit.checked = true;
+                            radioRaskrit.dispatchEvent(new Event('change'))
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+
             // Декоратор выставления настроек в меню
             async function ApplyMenu(element){
                 ApplyStyleText(document.querySelector('.selectedRun'));
                 ApplyAlign(document.querySelector('.selectedParagraph'));
                 ApplyIndent(document.querySelector('.selectedParagraph'));
                 ApplyInterval(document.querySelector('.selectedParagraph'));
+                ApplyFiltersMenu(document.querySelector('.selectedRun'));
             }
 
             // События изменения размера текста в меню
@@ -2827,37 +2853,34 @@
                 unsetActiveElements();
                 //SaveListSaved();
                 SaveVariables();
-                filterManager.acceptAllFilters();
-                $.ajax({
-                    type: "POST",
-                    url: "/document/update?id={{ Doc.id }}",
-                    data: JSON.stringify(CreateJSON()),
-                    contentType: "application/json; charset=utf-8",
-                    success: function(res, status, xhr){
-                        switch (xhr.status){
-                            // Если всё успешно сохранилось
-                            case 200:
-                                // Уведомляем пользователя о сохранении
-                                SaveComplete();
-                                if(download){
-                                    window.open(
-                                        "/document/download?id={{ Doc.id }}",
-                                        '_blank' // <- This is what makes it open in a new window.
-                                        );
-                                }
-                                //Делаем скриншот текущего документа для обложки
-                                // TakeScreenShot();
-                                break;
-                            case 304:
-                                TextOfError.textContent = decodeURIComponent(escape(xhr.getResponseHeader('MessageOfError')));
-                                TypeOfError.textContent = decodeURIComponent(escape(xhr.getResponseHeader('TypeOfError')));
-                                errorModal.toggle();
-                                break;
+                await filterManager.acceptAllFilters();
+                fetch(`/document/update?id={{ Doc.id }}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json; charset=utf-8'
+                    },
+                    body: JSON.stringify(CreateJSON())
+                }).then(response => {
+                    if (response.ok) {
+                        SaveComplete();
+                        if (download) {
+                            window.open(`/document/download?id={{ Doc.id }}`, '_blank');
                         }
-                        
-                    } 
+                        // TakeScreenShot();
+                    } else {
+                        throw new Error('HTTP error ' + response.status);
+                    }
+                }).catch(error => {
+                    if (error.status === 304) {
+                        const messageOfError = decodeURIComponent(escape(error.getResponseHeader('MessageOfError')));
+                        const typeOfError = decodeURIComponent(escape(error.getResponseHeader('TypeOfError')));
+                        TextOfError.textContent = messageOfError;
+                        TypeOfError.textContent = typeOfError;
+                        errorModal.toggle();
+                    } else {
+                        console.error('Error:', error);
+                    }
                 });
-                
             }
 
             // Функция удаляет текстовый элемент и перебрасывает на предыдущий
@@ -3383,6 +3406,28 @@
                     filterManager.addFilter(tempElement.id, filter, cattle)
             }
 
+            function radioButtonFilterChanged(evt){
+                let filter = evt.target.closest('.filter_radio');
+                let element = document.querySelector('.selectedRun');
+                if (element === null || element === undefined)
+                    return
+                if (filter.value == 'delFilters')
+                    return
+                switch (filter.name) {
+                    case 'filterCattle':
+                        filterManager.addFilter(element.id, 'ChangeCattle', filter.value)
+                        break;
+                    case 'filterCase':
+                        filterManager.addFilter(element.id, 'ChangeCase', filter.value)
+                        break;
+                    case 'filterRascrit':
+                        filterManager.addFilter(element.id, 'Raskrit', filter.value)
+                        break;
+                    default:
+                        break;
+                }
+            }
+
             function ConnectNewObject(evt){
                 let csrf_token = document.querySelector('meta[name="csrf_token"]').getAttribute('content')
                 fetch('/database/get_objects_to_connect/', {
@@ -3480,12 +3525,12 @@
                         data_value = value['value']
                         if(data_value == 'nan')
                             data_value = ''
-                        if(data_type == 'TXT' || data_type == 'DATE'){
+                        if(data_type == 'TXT'){
                             let inp = form.querySelector('input[name="'+key+'"]')
                             inp.value = data_value
                             inp.dispatchEvent(new Event('change'))
                         }
-                        if(data_type == 'ARRAY'){
+                        else if(data_type == 'ARRAY'){
                             let container = form.querySelector('.array_data_container')
                             container.innerHTML = ''
                             for(let i = 0; i < data_value.length; i++){
@@ -3497,6 +3542,11 @@
                                     </div>
                                 `)
                             }
+                        }
+                        else if(data_type == 'DATE'){
+                            let inp = form.querySelector('input[name="'+key+'"]') 
+                            inp.value = data_value;
+                            inp.dispatchEvent(new Event('change'))
                         }
                     }
                     $('#objectFindDataModal').modal('hide');
@@ -3518,6 +3568,7 @@
                 let name = document.querySelector('#objectFindDataModalName')
                 let datalist = document.getElementById('idents_list')
                 name.innerHTML = data.object.name
+                container.innerHTML = ""
                 for(let ident of data.idents){
                     container.insertAdjacentHTML('beforeend', `
                         <div class="ident col" onclick="click_to_ident(event, `+obj_id+`, '`+ ident +`')">
@@ -3817,7 +3868,17 @@
                     let ref = document.querySelector('.variable[data-idVar="'+ element.getAttribute('data-idVar') +'"]')
                     if(ref === undefined || ref === null)
                         return element.textContent
-                    return ref.querySelector('.variable_mean').value
+                    let val = ref.querySelector('.variable_mean')
+                    if(val.type == "text")
+                        return val.value;
+                    else if(val.type == "date"){
+                        return new Date(val.value).toLocaleDateString('ru-RU', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            separator: '.'
+                        });
+                    }
                 }
                 if(element.classList.contains('object_param_ref')){
                     let ref = document.querySelector('.obj_parameter[data-idParam="'+ element.getAttribute('data-idObjParam') +'"]')
@@ -3826,8 +3887,16 @@
                     let val = ref.querySelector('.obj_parameter_value')
                     if (val.classList.contains('array_data_container'))
                         return getDataFromObjectArray(val)
-                    else
-                        return val.value
+                    else if(val.type == "text")
+                        return val.value;
+                    else if(val.type == "date"){
+                        return new Date(val.value).toLocaleDateString('ru-RU', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            separator: '.'
+                        });
+                    }
                 }
             }
 
@@ -3848,39 +3917,49 @@
                 }
 
                 acceptAllFilters(){
-                    let dataBig = {}
-                    for(let[key, value] of Object.entries(filterManager.FilterHashTable)){
-                        let dataSmall = {}
-                        let element = document.getElementById(key)
-                        if(element === undefined || element === null){
-                            this.deleteFilter(key, value)
-                            continue
-                        }
-                        dataSmall['filters'] = value
-                        if(!element.classList.contains('reference_to_data'))
-                            dataSmall['phrase'] = element.getAttribute('data-invis')
-                        else
-                            dataSmall['phrase'] = getDataFromReference(element)
-                        dataBig[key] = dataSmall
-                    }
-                    $.ajax({
-                        type: "POST",
-                        url: "/document/acceptFilters",
-                        data: JSON.stringify(dataBig),
-                        contentType: "application/json; charset=utf-8",
-                        success: function(res, status, xhr){
-                            switch(xhr.status){
-                                case 200:
-                                    for(let[key, value] of Object.entries(JSON.parse(res))){
-                                    if (String(value).length > 0)
-                                        document.getElementById(key).textContent = value
-                                    }
-                                    break;
-                                case 304:
-                                    console.log('bad')
-                                    break;
+                    return new Promise((resolve, reject) => {
+                        let dataBig = {}
+                        for(let[key, value] of Object.entries(filterManager.FilterHashTable)){
+                            let dataSmall = {}
+                            let element = document.getElementById(key)
+                            if(jQuery.isEmptyObject(filterManager.FilterHashTable[key]))
+                                delete this.FilterHashTable[key]
+                            for(let [fil, val] of Object.entries(value)){
+                                console.log(fil, val)
+                                if(element === undefined || element === null || val === 'delFilters'){
+                                    this.deleteFilter(key, fil)
+                                    continue
+                                } 
                             }
+                            dataSmall['filters'] = value
+                            if(!element.classList.contains('reference_to_data'))
+                                dataSmall['phrase'] = element.getAttribute('data-invis')
+                            else
+                                dataSmall['phrase'] = getDataFromReference(element)
+                            dataBig[key] = dataSmall
                         }
+                        fetch('/document/acceptFilters', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json; charset=utf-8'
+                            },
+                            body: JSON.stringify(dataBig)
+                        }).then(response => {
+                            if (response.ok) {
+                                return response.json();
+                            } else {
+                                throw new Error('HTTP error ' + response.status);
+                            }
+                        }).then(data => {
+                            for (let [key, value] of Object.entries(data)) {
+                                if (String(value).length > 0) {
+                                    document.getElementById(key).textContent = value;
+                                }
+                            }
+                            resolve();
+                        }).catch(error => {
+                            reject(error);
+                        });
                     });
                 }
 
@@ -3924,9 +4003,7 @@
             // var variableModal = new bootstrap.Modal(document.getElementById('variableModal'), {
             //     keyboard: false
             // })
-            var filtersModal = new bootstrap.Modal(document.getElementById('filtersModal'), {
-                keyboard: false
-            })
+            
             // var eventModal = new bootstrap.Modal(document.getElementById('eventModal'), {
             //     keyboard: false
             // })
@@ -3936,7 +4013,9 @@
             var filterManager = new FilterManager();
 
             var tempElement;
-            
+
+            document.querySelector('div[data-idVar="system;date_today"] .variable_mean').value = new Date().toISOString().split('T')[0]
+
             DocFromJSON("{{ document_json|escapejs }}")
             
             filterManager.fromJSON("{{ document_json|escapejs }}")
@@ -3958,6 +4037,8 @@
             UpdateVariableList();
 
             FillReceivers()
+
+            onChangeVariableMean('');
             
             // if('{{ vks }}' == 'True')
                 //  AutoFillFromRequest("{{ data|escapejs }}")

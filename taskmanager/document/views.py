@@ -19,8 +19,8 @@ from transliterate import translit
 from transliterate.decorators import transliterate_function
 from user_manager.models import Profile, user_directory_path
 
-import pymorphy2
-from pymorphy2.shapes import restore_capitalization
+import pymorphy3
+from pymorphy3.shapes import restore_capitalization
 
 raskrit = {
     'ООО': 'Общество с ограниченной ответственностью',
@@ -36,7 +36,7 @@ matchers ={
     r'\s?Акционерн\w*\sобществ\w?': r'\s?Акционерн\w*\sобществ\w?\s',
 }
 
-morph = pymorphy2.MorphAnalyzer()
+morph = pymorphy3.MorphAnalyzer()
 
 # Класс, который помогает создавать новый записи в базу данных Documents
 # и открывает страницу с добавлением новых документов
@@ -538,9 +538,10 @@ def ItFIO(phrase):
     res = 0
     for word in splitted:
         parsed_word = morph.parse(word)[0]
+        print(morph.parse(word))
         if 'Name' in parsed_word.tag or 'Surn' in parsed_word.tag or 'Patr' in parsed_word.tag:
             res += 1
-    return res == 3
+    return res >= 2
 
 def GetGenderFIO(phrase):
     res = {'femn': 0, 'masc': 0, 'neut': 0}
@@ -567,31 +568,26 @@ def ChangeCattle(stroke):
         phrase = phrase.replace(found, f'(*{len(ret_quotes)}*)')
         ret_quotes[len(ret_quotes)] = found
         have, found = remove_quoted_text(phrase)
-    print(phrase)
-    print(ret_quotes)
     if ItFIO(phrase):
         gend = GetGenderFIO(phrase)
         print(gend)
         params = {gend, stroke['filters']['ChangeCattle']}
     else:
         params = {stroke['filters']['ChangeCattle']}
+    
     newphrase = ''
     for key, value in matchers.items():
-        print(key, value)
         result = re.search(key, phrase, re.DOTALL)
         if result:
             phrase1 = result.group(0)
-            print(phrase1)
             try:
                 splitted_phrase = re.split(value, phrase1)[1]
-                print(splitted_phrase)
                 phrase = phrase.replace(splitted_phrase, f'(*{len(ret_quotes)}*)')
                 ret_quotes[len(ret_quotes)] = splitted_phrase
             except IndexError:
                 splitted_phrase = ''
         else:
             continue
-    print(phrase)
     for word in phrase.split():
         try:
             parsed_word = morph.parse(word)[0]
