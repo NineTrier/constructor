@@ -625,12 +625,16 @@
                 for(let event of eventManager.findEventsByReceiver(element.id)){
                     let sender = event.sender
                     let sender_element = document.getElementById(sender)
+                    if(sender_element === undefined || sender_element === null)
+                        continue
                     sender_element.classList.add('hovered_event_caller')
                     // pairs.push([element, sender_element])
                 }
                 for(let event of eventManager.findEventsBySender(element.id)){
                     let receiver = event.event.receiver
                     let receiver_element = document.getElementById(receiver)
+                    if(receiver_element === undefined || receiver_element === null)
+                        continue
                     receiver_element.classList.add('hovered_dependence')
                     // pairs.push([element, receiver_element])
                 }
