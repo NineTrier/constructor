@@ -592,15 +592,15 @@ input[type="number"]::-webkit-inner-spin-button{
 }
 
 .docelement.hovered_dependence{
-    border: 2px dotted rgb(138, 230, 0)!important;
+    border: 3px dotted rgb(138, 230, 0)!important;
 }
 
 .docelement.selected_event_caller{
-    border: 2px dotted rgb(255, 36, 36)!important;
+    border: 3px dotted rgb(255, 36, 36)!important;
 }
 
 .docelement.hovered_event_caller{
-    border: 2px dotted rgb(255, 36, 36)!important;
+    border: 3px dotted rgb(255, 36, 36)!important;
 }
 
 #rightRadioMenu{

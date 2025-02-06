@@ -395,6 +395,7 @@
                     </div>
                     <input type="hidden" id="sectPr" value="{{ sectPr.to_css }}"/>
                 </div>
+                <div id="line-container"></div>
                 <div id="rightMenu1">
                     <div class="form-check form-switch" id="tree_develop_container">
                         <input type="checkbox" class="form-check-input" id="tree_develop" onchange="switchAdminMode(event.target.checked);">
@@ -604,6 +605,42 @@
                 `)
             }
 
+            async function unsetActiveDependence(){
+                // for(let sender of document.querySelectorAll('.selected_event_caller')){
+                //     sender.classList.remove('selected_event_caller')
+                // }
+                for(let receiver of document.querySelectorAll('.hovered_dependence')){
+                    receiver.classList.remove('hovered_dependence')
+                }
+                for(let sender of document.querySelectorAll('.hovered_event_caller')){
+                    sender.classList.remove('hovered_event_caller')
+                }
+            }
+
+            async function setActiveDependence(element){
+                await unsetActiveDependence()
+                // const pairs = [
+                    
+                // ];
+                for(let event of eventManager.findEventsByReceiver(element.id)){
+                    let sender = event.sender
+                    let sender_element = document.getElementById(sender)
+                    sender_element.classList.add('hovered_event_caller')
+                    // pairs.push([element, sender_element])
+                }
+                for(let event of eventManager.findEventsBySender(element.id)){
+                    let receiver = event.event.receiver
+                    let receiver_element = document.getElementById(receiver)
+                    receiver_element.classList.add('hovered_dependence')
+                    // pairs.push([element, receiver_element])
+                }
+                // const textContainer = document.getElementById('document_main');
+               
+                // const lineContainer = document.getElementById('line-container');
+
+                // drawLines(textContainer, pairs, lineContainer);
+            }
+
             // Функция, которая выделяет элемент
             async function setActiveElement(element, param){
                 if(document_main.querySelectorAll('.selected').length === 1 && document_main.querySelector('.selected') === element)
@@ -619,6 +656,7 @@
                     radioGroup.classList.add('selectedRadioGroup');
                     document.querySelector('#btnRadioInstruments').style.backgroundColor = radioGroup.querySelector('input').value
                 }
+                setActiveDependence(element)
                     // Если это текстовый элемент то выделяем его и ставим коретку в конец
                 if(element.classList.contains('runs')){
                     let tree_elem_container = tree_elem.parentElement.closest('.tree_element');
@@ -1888,6 +1926,44 @@
                 });
             }
 
+            // function drawLines(container, pairs, lineContainer) {
+            //     // Get the coordinates of the elements in the pairs
+            //     const coords = pairs.map(([element1, element2]) => {
+            //         const rect1 = element1.getBoundingClientRect();
+            //         const rect2 = element2.getBoundingClientRect();
+            //         return {
+            //         x1: rect1.left + rect1.width / 2,
+            //         y1: rect1.top + rect1.height / 2,
+            //         x2: rect2.left + rect2.width / 2,
+            //         y2: rect2.top + rect2.height / 2
+            //         };
+            //     });
+
+            //     // Create an SVG element to draw the lines
+            //     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            //     svg.style.position = 'absolute';
+            //     svg.style.top = '0';
+            //     svg.style.left = '0';
+            //     svg.style.width = '100%';
+            //     svg.style.height = '100%';
+
+            //     // Draw the lines
+            //     coords.forEach((coord) => {
+            //         const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            //         line.setAttribute('d', `
+            //         M ${coord.x1} ${coord.y1}
+            //         L ${coord.x1} ${coord.y2}
+            //         L ${coord.x2} ${coord.y2}
+            //         `);
+            //         line.setAttribute('stroke', 'black');
+            //         line.setAttribute('stroke-width', '2');
+            //         svg.appendChild(line);
+            //     });
+
+            //     // Add the SVG element to the line container
+            //     lineContainer.appendChild(svg);
+            // }
+
             function rgbToHex(rgb){
                 const hexColor = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
                 if (hexColor) {
@@ -1965,6 +2041,8 @@
                 radioCase.dispatchEvent(new Event('change'))
                 radioRaskrit.checked = true;
                 radioRaskrit.dispatchEvent(new Event('change'))
+                if (filtersOfElement === undefined || filtersOfElement === null) 
+                    return
                 for(let [key, value] of Object.entries(filtersOfElement)){
                     console.log(key, value)
                     switch (key) {
@@ -3721,14 +3799,25 @@
                     return [{'sender': sender, 'events': this.eventHashTable[sender]['events']}];
                 }
 
-                findEventByReceiver(event, operation, sender, receiver, uslovie=''){
-                    if (this.eventHashTable[sender] === undefined || this.eventHashTable[sender] === null)
-                        return false;
-                    for(let ev of this.eventHashTable[sender]['events']){
-                        if(ev.event.type == event && ev.event.uslovie == uslovie && ev.operation == operation && ev.receiver == receiver)
-                            return ev;
+                findEventsByReceiver(receiver){
+                    const allEvents = [];
+                    for(const [sender, value] of Object.entries(this.eventHashTable)){
+                        for(const event of value['events']){
+                            if(event.receiver == receiver)
+                                allEvents.push({'sender': sender, 'id': event.id, 'event': event});
+                        }
                     }
-                    return false
+                    return allEvents
+                }
+
+                findEventsBySender(sender){
+                    if(this.eventHashTable[sender] === undefined || this.eventHashTable[sender] === null)
+                        return
+                    const allEvents = [];
+                    for(let event of this.eventHashTable[sender]['events']){
+                        allEvents.push({'sender': sender, 'id': event.id, 'event': event});
+                    }
+                    return allEvents
                 }
 
                 findEventListenerById(id) {
