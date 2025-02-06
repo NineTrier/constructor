@@ -3812,7 +3812,7 @@
 
                 findEventsBySender(sender){
                     if(this.eventHashTable[sender] === undefined || this.eventHashTable[sender] === null)
-                        return
+                        return []
                     const allEvents = [];
                     for(let event of this.eventHashTable[sender]['events']){
                         allEvents.push({'sender': sender, 'id': event.id, 'event': event});
