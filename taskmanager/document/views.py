@@ -19,8 +19,8 @@ from transliterate import translit
 from transliterate.decorators import transliterate_function
 from user_manager.models import Profile, user_directory_path
 
-import pymorphy3
-from pymorphy3.shapes import restore_capitalization
+import pymorphy2
+from pymorphy2.shapes import restore_capitalization
 
 raskrit = {
     'ООО': 'Общество с ограниченной ответственностью',
@@ -36,7 +36,7 @@ matchers ={
     r'\s?Акционерн\w*\sобществ\w?': r'\s?Акционерн\w*\sобществ\w?\s',
 }
 
-morph = pymorphy3.MorphAnalyzer()
+morph = pymorphy2.MorphAnalyzer()
 
 # Класс, который помогает создавать новый записи в базу данных Documents
 # и открывает страницу с добавлением новых документов
