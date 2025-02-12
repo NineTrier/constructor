@@ -2350,10 +2350,10 @@
                     if (onlySpaces) {
                         return text;
                     } else {
-                        return text + ' ';
+                        return text.trim() + ' ';
                     }
                 }
-                return text;
+                return text.trim();
             }
 
             // Функция переводит элементы внутри параграфа в JSON
