@@ -2040,11 +2040,8 @@
                 let radioCase = document.querySelector('input[name="filterCase"][value="delFilters"]');
                 let radioRaskrit = document.querySelector('input[name="filterRascrit"][value="delFilters"]');
                 radioCattle.checked = true;
-                radioCattle.dispatchEvent(new Event('change'))
                 radioCase.checked = true;
-                radioCase.dispatchEvent(new Event('change'))
                 radioRaskrit.checked = true;
-                radioRaskrit.dispatchEvent(new Event('change'))
                 if (filtersOfElement === undefined || filtersOfElement === null) 
                     return
                 for(let [key, value] of Object.entries(filtersOfElement)){
@@ -3493,8 +3490,6 @@
                 let element = document.querySelector('.selectedRun');
                 if (element === null || element === undefined)
                     return
-                if (filter.value == 'delFilters')
-                    return
                 switch (filter.name) {
                     case 'filterCattle':
                         filterManager.addFilter(element.id, 'ChangeCattle', filter.value)
@@ -3965,12 +3960,11 @@
                     if(val.type == "text")
                         return val.value;
                     else if(val.type == "date"){
-                        return new Date(val.value).toLocaleDateString('ru-RU', {
+                        return new Date(val.value).toLocaleString('ru-RU', {
                             day: '2-digit',
-                            month: '2-digit',
+                            month: 'long',
                             year: 'numeric',
-                            separator: '.'
-                        });
+                            }).replace('г.', ' года');
                     }
                 }
                 if(element.classList.contains('object_param_ref')){
@@ -3983,12 +3977,11 @@
                     else if(val.type == "text")
                         return val.value;
                     else if(val.type == "date"){
-                        return new Date(val.value).toLocaleDateString('ru-RU', {
+                        return new Date(val.value).toLocaleString('ru-RU', {
                             day: '2-digit',
-                            month: '2-digit',
+                            month: 'long',
                             year: 'numeric',
-                            separator: '.'
-                        });
+                            });
                     }
                 }
             }
@@ -4001,6 +3994,8 @@
                 }
 
                 addFilter(textElement, filter, cattle){
+                    if(cattle == 'delFilters')
+                        this.deleteFilter(textElement, filter)
                     if(this.FilterHashTable[textElement])
                         this.FilterHashTable[textElement][filter] = cattle
                     else{
@@ -4015,10 +4010,7 @@
                         for(let[key, value] of Object.entries(filterManager.FilterHashTable)){
                             let dataSmall = {}
                             let element = document.getElementById(key)
-                            if(jQuery.isEmptyObject(filterManager.FilterHashTable[key]))
-                                delete this.FilterHashTable[key]
                             for(let [fil, val] of Object.entries(value)){
-                                console.log(fil, val)
                                 if(element === undefined || element === null || val === 'delFilters'){
                                     this.deleteFilter(key, fil)
                                     continue
@@ -4107,8 +4099,6 @@
 
             var tempElement;
 
-            document.querySelector('div[data-idVar="system;date_today"] .variable_mean').value = new Date().toISOString().split('T')[0]
-
             DocFromJSON("{{ document_json|escapejs }}")
             
             filterManager.fromJSON("{{ document_json|escapejs }}")
@@ -4121,11 +4111,13 @@
 
             SaveLastVersion();
 
-            FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
-
             switchAdminMode(false);
 
+            FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
+
             RadioGroupsFromJSON("{{ document_json|escapejs }}");
+
+            FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
 
             UpdateVariableList();
 
@@ -4346,6 +4338,15 @@
                 () => {
                     filterManager.acceptAllFilters();
                 }, 5000
+            );
+
+            setInterval(()=>{
+                    let DateTodayVariable = document.querySelector('div[data-idVar="system;date_today"] .variable_mean')
+                    DateTodayVariable.value = new Date().toISOString().split('T')[0]
+                    for(let span of document.querySelectorAll('.runs[data-idVar="system;date_today"]')){
+                        CheckOnVariableInSpan(span);
+                    }
+                }, 1000
             );
             // setInterval(
             //     () => {

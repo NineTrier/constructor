@@ -23,7 +23,22 @@ class Parameter(models.Model):
         DATE_FORMATS = {
             'DD.MM.YYYY': '%d.%m.%Y',
             'MM/DD/YYYY': '%m/%d/%Y',
+            'DD MMMM YYYY года в HH часов MM минут':'%d %B %Y года в %H часов %M минут'
             # добавить другие форматы
+        }
+        month_names = {
+            'January': 'января',
+            'February': 'февраля',
+            'March': 'марта',
+            'April': 'апреля',
+            'May': 'мая',
+            'June': 'июня',
+            'July': 'июля',
+            'August': 'августа',
+            'September': 'сентября',
+            'October': 'октября',
+            'November': 'ноября',
+            'December': 'декабря'
         }
         if self.data_type != "DATE":
             return date_str
@@ -34,6 +49,7 @@ class Parameter(models.Model):
                 date = dateutil.parser.parse(date_str, fuzzy=True)
                 print(date)
                 str_date = date.strftime(DATE_FORMATS[self.date_format])
+                str_date = str_date.replace(date.strftime('%B'), month_names[date.strftime('%B')])
                 print(str_date)
                 return str_date
             except ValueError:
