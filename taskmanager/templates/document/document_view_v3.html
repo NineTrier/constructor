@@ -2344,7 +2344,7 @@
                 let text = elem.textContent;
                 const onlySpaces = text.trim() === '' && text !== '';
                 const punctuationMarks = ['.', ',', '!', '?', ';', ':', ')'];
-                const lastChar = text.trim()[text.length - 1];
+                const lastChar = text.trim()[text.trim().length - 1];
 
                 if (nextText && !punctuationMarks.includes(nextText[0]) && lastChar !== '(') {
                     if (onlySpaces) {
