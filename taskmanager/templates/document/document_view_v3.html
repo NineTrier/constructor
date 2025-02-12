@@ -2341,10 +2341,17 @@
             function addSpaceIfNecessary(elem) {
                 const nextElement = elem.nextElementSibling;
                 const nextText = nextElement ? nextElement.textContent.trim() : '';
-                let text = elem.textContent.trim();
+                let text = elem.textContent;
+                const onlySpaces = text.trim() === '' && text !== '';
                 const punctuationMarks = ['.', ',', '!', '?', ';', ':', ')'];
-                if (nextText && !punctuationMarks.includes(nextText[0])) {
-                    return text + ' ';
+                const lastChar = text[text.length - 1];
+
+                if (nextText && !punctuationMarks.includes(nextText[0]) && lastChar !== '(') {
+                    if (onlySpaces) {
+                        return text;
+                    } else {
+                        return text + ' ';
+                    }
                 }
                 return text;
             }
@@ -3964,7 +3971,7 @@
                             day: '2-digit',
                             month: 'long',
                             year: 'numeric',
-                            }).replace('г.', ' года');
+                            }).replace('г.', 'года');
                     }
                 }
                 if(element.classList.contains('object_param_ref')){
