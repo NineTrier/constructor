@@ -2526,6 +2526,11 @@
                         data: JSON.stringify({'id': variable_id.split(';')[1]}),
                         contentType: "application/json; charset=utf-8",
                         success: function(res, status, xhr){
+                            try {
+                                DeleteFixedVariable(variable) 
+                            } catch (error) {
+                                
+                            }
                             variable.parentNode.removeChild(variable);
                             UpdateVariableList(); 
                             for(let elem of document.querySelectorAll('.docelement.variable_ref[data-idVar="'+ variable_id +'"]')){
