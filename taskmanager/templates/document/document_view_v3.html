@@ -2509,6 +2509,8 @@
                 return jsondict;
             }
 
+
+
             //Функция удаляет переменную из базы данных при помощи POST-запроса
             async function DeleteVariable(evt){
                 let variable = evt.target.closest('.variable')
@@ -2517,14 +2519,18 @@
                     UpdateVariableList();
                 } 
                 else{
+                    let variable_id = variable.getAttribute('data-idVar')
                     $.ajax({
                         type: "POST",
                         url: "/document/variable/delete",
-                        data: JSON.stringify({'id': variable.getAttribute('data-idVar').split(';')[1]}),
+                        data: JSON.stringify({'id': variable_id.split(';')[1]}),
                         contentType: "application/json; charset=utf-8",
                         success: function(res, status, xhr){
                             variable.parentNode.removeChild(variable);
                             UpdateVariableList(); 
+                            for(let elem of document.querySelectorAll('.docelement.variable_ref[data-idVar="'+ variable_id +'"]')){
+                                DeleteElement(elem)
+                            }
                         }
                     });
                 }
@@ -2973,27 +2979,38 @@
             async function DeleteElement(elem){
                 let previousElement = elem.previousElementSibling;
                 let parent = elem.parentElement;
-                unsetActiveElements();
-                DeleteTreeElement(elem);
-                parent.removeChild(elem);
-                // Если параграф пустой после удаления то удаляем его тоже а выделение перемещаем на предыдущий параграф
-                if(parent.children.length == 0){
-                    let previousPar = parent.previousElementSibling;
-                    DeleteTreeElement(parent);
-                    parent.parentElement.removeChild(parent);
-                    await sleep(50); //Нужно небольшое ожидание, иначе не успевает удалиться элемент
-                    setActiveElement(previousPar.lastElementChild);
+                try {
+                    unsetActiveElements();
+                    DeleteTreeElement(elem);
+                    parent.removeChild(elem);
+                    try {
+                        if(parent.children.length == 0){
+                            let previousPar = parent.previousElementSibling;
+                            DeleteTreeElement(parent);
+                            parent.parentElement.removeChild(parent);
+                            await sleep(50); //Нужно небольшое ожидание, иначе не успевает удалиться элемент
+                            setActiveElement(previousPar.lastElementChild);
+                        }
+                        // Если предыдущего элемента нет, значит нужно переключиться на предыдущий параграф
+                        else if(!previousElement){
+                            let previousPar = parent.previousElementSibling;
+                            await sleep(50);
+                            setActiveElement(previousPar.lastElementChild);
+                        }
+                        else{
+                            await sleep(50);
+                            setActiveElement(previousElement);
+                        }
+                    } catch (error) {
+                        
+                    }// Если параграф пустой после удаления то удаляем его тоже а выделение перемещаем на предыдущий параграф
+                    
+                    return true
+                } catch (error) {
+                    console.log(error)
+                    return false
                 }
-                // Если предыдущего элемента нет, значит нужно переключиться на предыдущий параграф
-                else if(!previousElement){
-                    let previousPar = parent.previousElementSibling;
-                    await sleep(50);
-                    setActiveElement(previousPar.lastElementChild);
-                }
-                else{
-                    await sleep(50);
-                    setActiveElement(previousElement);
-                }
+                
             }
 
             // Функция для разделения текстового элемента на 3 части по выделению (слева от выделенного, выделенное, справа от выделенного)
@@ -4017,8 +4034,12 @@
                         for(let[key, value] of Object.entries(filterManager.FilterHashTable)){
                             let dataSmall = {}
                             let element = document.getElementById(key)
+                            if(element === undefined || element === null){
+                                delete this.FilterHashTable[key]
+                                continue
+                            }
                             for(let [fil, val] of Object.entries(value)){
-                                if(element === undefined || element === null || val === 'delFilters'){
+                                if(val === 'delFilters'){
                                     this.deleteFilter(key, fil)
                                     continue
                                 } 
