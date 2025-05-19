@@ -1,7 +1,7 @@
 {% extends  'base.html' %}
 
 {% block title %}
-Работа с объектами
+Работа
 {% endblock %}
 
 {% block connection %}
@@ -33,18 +33,16 @@
 
 <script lang="JavaScript">
     function createNewObject(){
-        let name = prompt("Введите название объекта");
-        let form = new FormData();
-        form.append("name", name)
         fetch('/database/create_new_object/', {
             method: 'POST',
-            body: form,
+            body: new FormData(document.querySelector('form')),
         })
         .then(response => response.text())
-        .then(data =>{
-            d = JSON.parse(data)
-            location.href = `/database/update_object/${d.id}/`
-        })   
+        .then(message =>{
+            console.log(message);
+            location.href = "/database/object_manager"
+        })
+        .catch(error => console.error(error));    
     }
 
     function objectClicked(evt){

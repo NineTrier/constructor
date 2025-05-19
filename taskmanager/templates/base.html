@@ -36,8 +36,8 @@
                     {% if user.is_authenticated %}
                     <!-- <a class="me-3 py-2 text-dark text-decoration-none" href="{% url 'documents' %}">Загрузить новый документ</a> -->
                     <a class="me-3 py-2 text-dark text-decoration-none" href="{% url 'newdocuments' %}">Создать шаблон</a>
-                    {% endif %}
-                    {% if user.is_superuser %}
+                    <!-- <a class="me-3 py-2 text-dark text-decoration-none" href="{% url 'documents' %}">Загрузить новый документ</a> -->
+                    <a class="me-3 py-2 text-dark text-decoration-none" href="{% url 'match_machine' %}">Мэчмашин</a>
                     <a href="{% url 'object_manager' %}" class="btn btn-labeled">Объекты</a>
                     {% endif %}
                 </nav>

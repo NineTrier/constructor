@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'document',
     'user_manager',
     'database_manager',
+    'dbformcreator',
     'corsheaders',
 ]
 

@@ -10,6 +10,9 @@ class Object(models.Model):
         return {
             'name': self.name,
         }
+    
+    def __str__(self):
+        return self.name
 
 class Parameter(models.Model):
     object = models.ForeignKey(Object, on_delete=models.CASCADE)
@@ -18,6 +21,9 @@ class Parameter(models.Model):
     identificator = models.BooleanField(default=False)
     array_separator = models.CharField(max_length=10, blank=True, null=True, default=" ")  # поле для хранения разделителя массива
     date_format = models.CharField(max_length=255, blank=True, null=True)
+    
+    def __str__(self):
+        return f"{self.object.name} -> {self.name}"
     
     def parse_date(self, date_str):
         DATE_FORMATS = {
@@ -46,6 +52,7 @@ class Parameter(models.Model):
         if self.date_format:
             try:
                 print('##################', self.date_format)
+                print(date_str)
                 date = dateutil.parser.parse(date_str, fuzzy=True)
                 print(date)
                 str_date = date.strftime(DATE_FORMATS[self.date_format])

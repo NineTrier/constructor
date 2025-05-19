@@ -402,15 +402,15 @@
                         <label class="form-check-label" for="tree_develop">Разработчик</label>
                     </div>
                     <div id="rightMenuTopContext" class="invisible">
-                        <div class="optionContainer">
+                        <div class="optionContainer" onclick="OptionContainerIsClicked(event)">
                             <input type="radio" class="btn-check optionInput" name="rightOption" id="optionTreeElement" data-optioned="tree_document" onchange="optionClicked(event);" autocomplete="off" checked/>
                             <label type="button" class="optionLabel" for="optionTreeElement">Дерево элементов</label>
                         </div>
-                        <div class="optionContainer">
+                        <div class="optionContainer" onclick="OptionContainerIsClicked(event)">
                             <input type="radio" class="btn-check optionInput" name="rightOption" id="optionVariables" data-optioned="Variables" onchange="optionClicked(event);" autocomplete="off"/>
                             <label type="button" class="optionLabel" for="optionVariables">Переменные</label>
                         </div>
-                        <div class="optionContainer">
+                        <div class="optionContainer" onclick="OptionContainerIsClicked(event)">
                             <input type="radio" class="btn-check optionInput" name="rightOption" id="optionDependence" data-optioned="Dependences" onchange="optionClicked(event);" autocomplete="off"/>
                             <label type="button" class="optionLabel" for="optionDependence">Зависимости</label>
                         </div>
@@ -444,6 +444,7 @@
                                             <div class="object_body">
                                                 <div class="objectParametersContainer">
                                                     <form id="object_form_{{  obj.object.id }}">
+                                                        <input type="hidden" name="param_ident_id">
                                                     {% for parameter in obj.params %}
                                                         <div class="obj_parameter row" data-idParam="{{ parameter.id }}" data-paramName="{{ obj.object.name }}.{{ parameter.name }}">
                                                             {% if parameter.identificator %}
@@ -451,13 +452,13 @@
                                                                     <i class="fa-solid fa-star"></i>
                                                                     <span class="identificator obj_parameter_name">{{ parameter.name }}</span>
                                                                 </div>
-                                                                <input type="text" class="form-control identificator col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.name }}" onclick="getObjectData(event, '{{ obj.object.id }}')" onchange="onChangeVariableMean(event);">
+                                                                <input type="text" class="form-control identificator col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.id}}" onclick="getObjectData(event, '{{ obj.object.id }}')" onchange="onChangeVariableMean(event);">
                                                             {% else %}
                                                                 <span class="col-2 obj_parameter_name">{{ parameter.name }}</span>
                                                                 {% if parameter.data_type == 'TXT' %}
-                                                                <input type="text" class="form-control col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.name }}" onchange="onChangeVariableMean(event);" readonly>
+                                                                <input type="text" class="form-control col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.id}}" onchange="onChangeVariableMean(event);" readonly>
                                                                 {% elif parameter.data_type == 'DATE' %}
-                                                                <input type="text" class="form-control col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.name }}" onchange="onChangeVariableMean(event);" readonly>
+                                                                <input type="text" class="form-control col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.id}}" onchange="onChangeVariableMean(event);" readonly>
                                                                 {% elif parameter.data_type == 'ARRAY' %}
                                                                 <div class="col array_data_container obj_parameter_value"></div> 
                                                                 {% endif %}
@@ -547,6 +548,8 @@
             }
 
             async function optionClicked(evt){
+                evt.stopPropagation();
+                evt.preventDefault();
                 document.querySelector('#'+evt.target.getAttribute('data-optioned')).classList.remove('invisible');
                 for(let option of document.querySelectorAll('.optionInput')){
                     if(option == evt.target)
@@ -1089,15 +1092,16 @@
                     var nam = objects_param.getAttribute('data-paramName');
                     var val = objects_param.querySelector('.obj_parameter_value')
                     if(nam == name){
-                        if(val.value != '')
-                            span.textContent = getDataFromReference(span)
-                        else
-                            span.textContent = '{: '+ nam + ' :}'
+                        
                         
                         span.classList.add('reference_to_data');
                         span.classList.add('object_param_ref');
                         span.setAttribute('data-idObjParam', objects_param.getAttribute('data-idParam'))
                         span.addEventListener("beforeinput", (e)=>{e.preventDefault();});
+                        if(val.value != '')
+                            span.textContent = getDataFromReference(span)
+                        else
+                            span.textContent = '{: '+ nam + ' :}'
                         return true;
                     }
                 }
@@ -1107,20 +1111,19 @@
             function CreateConnect(span, regmatch){
                 var name = span.getAttribute('data-invis').trim();
                 name = name.slice(3, name.length-3);
-                for(let variable of document.getElementsByClassName('variable')){
+                for(let variable of document.querySelectorAll('.VariablesList .variable')){
                     var nam = variable.getElementsByClassName('variable_name')[0];
                     var val = variable.getElementsByClassName('variable_mean')[0];
                     if(nam.textContent == name){
-                        
-                        if(val.value != '')
-                            span.textContent = getDataFromReference(span)
-                        else
-                            span.textContent = '{: '+ nam.textContent + ' :}'
-                        
                         span.classList.add('reference_to_data');
                         span.classList.add('variable_ref');
                         span.setAttribute('data-idVar', variable.getAttribute('data-idVar'))
                         span.addEventListener("beforeinput", (e)=>{e.preventDefault();});
+                        if(val.value != '')
+                            span.textContent = getDataFromReference(span)
+                        else
+                            span.textContent = '{: '+ nam.textContent + ' :}'
+                        //FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
                         return true;
                     }
                 }
@@ -2317,6 +2320,8 @@
             function ParagraphToJSON(elem, id){
                 var chil = [];
                 for(let child of elem.children){
+                    if(child.classList.contains("docelement_copy"))
+                        continue
                     if(child.classList.contains('runs')){
                         chil.push(ChildrenToJSON(child, chil.length));
                     }
@@ -2483,6 +2488,8 @@
                 var jsondict = {};
                 var chil = [];
                 for(let child of body.children){
+                    if(child.classList.contains("docelement_copy"))
+                        continue
                     if(child.classList.contains("paragraph")){
                         chil.push(ParagraphToJSON(child, chil.length));
                     }
@@ -2506,6 +2513,7 @@
                 jsondict['images'] = images;
                 jsondict['filters'] = filterManager.FilterHashTable
                 jsondict['events'] = eventManager.eventHashTable
+                jsondict['cycles'] = cycleManager.CycleHashTable
                 return jsondict;
             }
 
@@ -2654,15 +2662,17 @@
             function TreeElementBtnlClick(evt){
                 evt.stopPropagation();
                 evt.preventDefault();
-                var elem = document.querySelector('.tree_element[data-idElement="'+ element.id +'"] ul');
-                $('.tree_element[data-idElement="'+ element.id +'"] ul').collapse('toggle');
-                if(evt.target.querySelector('i').classList.contains('fa-caret-right')){
-                    evt.target.querySelector('i').classList.remove('fa-caret-right');
-                    evt.target.querySelector('i').classList.add('fa-caret-down');
+                let tree_element = evt.target.closest('.tree_element');
+                let ul_tree_element = tree_element.querySelector('ul');
+                let caret = tree_element.querySelector('.tree_element_caret i')
+                $(ul_tree_element).collapse('toggle');
+                if(caret.classList.contains('fa-caret-right')){
+                    caret.classList.remove('fa-caret-right');
+                    caret.classList.add('fa-caret-down');
                 }
                 else{
-                    evt.target.querySelector('i').classList.remove('fa-caret-down');
-                    evt.target.querySelector('i').classList.add('fa-caret-right');
+                    caret.classList.remove('fa-caret-down');
+                    caret.classList.add('fa-caret-right');
                 }
             }
 
@@ -2683,77 +2693,34 @@
             }
 
             //Функция создаёт элемент для дерева
-            function CreateTreeElement(element, name){   
-                var tree_element_html = `Ничего нет`
-                if(element.querySelectorAll('.docelement').length > 0){
-                    if(element.classList.contains('userCanSee'))
-                        tree_element_html = `
-                            <li class="list-group-item tree_element userCanSee" ondblclick="TreeElementDblClick(event);" data-idelement="`+ element.id +`" style="background-color: rgb(255, 255, 255);">
-                                <div class="tree_element_container">     
-                                    <input class="form-check-input me-1 hideCheckbox" onchange="TreeElementInput1OnChange(event);" type="checkbox" name="`+ name +`" value="`+ element.id +`" checked="`+ !element.hidden +`">
-                                    <input class="btn-check setUserCheckbox" onchange="TreeElementInput2OnChange(event);" type="checkbox" id="checkView;`+ element.id +`">
-                                    
-                                    <label class="setUserCheckboxLabel" for="checkView;`+ element.id +`" type="button">
-                                        <i class="fa-regular fa-eye fa-lg"></i>
-                                    </label>
-                                    <div class="radioGroupIndicator invisible"></div>
-                                    <span contenteditable="true" class="tree_element_label" oninput="TreeElementSpanOnInput(event);">`+ name +`</span>
-                                    <a class="btn btn-labeled" onclick="TreeElementBtnlClick(event);"><i class="fa-solid fa-caret-right"></i></a>
-                                </div>
-                            </li>
-                        `
-                    else
-                        tree_element_html = `
-                            <li class="list-group-item tree_element" ondblclick="TreeElementDblClick(event);" data-idelement="`+ element.id +`" style="background-color: rgb(255, 255, 255);">
-                                <div class="tree_element_container">
-                                    <input class="form-check-input me-1 hideCheckbox" onchange="TreeElementInput1OnChange(event);" type="checkbox" name="`+ name +`" value="`+ element.id +`" checked="`+ !element.hidden +`">
-                                    <input class="btn-check setUserCheckbox" onchange="TreeElementInput2OnChange(event);" type="checkbox" id="checkView;`+ element.id +`">
-                                    
-                                    <label class="setUserCheckboxLabel" for="checkView;`+ element.id +`" type="button">
-                                        <i class="fa-regular fa-eye-slash fa-lg"></i>
-                                    </label>
-                                    <div class="radioGroupIndicator invisible"></div>
-                                    <span contenteditable="true" class="tree_element_label" oninput="TreeElementSpanOnInput(event);">`+ name +`</span>
-                                    <a class="btn btn-labeled" onclick="TreeElementBtnlClick(event);"><i class="fa-solid fa-caret-right"></i></a>
-                                </div>
-                            </li>
-                        `  
-                }
-                else{
-                    if(element.classList.contains('userCanSee'))
-                        tree_element_html = `
-                            <li class="list-group-item tree_element userCanSee" ondblclick="TreeElementDblClick(event);" data-idelement="`+ element.id +`" style="background-color: rgb(255, 255, 255);">
-                                <div class="tree_element_container">
-                                    <input class="form-check-input me-1 hideCheckbox" onchange="TreeElementInput1OnChange(event);" type="checkbox" name="`+ name +`" value="`+ element.id +`" checked="`+ !element.hidden +`">
-                                    <input class="btn-check setUserCheckbox" onchange="TreeElementInput2OnChange(event);" type="checkbox" id="checkView;`+ element.id +`">
-                                    
-                                    <label class="setUserCheckboxLabel" for="checkView;`+ element.id +`" type="button">
-                                        <i class="fa-regular fa-eye fa-lg"></i>
-                                    </label>
-                                    <div class="radioGroupIndicator invisible"></div>
-                                    <span contenteditable="true" class="tree_element_label" oninput="TreeElementSpanOnInput(event);">`+ name +`</span>
-                                    <a class="btn btn-labeled" onclick="TreeElementBtnlClick(event);"><i class="fa-solid fa-caret-right"></i></a>
-                                </div>
-                            </li>
-                        `
-                    else
-                        tree_element_html = `
-                            <li class="list-group-item tree_element" ondblclick="TreeElementDblClick(event);" data-idelement="`+ element.id +`" style="background-color: rgb(255, 255, 255);">
-                                <div class="tree_element_container">
-                                    <input class="form-check-input me-1 hideCheckbox" onchange="TreeElementInput1OnChange(event);" type="checkbox" name="`+ name +`" value="`+ element.id +`" checked="`+ !element.hidden +`">
-                                    <input class="btn-check setUserCheckbox" onchange="TreeElementInput2OnChange(event);" type="checkbox" id="checkView;`+ element.id +`">
-                                    
-                                    <label class="setUserCheckboxLabel" for="checkView;`+ element.id +`" type="button">
-                                        <i class="fa-regular fa-eye-slash fa-lg"></i>
-                                    </label>
-                                    <div class="radioGroupIndicator invisible"></div>
-                                    <span contenteditable="true" class="tree_element_label" oninput="TreeElementSpanOnInput(event);">`+ name +`</span>
-                                    <a class="btn btn-labeled" onclick="TreeElementBtnlClick(event);" style="display: none;"><i class="fa-solid fa-caret-right"></i></a>
-                                </div>
-                            </li>
-                        `  
-                }
-                return fromHTML(tree_element_html)
+            function CreateTreeElement(element, name) {
+                const hasDocElements = element.querySelectorAll('.docelement').length > 0;
+                const variableRef = element.classList.contains('variable_ref');
+                const variableId = variableRef ? element.getAttribute('data-idVar') : null;
+                const variable = variableRef ? document.querySelector('.variable[data-idVar="'+ variableId +'"]') : null;
+                const userCanSee = element.classList.contains('userCanSee');
+                const hiddenStatus = !element.hidden;
+                const tree_element_html = `
+                    <li class="list-group-item tree_element${userCanSee ? ' userCanSee' : ''}" ondblclick="TreeElementDblClick(event);" data-idelement="${element.id}" style="background-color: rgb(255, 255, 255);">
+                        <div class="tree_element_container">
+                            <input class="form-check-input me-1 hideCheckbox" onchange="TreeElementInput1OnChange(event);" type="checkbox" name="${name}" value="${element.id}" ${hiddenStatus ? 'checked' : ''}>
+                            <input class="btn-check setUserCheckbox" onchange="TreeElementInput2OnChange(event);" type="checkbox" id="checkView;${element.id}">
+                            <label class="setUserCheckboxLabel" for="checkView;${element.id}" type="button">
+                                <i class="fa-regular fa-${userCanSee ? 'eye' : 'eye-slash'} fa-lg"></i>
+                            </label>
+                            <div class="radioGroupIndicator invisible"></div>
+                            <span contenteditable="true" class="tree_element_label" oninput="TreeElementSpanOnInput(event);">${name}</span>
+                            <a class="btn btn-labeled tree_element_caret" onclick="TreeElementBtnlClick(event);" style="display: ${hasDocElements ? '' : 'none'};"><i class="fa-solid fa-caret-right"></i></a>
+                        </div>
+                        ${variableRef ? `
+                        <div class="variable variable_in_tree" data-idVar="`+variableId+`_tree" ondblclick="SelectVar(event);">
+                            <span class="variable_name">`+variable.querySelector('.variable_name').textContent+`</span>
+                            <input type="${variable.querySelector('.variable_mean').type}" class="variable_mean" oninput="onChangeVariableOriginal(event);" value="${variable.querySelector('.variable_mean').value}">
+                        </div>
+                            ` : ''}
+                    </li>
+                `;
+                return fromHTML(tree_element_html);
             }
 
             // Функция обновляет элемент в дереве
@@ -2814,7 +2781,14 @@
                 }
             }
             
-            
+            function OptionContainerIsClicked(evt){
+                evt.stopPropagation();
+                evt.preventDefault();
+                let optionContainer = evt.target.closest('.optionContainer')
+                let input = optionContainer.querySelector('.optionInput')
+                input.checked = true
+                input.dispatchEvent(new Event('change'))
+            }
 
             // Функция заполняет дерево
             async function FillTree(parent, childs){
@@ -3140,9 +3114,23 @@
             }
 
             function onChangeVariableMean(event){
+                if(event.target === undefined)
+                    return;
                 for(let span of document.getElementsByClassName('reference_to_data')){
                     CheckOnVariableInSpan(span);
                 }
+                if(event.target.closest('.variable')){
+                    const original_variable = event.target.closest('.variable');
+                    let variable_in_tree = document.querySelector('.variable_in_tree[data-idVar="'+ original_variable.getAttribute('data-idVar') +'_tree"]');
+                    variable_in_tree.querySelector('.variable_mean').value = event.target.value;
+                }
+            }
+
+            async function onChangeVariableOriginal(event){
+                const variable_in_tree = event.target.closest('.variable_in_tree');
+                let original_variable = document.querySelector('.variable[data-idVar="'+ variable_in_tree.getAttribute('data-idVar').split('_tree')[0] +'"]');
+                original_variable.querySelector('.variable_mean').value = event.target.value;
+                original_variable.querySelector('.variable_mean').dispatchEvent(new Event('change'));
             }
 
             // Функция создаёт элемент переменной и добавляет в список
@@ -3661,10 +3649,12 @@
                 .catch(error => console.error(error));
             }
 
-            function click_to_ident(evt, object_id, value){
+            function click_to_ident(evt, object_id, value, param_ident_id){
                 let object = document.querySelector('#object_'+object_id)
                 let input = object.querySelector('input.identificator')
+                let input_id_to_connect = object.querySelector('input[name="param_ident_id"]')
                 input.value = value
+                input_id_to_connect.value = param_ident_id
                 input.dispatchEvent(new Event('change'))
                 getDataFromObject(object_id, object.querySelector('form'))
             }
@@ -3677,12 +3667,12 @@
                 container.innerHTML = ""
                 for(let ident of data.idents){
                     container.insertAdjacentHTML('beforeend', `
-                        <div class="ident col" onclick="click_to_ident(event, `+obj_id+`, '`+ ident +`')">
-                            <span>`+ident+`<span>
+                        <div class="ident col" onclick="click_to_ident(event, '${obj_id}', '${ident.param_ident}', '${ident.id}')">
+                            <span>`+ident.param_ident+`<span>
                         </div>
                     `)
                     datalist.insertAdjacentHTML('beforeend', `
-                        <option value="`+ident+`"></option>
+                        <option value="`+ident.param_ident+`"></option>
                     `)
                 }
                 $('#objectFindDataModal').modal('show');
@@ -4015,6 +4005,14 @@
                 }
             }
 
+            function setDateToday(){
+                let DateTodayVariable = document.querySelector('div[data-idVar="system;date_today"] .variable_mean')
+                DateTodayVariable.value = new Date().toISOString().split('T')[0]
+                for(let span of document.querySelectorAll('.runs[data-idVar="system;date_today"]')){
+                    CheckOnVariableInSpan(span);
+                }
+            }
+
             class FilterManager{
                 constructor(){
                     this.FilterHashTable = {}
@@ -4098,6 +4096,48 @@
                 }
 
             }
+
+            class CycleManager{
+                constructor(){
+                    this.CycleHashTable = {}
+                }
+
+                addCycle(docElement_id, object_array_idParam){
+                    this.CycleHashTable[docElement.id] = {"element": docElement_id, "object_array": object_array_idParam}
+                }
+
+                deleteCycle(docElement){
+                    try {
+                        delete this.CycleHashTable[docElement.id]
+                        return true
+                    } catch (error) {
+                        return false
+                    }
+                }
+
+                acceptCycle(docelement_id){
+                    let cycle = this.CycleHashTable[docelement_id]
+                    let element = cycle['element']
+                    let object_array = cycle['object_array']
+                    let copy_element = element.cloneNode(true);
+                    let i = 1
+                    copy_element.id = 'copy_' + element.id + '_' + i
+                    copy_element.classList.add('docelement_copy')
+                    element.parentElement.insertBefore(copy_element, element.nextElementSibling);
+                }
+
+                acceptAllCycles(){
+                    
+                }
+
+                fromJSON(json_stroke){
+                    var jsonp = JSON.parse(json_stroke);
+                    if('cycles' in jsonp){
+                        this.CycleHashTable = jsonp['cycles']
+                    }
+                }
+
+            }
             
             // Стартовые значения
             var startFontSize = 12;
@@ -4130,13 +4170,17 @@
 
             var filterManager = new FilterManager();
 
+            var cycleManager = new CycleManager();
+
             var tempElement;
 
             DocFromJSON("{{ document_json|escapejs }}")
             
             filterManager.fromJSON("{{ document_json|escapejs }}")
+            cycleManager.fromJSON("{{ document_json|escapejs }}")
 
             VariableFromJSON("{{ variable|escapejs }}")
+            setDateToday();
             
             FixedVariablesFromJSON("{{ document_json|escapejs }}")
 
@@ -4373,12 +4417,10 @@
                 }, 5000
             );
 
+            
+
             setInterval(()=>{
-                    let DateTodayVariable = document.querySelector('div[data-idVar="system;date_today"] .variable_mean')
-                    DateTodayVariable.value = new Date().toISOString().split('T')[0]
-                    for(let span of document.querySelectorAll('.runs[data-idVar="system;date_today"]')){
-                        CheckOnVariableInSpan(span);
-                    }
+                setDateToday()
                 }, 1000
             );
             // setInterval(

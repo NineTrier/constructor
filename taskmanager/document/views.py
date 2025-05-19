@@ -652,3 +652,5 @@ def delete_object_from_document(request, pk):
         except Exception as e:
             print(e)
             return HttpResponseNotModified('Не удалено. Ошибка удаления. ' + e)
+        
+     

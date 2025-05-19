@@ -25,6 +25,7 @@
             <form id="objectModalForm">
                 {% csrf_token %}
                 <div class="objectParametersContainer">
+                    <input type="hidden" name="param_ident_id">
                     {% for parameter in parameters %}
                     <div class="obj_parameter row">
                         {% if parameter.identificator %}
@@ -32,12 +33,12 @@
                                 <i class="fa-solid fa-star"></i>
                                 <span class="identificator">{{ parameter.name }}</span>
                             </div>
-                            <input type="text" class="form-control identificator col" data-id="{{ parameter.id }}" name="{{ parameter.name }}" onchange="get_data(event)">
+                            <input type="text" class="form-control identificator col" data-id="{{ parameter.id }}" name="{{ parameter.id }}" onchange="get_data(event)">
                         
                         {% else %}
                             <span class="col-2">{{ parameter.name }}</span>
-                            {% if parameter.data_type == 'TXT' %}
-                            <input type="text" class="form-control col" data-id="{{ parameter.id }}" name="{{ parameter.name }}" readonly>
+                            {% if parameter.data_type == 'TXT' or parameter.data_type == 'DATE' %}
+                            <input type="text" class="form-control col" data-id="{{ parameter.id }}" name="{{ parameter.id }}" readonly>
                             {% elif parameter.data_type == 'ARRAY' %}
                             <div class="col array_data_container"></div> 
                             {% endif %}
@@ -118,6 +119,12 @@
 <div class="container">
     <div class="header-bar mt-2">
         <h1>Объект {{ object.name }}</h1>
+        <a type="button" class="btn btn-labeled" onclick="addElement(event)">
+            <i class="fa-solid fa-plus"></i>
+        </a>
+        <a type="button" class="btn btn-labeled" onclick="updateObject(event)">
+            <i class="fa-solid fa-pen"></i>
+        </a>
         <a type="button" class="btn btn-labeled" onclick="updateCSV(event)">
             <i class="fa-solid fa-rotate"></i>
         </a>
@@ -135,8 +142,8 @@
         <div class="d-flex flex-column col">
             <div class="identsContainer row">
                 {% for ident in idents %}
-                <div class="ident col" onclick="click_to_ident(event)">
-                    <span>{{ ident }}<span>
+                <div class="ident col" onclick="click_to_ident(event, '{{ ident.id }}')">
+                    <span>{{ ident.param_ident }}<span>
                 </div>
                 {% endfor %}
             </div>
@@ -164,16 +171,13 @@
         .then(response => response.text())
         .then(columns =>{
             data = JSON.parse(columns)[0];
-            console.log(data)
             for(let [key, value] of Object.entries(data)){
-                console.log(key, value)
                 data_type = value['data_type']
                 data_value = value['value']
-                console.log(data_type, data_value)
                 if(data_value == 'nan')
                     data_value = ''
-                if(data_type == 'TXT')
-                    document.querySelector('input[name="'+key+'"]').value = data_value
+                if(data_type == 'TXT' || data_type == 'DATE')
+                    document.querySelector('input[data-id="'+key+'"]').value = data_value
                 if(data_type == 'ARRAY'){
                     let container = document.querySelector('.array_data_container')
                     container.innerHTML = ''
@@ -236,11 +240,13 @@
         })
         .catch(error => console.error('Error:', error));
     }
-    function click_to_ident(evt){
+    function click_to_ident(evt, param_ident_id){
         evt.stopPropagation()
         evt.preventDefault()
         let element = evt.target.closest('.ident')
         let input = document.querySelector('input.identificator')
+        let input_id_to_connect = document.querySelector('input[name="param_ident_id"]')
+        input_id_to_connect.value = param_ident_id
         input.value = element.querySelector('span').textContent
         input.dispatchEvent(new Event('change'));
         
@@ -386,6 +392,15 @@
         })
         .catch(error => console.error(error));
         
+    }
+
+    function updateObject(evt){
+        const objectId = document.querySelector('meta[name="object_id"]').getAttribute('content');
+        location.href = '/database/update_object/'+objectId + '/'
+    }
+    function addElement(evt){
+        const objectId = document.querySelector('meta[name="object_id"]').getAttribute('content');
+        location.href = '/database/add_element_to_object/'+objectId + '/'
     }
 </script>
 {% endblock %}

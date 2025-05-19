@@ -62,3 +62,7 @@ def about(request):
 
 def teliki(request, pk):
     return render(request, 'main/teliki.html', context={'target': pk})
+
+def match_machine(request):
+    documents = DocumentsPattern.objects.filter(documentOfOrganisation=True).order_by('-lastUpdate')
+    return render(request, 'main/match_machine.html')

@@ -803,6 +803,7 @@ input[type="number"]::-webkit-inner-spin-button{
     flex-direction: row;
     justify-content: center;
     padding: 15px;
+    cursor: pointer;
 }
 
 .optionContainer:has(.optionInput:checked){
