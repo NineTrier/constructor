@@ -405,8 +405,8 @@ def generate_excel_file(request, pk):
     doc_list = [f"{doc.document.name}**{doc.document.id}**" for doc in documents]
     
     df_object = pd.read_pickle(f'{settings.MEDIA_ROOT}\{object.data}')
-    ident_list = [f"{row[ident.name]}**{row['id_to_connect']}" for index, row in df_object.iterrows()]
-    dict_to_df = {f'{ident.name}**{ident.object.id}**': ident_list}
+    ident_list = [f"{row[ident.id]}**{row['id_to_connect']}" for index, row in df_object.iterrows()]
+    dict_to_df = {f'{ident.id}**{ident.object.id}**': ident_list}
     df = pd.DataFrame({**dict_to_df, **{doc: ['-'] * len(ident_list) for doc in doc_list}})
     
     temp_dir = os.path.join(settings.MEDIA_ROOT, 'generated_files')
