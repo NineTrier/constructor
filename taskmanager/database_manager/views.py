@@ -291,9 +291,9 @@ def update_object(request, pk):
                 )
                 if ident is None:
                     parameter.identificator = True
-                    ident = -1
+                    ident = "Not None"
                 parameter.save()
-                data_obj[int(parameter.id)] = []
+                data_obj[int(parameter.id)] = [""]
             else:
                 parameter = Parameter.objects.get(id=int(col_id))
                 parameter.identificator = col_id == ident   
