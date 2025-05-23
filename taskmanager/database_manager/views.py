@@ -289,11 +289,12 @@ def update_object(request, pk):
                     identificator=col_id == ident,
                     date_format=date_format[i]
                 )
+                parameter.save()
                 if ident is None:
                     parameter.identificator = True
-                    ident = "Not None"
-                parameter.save()
-                data_obj[int(parameter.id)] = [""]
+                    ident = int(parameter.id)
+                    parameter.save()
+                data_obj[int(parameter.id)] = []
             else:
                 parameter = Parameter.objects.get(id=int(col_id))
                 parameter.identificator = col_id == ident   
@@ -304,6 +305,7 @@ def update_object(request, pk):
                 parameter.save()
         if os.path.exists(object.data.path):
             os.remove(object.data.path)
+        data_obj=data_obj.dropna(subset=[ident])
         data_obj.to_pickle(object.data.path)
         # возвращаем ответ
         return HttpResponse(status=200)
