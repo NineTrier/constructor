@@ -39,7 +39,7 @@ def upload_csv_and_get_columns(request):
 def get_object_parameters(request, pk):
     object = get_object_or_404(Object, pk=pk)
     if request.method == 'POST':
-        parameters = Parameter.objects.filter(object=object).all()
+        parameters = sorted(Parameter.objects.filter(object=object), key=lambda x: x.id)
         result = []
         for par in parameters:
             result.append({'id': par.id, 'name': par.name, 'identificator': par.identificator})
@@ -108,7 +108,7 @@ def get_object(request, pk):
         param_ident = Parameter.objects.filter(object=object, identificator=True).first()
         idents = []
         if param_ident != None:
-            for i, row in data_obj.iterrows():
+            for i, row in data_obj.sort_index(axis=0, ascending=False).iterrows():
                 idents.append({
                     'id': row['id_to_connect'],
                     'param_ident': row[param_ident.id],
@@ -125,7 +125,7 @@ def get_object(request, pk):
 
     context = {
         'object': object,
-        'parameters': Parameter.objects.filter(object=object),
+        'parameters': sorted(Parameter.objects.filter(object=object), key=lambda x: x.id),
         'idents': idents,
         'documents': [doc.document for doc in DocumentPattern_Objects.objects.filter(object=object)],
     }
@@ -245,7 +245,7 @@ def upload_csv(request):
         # создаем параметры
         params = Parameter.objects.bulk_create(parameters)  
         df.columns = [param.id for param in params]
-        df['id_to_connect'] = [uuid.uuid4().hex for _ in range(df.shape[0])]
+        df['id_to_connect'] = [f"{_}_{uuid.uuid4().hex}" for _ in range(df.shape[0])]
         # сохраняем файл
         df.to_pickle(file_path)
         # возвращаем ответ
@@ -270,6 +270,7 @@ def update_object(request, pk):
         if changed == 0:
             return HttpResponse(status=304)
         object.name = request.POST['name']
+        object.save()
         # узнаем, какой столбец является идентификатором
         ident = request.POST.get('ident_column')
         col_ids = request.POST.getlist('col_ids[]')
@@ -278,7 +279,6 @@ def update_object(request, pk):
         arr_delim = request.POST.getlist('arr_delim[]')
         date_format = request.POST.getlist('date_format[]')
         # создаем параметры Parameter для каждого столбца
-        parameters = []
         for i, col_id in enumerate(col_ids):
             if col_id == '-1':
                 parameter = Parameter(
@@ -289,19 +289,19 @@ def update_object(request, pk):
                     identificator=col_id == ident,
                     date_format=date_format[i]
                 )
-                parameters.append(parameter)
-                data_obj[parameter.id] = []
+                if ident is None:
+                    parameter.identificator = True
+                    ident = -1
+                parameter.save()
+                data_obj[int(parameter.id)] = []
             else:
                 parameter = Parameter.objects.get(id=int(col_id))
-                parameter.identificator = col_id == ident
+                parameter.identificator = col_id == ident   
                 parameter.name = col_names[i]
                 parameter.data_type = col_types[i]
                 parameter.array_separator = arr_delim[i]
                 parameter.date_format = date_format[i]
-                parameters.append(parameter)
-        Parameter.objects.bulk_update(parameters, [
-            'name', 'data_type', 'array_separator', 'identificator', 'date_format'
-        ])
+                parameter.save()
         if os.path.exists(object.data.path):
             os.remove(object.data.path)
         data_obj.to_pickle(object.data.path)
@@ -310,7 +310,7 @@ def update_object(request, pk):
     # отображаем форму
     return render(request, 'database_manager/update_object.html', context={
         'object': object,
-        'parameters': Parameter.objects.filter(object=object),
+        'parameters': sorted(Parameter.objects.filter(object=object), key=lambda x: x.id),
     })
     
 def add_element_to_object(request, pk):
@@ -320,22 +320,89 @@ def add_element_to_object(request, pk):
         data_obj = pickle.load(f)
 
     if request.method == 'POST':
-        new_row = {"id_to_connect": uuid.uuid4().hex}
+        new_row = {"id_to_connect": f"{data_obj.shape[0]}_{uuid.uuid4().hex}"}
         col_ids = map(int, request.POST.getlist('col_id[]'))
-        col_values = request.POST.getlist('col_value[]')
-        new_row.update(zip(col_ids, col_values))
-        data_obj = data_obj.append(new_row, ignore_index=True)
-        data_obj.to_pickle(file_path.path, compression='infer')
+        for col_id in col_ids:
+            col_values = request.POST.getlist(f'col_value_{col_id}[]')
+            parameter = Parameter.objects.get(id=col_id)
+            print(col_values)
+            new_row[int(col_id)] = str(col_values[0]) if len(col_values) == 1 else f"{parameter.array_separator}".join(col_values)
+            print(new_row)
+        data_obj = pd.concat([data_obj, pd.DataFrame([new_row])], ignore_index=True)
+        data_obj.to_pickle(file_path.path)
         return HttpResponse()
-
-    parameters_data = [
-        (parameter, [value for value in data_obj[parameter.id].unique() if value not in ['None', 'nan', None] and value])
-        for parameter in Parameter.objects.filter(object=object)
-    ]
+    parameters_data = [] 
+    for parameter in Parameter.objects.filter(object=object):
+        if parameter.data_type == 'ARRAY':
+            arrays_data = f"{parameter.array_separator}".join(data_obj[int(parameter.id)].values.tolist())
+            parameters_data.append((parameter, [value for value in set(list(filter(lambda x: str(x).strip(),arrays_data.split(f"{parameter.array_separator}")))) if value not in ['None', 'nan', None] and value]))
+        else:
+            parameters_data.append((parameter, [value for value in set(list(filter(lambda x: str(x).strip(),data_obj[int(parameter.id)]))) if value not in ['None', 'nan', None] and value]))
+    
     return render(request, 'database_manager/add_element_to_object.html', context={
         'object': object,
-        'parameters_data': parameters_data,
+        'parameters_data': sorted(parameters_data, key=lambda x: x[0].id), #parameters_data,
     })
+    
+def find_in_params_data(params_data: list, value: str, param: Parameter) -> list:
+    result = []
+    for data in params_data:
+        if param.data_type == 'ARRAY':
+            if data[1] in set(list(filter(lambda x: str(x).strip(),value.split(param.array_separator)))):
+                result.append(data[0])
+        else:
+            if value.strip() == data[1]:
+                result.append(data[0])
+    return result
+    
+def update_element_to_object(request, pk):
+    object = get_object_or_404(Object, pk=pk)
+    file_path = object.data
+    with open(f'{settings.MEDIA_ROOT}\{object.data}', 'rb') as f:
+        data_obj = pickle.load(f)
+    param_ident_id = request.GET.get('id')
+    print(param_ident_id)
+    row = data_obj[data_obj['id_to_connect'] == param_ident_id]
+    print(row)
+    if request.method == 'POST':
+        col_ids = map(int, request.POST.getlist('col_id[]'))
+        for col_id in col_ids:
+            col_values = request.POST.getlist(f'col_value_{col_id}[]')
+            parameter = Parameter.objects.get(id=col_id)
+            data_obj.loc[data_obj['id_to_connect'] == param_ident_id, int(col_id)] = str(col_values[0]) if len(col_values) == 1 else f"{parameter.array_separator}".join(col_values)
+        data_obj.to_pickle(file_path.path)
+        return HttpResponse()
+    parameters_data = [] 
+    for parameter in Parameter.objects.filter(object=object):
+        current_data = str(row[int(parameter.id)].values.tolist()[0]).strip()
+        if parameter.data_type == 'ARRAY':
+            arrays_data = f"{parameter.array_separator}".join(data_obj[int(parameter.id)].values.tolist())
+            arrays_data = [value for value in set(list(filter(lambda x: str(x).strip(),arrays_data.split(f"{parameter.array_separator}")))) if value not in ['None', 'nan', None] and value]
+            arrays_data = [(i, data) for i, data in enumerate(arrays_data)]
+            parameters_data.append((parameter, arrays_data, find_in_params_data(arrays_data, current_data, parameter), current_data))
+        else:
+            param_data = [value for value in set(list(filter(lambda x: str(x).strip(),data_obj[int(parameter.id)]))) if value not in ['None', 'nan', None] and value]
+            param_data = [(i, data) for i, data in enumerate(param_data)]
+            parameters_data.append((parameter, param_data, find_in_params_data(param_data, current_data, parameter), current_data))
+    
+    return render(request, 'database_manager/update_element_to_object.html', context={
+        'object': object,
+        'parameters_data': sorted(parameters_data, key=lambda x: x[0].id), #parameters_data,
+        'param_ident_id': param_ident_id
+    })
+    
+def delete_element_to_object(request, pk):
+    if request.method == 'POST':
+        object = get_object_or_404(Object, pk=pk)
+        file_path = object.data
+        with open(f'{settings.MEDIA_ROOT}\{object.data}', 'rb') as f:
+            data_obj = pickle.load(f)
+        param_ident_id = request.GET.get('id')
+        print(param_ident_id)
+        index = data_obj[data_obj['id_to_connect'] == param_ident_id].index
+        data_obj.drop(index, inplace=True)
+        data_obj.to_pickle(file_path.path)
+        return HttpResponse()
 
 def update_csv(request, pk):
     """
@@ -370,7 +437,7 @@ def update_csv(request, pk):
 
         # приводим все значения к строке и убираем лишние пробелы
         df = df.map(lambda x: str(x).strip())
-        df['id_to_connect'] = [uuid.uuid4().hex for _ in range(df.shape[0])]
+        df['id_to_connect'] = [f"{_}_{uuid.uuid4().hex}"for _ in range(df.shape[0])]
         file_path = object.data
         
         df.columns = data_obj.columns.tolist()

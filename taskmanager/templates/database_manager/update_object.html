@@ -1,7 +1,7 @@
 {% extends  'base.html' %}
 
 {% block title %}
-Создать объект
+Работа с объектом
 {% endblock %}
 
 {% block connection %}
@@ -23,7 +23,7 @@
         <input type="file" name="csv_file" class="form-control" accept=".csv" required> -->
         <div class="d-flex flex-column w-100">
             <div style="display: flex;">
-                <h3>Параметры</h3>
+                <h3>Переменные</h3>
                 <a type="button" class="btn btn-labeled" onclick="add_param(event)"><i class="fa-solid fa-plus"></i></a>
             </div>
             <div class="d-flex flex-column w-100" id="columns_list">
@@ -31,11 +31,12 @@
                 <div class="d-flex flex-row w-100 align-items-center object_param_item">
                     <a type="button" class="btn btn-labeled" onclick="delete_param(event)"><i class="fa-solid fa-trash" style="color: red;"></i></a>
                     <input name="col_ids[]" id="col_id_{{ param.id }}" class="form-control w-25 invisible param_id" type="text" value="{{ param.id }}">
-                    <label for="col_{{ param.id }}">Параметр:</label>
+                    <label for="col_{{ param.id }}">Переменная:</label>
                     <input name="col[]" id="col_{{ param.id }}" class="form-control w-25 param_name" type="text" value="{{ param.name }}" onchange="param_name_changed(event);param_changed()">
                     <label for="col_type_{{ param.id }}">Тип данных:</label>
                     <select name="col_type[]" id="col_type_{{ param.id }}" class="form-select w-25 param_type_select" onchange="param_type_changed(event);param_changed()">
                         {% if param.data_type == 'TXT' %}<option value="TXT" selected>Текст</option>{% else %}<option value="TXT">Текст</option>{% endif %}
+                        {% if param.data_type == 'TXTS' %}<option value="TXTS" selected>Текст(Автозаполнение одного значения)</option>{% else %}<option value="TXTS">Текст(Автозаполнение одного значения)</option>{% endif %}
                         {% if param.data_type == 'INT' %}<option value="INT" selected>Число</option>{% else %}<option value="INT">Число</option>{% endif %}
                         {% if param.data_type == 'ARRAY' %}<option value="ARRAY" selected>Список</option>{% else %}<option value="ARRAY">Список</option>{% endif %}
                         {% if param.data_type == 'DATE' %}<option value="DATE" selected>Дата</option>{% else %}<option value="DATE">Дата</option>{% endif %}
@@ -58,7 +59,7 @@
                 </div>
                 {% endfor %}
             </div>
-            <a type="button" class="btn btn-labeled" onclick="add_param(event)"><i class="fa-solid fa-plus"></i>Добавить параметр</a>
+            <a type="button" class="btn btn-labeled" onclick="add_param(event)"><i class="fa-solid fa-plus"></i>Добавить переменную</a>
         </div>
         <div class="fieldWrapper" id="identificator_block">
             <span>Идентификатор объекта:</span>
@@ -100,11 +101,12 @@
         <div class="d-flex flex-row w-100 align-items-center object_param_item new_param">
             <a type="button" class="btn btn-labeled" onclick="delete_param(event)"><i class="fa-solid fa-trash" style="color: red;"></i></a>
             <input name="col_ids[]" id="col_id_new_${ident}" class="form-control w-25 invisible param_id" type="text" value="-1">
-            <label for="col_new_${ident}">Параметр:</label>
-            <input name="col[]" id="col_new_${ident}" class="form-control w-25 param_name" type="text" value="Новый параметр" onchange="param_name_changed(event);param_changed()">
+            <label for="col_new_${ident}">Переменная:</label>
+            <input name="col[]" id="col_new_${ident}" class="form-control w-25 param_name" type="text" value="Новая переменная" onchange="param_name_changed(event);param_changed()">
             <label for="col_type_new_${ident}">Тип данных:</label>
             <select name="col_type[]" id="col_type_new_${ident}" class="form-select w-25 param_type_select" onchange="param_type_changed(event);param_changed()">
-                <option value="TXT" selected="">Текст</option>
+                <option value="TXT" selected>Текст</option>
+                <option value="TXTS">Текст(Автозаполнение одного значения)</option>
                 <option value="INT">Число</option>
                 <option value="ARRAY">Список</option>
                 <option value="DATE">Дата</option>
@@ -130,7 +132,7 @@
     }
 
     function delete_param(event){
-        if (!confirm("Вы точно хотите удалить параметр?"))
+        if (!confirm("Вы точно хотите удалить эту переменную?"))
             return
         let param = event.target.closest('.object_param_item')
         let ident_param_select = document.querySelector('#identificator_block select')
@@ -224,16 +226,23 @@
         }
     }
 
+    function checkNames(){
+        let params = document.querySelectorAll('.param_name')
+        let params_names = []
+        for(let pni of params){
+            params_names.push(pni.value)
+        }
+        let params_names_set = new Set(params_names)
+        return params_names.length == params_names_set.size
+    }
+
     function param_name_changed(evt){
         let param_name_input = evt.target.closest('.object_param_item').querySelector('.param_name')
         let name = param_name_input.value
         param_name_input.classList.remove('is-invalid')
-        for(let pni of document.querySelectorAll('.param_name')){
-            if(pni.value == name && pni != param_name_input){
-                param_name_input.classList.add('is-invalid')
-                param_name_input.classList.remove('is-valid')
-                alert('Параметр с таким именем уже существует')
-            }
+        if(!checkNames()){
+            alert('Есть дубликаты названий переменных. Переименуйте')
+            return
         }
     }
 
@@ -243,6 +252,10 @@
         if(!validate_form()){
             alert('Ошибка введённых данных')
             return;
+        }
+        if(!checkNames()){
+            alert('Есть дубликаты названий переменных. Переименуйте')
+            return
         }
         form = new FormData(document.querySelector('form'))
         form.append('changed', changed)

@@ -168,11 +168,12 @@
         for(let col of columns.split(';')){
             container.insertAdjacentHTML('beforeend', `
                 <div class="d-flex flex-row w-100 align-items-center object_param_item">
-                    <label for="col`+i+`">Параметр:</label>
+                    <label for="col`+i+`">Переменная:</label>
                     <input name="col[]" id="col`+i+`" class="form-control w-25" type="text" value="`+col+`">
                     <label for="col`+i+`">Тип данных:</label>
                     <select name="col_type[]" id="col_type`+i+`" class="form-select w-25 param_type_select" onchange="param_type_changed(event)">
                         <option value="TXT">Текст</option>
+                        <option value="TXTS">Текст(Автозаполнение одного значения)</option>
                         <option value="INT">Число</option>
                         <option value="ARRAY">Список</option>
                         <option value="DATE">Дата</option>

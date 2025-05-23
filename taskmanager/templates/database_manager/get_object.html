@@ -18,7 +18,9 @@
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="objectModalLabel">Объект</h5>
+          <h5 class="modal-title" id="objectModalLabel">Элемент</h5>
+          <a type="button" class="btn btn-labeled" onclick="updateObjectElement(event)"><i class="fa-solid fa-pen"></i></a>
+          <a type="button" class="btn btn-labeled" onclick="deleteObjectElement(event)"><i class="fa-solid fa-trash" style="color: red"></i></a>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
@@ -27,7 +29,7 @@
                 <div class="objectParametersContainer">
                     <input type="hidden" name="param_ident_id">
                     {% for parameter in parameters %}
-                    <div class="obj_parameter row">
+                    <div class="obj_parameter row" id="obj_parameter_{{ parameter.id }}">
                         {% if parameter.identificator %}
                             <div class="col-2">
                                 <i class="fa-solid fa-star"></i>
@@ -37,7 +39,7 @@
                         
                         {% else %}
                             <span class="col-2">{{ parameter.name }}</span>
-                            {% if parameter.data_type == 'TXT' or parameter.data_type == 'DATE' %}
+                            {% if parameter.data_type == 'TXT' or parameter.data_type == 'TXTS' or parameter.data_type == 'DATE' %}
                             <input type="text" class="form-control col" data-id="{{ parameter.id }}" name="{{ parameter.id }}" readonly>
                             {% elif parameter.data_type == 'ARRAY' %}
                             <div class="col array_data_container"></div> 
@@ -172,14 +174,15 @@
         .then(columns =>{
             data = JSON.parse(columns)[0];
             for(let [key, value] of Object.entries(data)){
+                let object_parameter = document.querySelector('#obj_parameter_'+key)
                 data_type = value['data_type']
                 data_value = value['value']
                 if(data_value == 'nan')
                     data_value = ''
-                if(data_type == 'TXT' || data_type == 'DATE')
-                    document.querySelector('input[data-id="'+key+'"]').value = data_value
+                if(data_type == 'TXT' || data_type == 'DATE' || data_type == 'TXTS')
+                    object_parameter.querySelector('input[data-id="'+key+'"]').value = data_value
                 if(data_type == 'ARRAY'){
-                    let container = document.querySelector('.array_data_container')
+                    let container = object_parameter.querySelector('.array_data_container')
                     container.innerHTML = ''
                     for(let i = 0; i < data_value.length; i++){
                         container.insertAdjacentHTML('beforeend', `
@@ -193,7 +196,7 @@
                 }
                 
             }
-            document.querySelector('#objectModalLabel').innerHTML = "Объект " + document.querySelector('input.identificator').value
+            document.querySelector('#objectModalLabel').innerHTML = "Элемент " + document.querySelector('input.identificator').value
             var modal = new bootstrap.Modal(document.getElementById('objectModal'))
             modal.show()
         })
@@ -359,6 +362,29 @@
     function updateCSV(evt){
         var modal = new bootstrap.Modal(document.getElementById('objectUpdateFileModal'))
         modal.show()
+    }
+
+    function updateObjectElement(evt){
+        const objectId = document.querySelector('meta[name="object_id"]').getAttribute('content');
+        let element_id = document.querySelector('#objectModalForm input[name="param_ident_id"]').value
+        location.href = '/database/update_element_to_object/' + objectId + '/?id=' + element_id
+    }
+
+    function deleteObjectElement(evt){
+        if(!confirm('Вы точно хотите удалить этот элемент?'))
+            return
+        const objectId = document.querySelector('meta[name="object_id"]').getAttribute('content');
+        let element_id = document.querySelector('#objectModalForm input[name="param_ident_id"]').value
+        fetch('/database/delete_element_to_object/' + objectId + '/?id=' + element_id, {
+            method: 'POST',
+            body: new FormData(document.querySelector('#form_update_csv_object')),
+        })
+        .then(response => response.text())
+        .then(message =>{
+            console.log(message);
+            location.reload()
+        })
+        .catch(error => console.error(error));
     }
 
     function openModalCreateDocuments(evt){

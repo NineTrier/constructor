@@ -455,7 +455,7 @@
                                                                 <input type="text" class="form-control identificator col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.id}}" onclick="getObjectData(event, '{{ obj.object.id }}')" onchange="onChangeVariableMean(event);">
                                                             {% else %}
                                                                 <span class="col-2 obj_parameter_name">{{ parameter.name }}</span>
-                                                                {% if parameter.data_type == 'TXT' %}
+                                                                {% if parameter.data_type == 'TXT' or parameter.data_type == 'TXTS' %}
                                                                 <input type="text" class="form-control col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.id}}" onchange="onChangeVariableMean(event);" readonly>
                                                                 {% elif parameter.data_type == 'DATE' %}
                                                                 <input type="text" class="form-control col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.id}}" onchange="onChangeVariableMean(event);" readonly>
@@ -3619,7 +3619,7 @@
                         data_value = value['value']
                         if(data_value == 'nan')
                             data_value = ''
-                        if(data_type == 'TXT'){
+                        if(data_type == 'TXT' || data_type == 'TXTS' || data_type == 'DATE'){
                             let inp = form.querySelector('input[name="'+key+'"]')
                             inp.value = data_value
                             inp.dispatchEvent(new Event('change'))
@@ -3637,11 +3637,11 @@
                                 `)
                             }
                         }
-                        else if(data_type == 'DATE'){
-                            let inp = form.querySelector('input[name="'+key+'"]') 
-                            inp.value = data_value;
-                            inp.dispatchEvent(new Event('change'))
-                        }
+                        // else if(data_type == 'DATE'){
+                        //     let inp = form.querySelector('input[name="'+key+'"]') 
+                        //     inp.value = data_value;
+                        //     inp.dispatchEvent(new Event('change'))
+                        // }
                     }
                     $('#objectFindDataModal').modal('hide');
                     
