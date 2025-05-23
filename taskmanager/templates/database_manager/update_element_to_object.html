@@ -19,7 +19,7 @@
     <div class="header-bar">
         <h1>Обновить данные в объекте</h1>
     </div>
-    <form enctype="multipart/form-data" id="form_update_data_to_object" data-objectId="{{ object.id }}">
+    <form enctype="multipart/form-data" id="form_update_data_to_object" data-objectId="{{ object.id }}" onkeydown="return event.key != 'Enter';">
         {% csrf_token %}
         <h3>Название объекта:</h3>
         <h4>{{ object.name }}</h4>
