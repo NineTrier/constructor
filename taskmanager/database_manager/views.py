@@ -294,7 +294,7 @@ def update_object(request, pk):
                     parameter.identificator = True
                     ident = int(parameter.id)
                     parameter.save()
-                data_obj[int(parameter.id)] = []
+                data_obj[int(parameter.id)] = pd.NA
             else:
                 parameter = Parameter.objects.get(id=int(col_id))
                 parameter.identificator = col_id == ident   
@@ -305,7 +305,6 @@ def update_object(request, pk):
                 parameter.save()
         if os.path.exists(object.data.path):
             os.remove(object.data.path)
-        data_obj=data_obj.dropna(subset=[ident])
         data_obj.to_pickle(object.data.path)
         # возвращаем ответ
         return HttpResponse(status=200)
@@ -314,6 +313,21 @@ def update_object(request, pk):
         'object': object,
         'parameters': sorted(Parameter.objects.filter(object=object), key=lambda x: x.id),
     })
+    
+def get_unique_filtered_strings(list_of_values):
+    """
+    Преобразует значения в строки, удаляет пробелы по краям,
+    фильтрует пустые строки, 'None' и 'nan', и возвращает отсортированные уникальные результаты.
+    """
+    filtered_values = []
+    for val in list_of_values:
+        # Преобразуем в строку и удаляем пробелы по краям
+        s_val = str(val).strip()
+        # Проверяем, что строка не пустая и не является 'None' или 'nan'
+        if s_val and s_val not in ['None', 'nan', '<NA>']:
+            filtered_values.append(s_val)
+    # Получаем уникальные значения и сортируем их
+    return sorted(list(set(filtered_values)))
     
 def add_element_to_object(request, pk):
     object = get_object_or_404(Object, pk=pk)
@@ -335,11 +349,20 @@ def add_element_to_object(request, pk):
         return HttpResponse()
     parameters_data = [] 
     for parameter in Parameter.objects.filter(object=object):
+        col_id = int(parameter.id)
+        raw_values_list = []
+        if col_id not in data_obj.columns:
+            data_obj[col_id] = pd.NA
+            continue
+        column_series = data_obj[col_id].dropna()
         if parameter.data_type == 'ARRAY':
-            arrays_data = f"{parameter.array_separator}".join(data_obj[int(parameter.id)].values.tolist())
-            parameters_data.append((parameter, [value for value in set(list(filter(lambda x: str(x).strip(),arrays_data.split(f"{parameter.array_separator}")))) if value not in ['None', 'nan', None] and value]))
+            for cell_value in column_series:
+                cell_value_str = str(cell_value)
+                raw_values_list.extend(cell_value_str.split(parameter.array_separator))
         else:
-            parameters_data.append((parameter, [value for value in set(list(filter(lambda x: str(x).strip(),data_obj[int(parameter.id)]))) if value not in ['None', 'nan', None] and value]))
+            raw_values_list = column_series.tolist()
+        final_unique_values = get_unique_filtered_strings(raw_values_list)
+        parameters_data.append((parameter, final_unique_values))
     
     return render(request, 'database_manager/add_element_to_object.html', context={
         'object': object,
@@ -356,6 +379,37 @@ def find_in_params_data(params_data: list, value: str, param: Parameter) -> list
             if value.strip() == data[1]:
                 result.append(data[0])
     return result
+
+
+def get_indexed_unique_filtered_values(values_list, array_separator=None):
+    """
+    Обрабатывает список значений: преобразует в строки, удаляет пробелы,
+    фильтрует пустые строки, 'None' и 'nan'. Если array_separator предоставлен,
+    сначала разбивает каждое значение по разделителю.
+    Возвращает отсортированный список кортежей (индекс, уникальное_значение).
+    """
+    processed_elements = []
+    for val in values_list:
+        s_val = str(val).strip()
+        # Фильтруем пустые строки, 'None' и 'nan' на ранней стадии
+        if s_val and s_val not in ['None', 'nan', '<NA>']:
+            if array_separator:
+                # Если тип ARRAY, разбиваем строку по разделителю и добавляем элементы
+                # Фильтруем пустые элементы после разбиения
+                processed_elements.extend([el.strip() for el in s_val.split(array_separator) if el.strip()])
+            else:
+                # Для других типов, просто добавляем обработанную строку
+                processed_elements.append(s_val)
+
+    # Фильтруем еще раз на случай, если после разбиения появились пустые строки или 'None'/'nan'
+    final_filtered = [el for el in processed_elements if el and el not in ['None', 'nan', '<NA>']]
+
+    # Получаем уникальные значения и сортируем их
+    unique_filtered = sorted(list(set(final_filtered)))
+
+    # Добавляем индекс к каждому уникальному значению
+    indexed_values = [(i, data) for i, data in enumerate(unique_filtered)]
+    return indexed_values
     
 def update_element_to_object(request, pk):
     object = get_object_or_404(Object, pk=pk)
@@ -376,14 +430,17 @@ def update_element_to_object(request, pk):
         return HttpResponse()
     parameters_data = [] 
     for parameter in Parameter.objects.filter(object=object):
-        current_data = str(row[int(parameter.id)].values.tolist()[0]).strip()
+        current_data = str(row[int(parameter.id)].iloc[0]).strip()
+        current_data = current_data if current_data not in ['None', 'nan', None, '<NA>'] else ""
+        param_data = data_obj[int(parameter.id)].dropna().values.tolist()
         if parameter.data_type == 'ARRAY':
-            arrays_data = f"{parameter.array_separator}".join(data_obj[int(parameter.id)].values.tolist())
-            arrays_data = [value for value in set(list(filter(lambda x: str(x).strip(),arrays_data.split(f"{parameter.array_separator}")))) if value not in ['None', 'nan', None] and value]
+            arrays_data = f"{parameter.array_separator}".join(param_data)
+            unique_param_data = set(list(filter(lambda x: str(x).strip(),arrays_data.split(f"{parameter.array_separator}"))))
+            arrays_data = [value for value in unique_param_data if value not in ['None', 'nan', None, '<NA>'] and value]
             arrays_data = [(i, data) for i, data in enumerate(arrays_data)]
             parameters_data.append((parameter, arrays_data, find_in_params_data(arrays_data, current_data, parameter), current_data))
         else:
-            param_data = [value for value in set(list(filter(lambda x: str(x).strip(),data_obj[int(parameter.id)]))) if value not in ['None', 'nan', None] and value]
+            param_data = [value for value in param_data if value not in ['None', 'nan', None, '<NA>'] and value]
             param_data = [(i, data) for i, data in enumerate(param_data)]
             parameters_data.append((parameter, param_data, find_in_params_data(param_data, current_data, parameter), current_data))
     
@@ -425,28 +482,37 @@ def update_csv(request, pk):
             data_obj = pickle.load(f)
             f.close()
             
+        print(request.POST)
+            
         # читаем файл
         csv_file = request.FILES['csv_file']
         df = pd.read_csv(csv_file)
-        
-        if len(data_obj.columns.tolist()) != len(df.columns.tolist()):
-            return HttpResponseNotModified("Количество столбцов разное. Для загрузки данных из этого CSV создайте новый объект.")
-        
-        # если выбран столбец для удаления, то удаляем
+
         drop_column = request.POST.get('drop_column', '-1')
         if drop_column != '-1':
-            df.dropna(subset=[int(drop_column)], inplace=True)
-
-        # приводим все значения к строке и убираем лишние пробелы
-        df = df.map(lambda x: str(x).strip())
-        df['id_to_connect'] = [f"{_}_{uuid.uuid4().hex}"for _ in range(df.shape[0])]
+            df.dropna(subset=[drop_column], inplace=True)
+        
+        new_df = {}
+        for parameter in sorted(Parameter.objects.filter(object=object), key=lambda x: x.id):
+            col_id = int(parameter.id)
+            csv_name = request.POST.get(f'csv_column_{col_id}', '')
+            if not csv_name:
+                new_df[col_id] = pd.NA
+                continue
+            if csv_name == '-1':
+                new_df[col_id] = pd.NA
+                continue
+            new_df[col_id] = df[csv_name].map(lambda x: str(x).strip()).tolist()
+              
+        new_df['id_to_connect'] = [f"{_}_{uuid.uuid4().hex}" for _ in range(df.shape[0])]
+        
+        new_df = pd.DataFrame(new_df)
         file_path = object.data
         
-        df.columns = data_obj.columns.tolist()
         # сохраняем файл
         if os.path.exists(file_path.path):
             os.remove(file_path.path)
-        df.to_pickle(file_path.path)
+        new_df.to_pickle(file_path.path)
         # возвращаем ответ
         return HttpResponse(f'/database/get_object/{object.id}')
 

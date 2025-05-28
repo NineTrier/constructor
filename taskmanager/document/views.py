@@ -417,7 +417,7 @@ def ViewDocument(request):
         res = AddDocumentToUser(request, fileid)
         return redirect(f'/document/view?id={res["id"]}')
     parent_document = Document_ParentDocument.objects.filter(document=Doc.id)
-    objects = [{'object': obj.object, 'params':[parameter for parameter in Parameter.objects.filter(object=obj.object)]} for obj in DocumentPattern_Objects.objects.filter(document=Doc.id)]
+    objects = [{'object': obj.object, 'params':[parameter for parameter in sorted(Parameter.objects.filter(object=obj.object), key=lambda x: x.id)]} for obj in DocumentPattern_Objects.objects.filter(document=Doc.id)]
     print(objects)
     context = {
         'title': 'Просмотр документа',
