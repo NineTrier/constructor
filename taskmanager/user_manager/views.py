@@ -7,7 +7,7 @@ import json
 from django.views.generic.list import ListView
 from django.views.generic.edit import CreateView
 from django.shortcuts import get_object_or_404, redirect
-from django.contrib.auth import views, models, authenticate, login
+from django.contrib.auth import views, models, authenticate, login, logout
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.models import User
 from .forms import UserLoginForm, ProfileForm
@@ -19,6 +19,12 @@ import csv
 import codecs
 from django.conf import settings
 import os
+
+
+def logout_view(request):
+    logout(request)
+    
+    return redirect('/')
 
 
 class Login(views.LoginView):
