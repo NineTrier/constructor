@@ -316,6 +316,8 @@ def AddDocumentToUser(request, id=None):
         profile = Profile.objects.filter(user=request.user)[0]
         documentToCopy = DocumentsPattern.objects.get(id=stroke['id'])
         document_parentDocument = Document_ParentDocument.objects.filter(parent=documentToCopy).filter(userRequested=profile)
+        objects = DocumentPattern_Objects.objects.filter(document=documentToCopy)
+        variables = VariableBlock.objects.filter(doc=documentToCopy.id)
         if document_parentDocument:
             document = DocumentsPattern.objects.get(id=document_parentDocument[0].document.id)
             document_parentDocument = document_parentDocument[0]
@@ -345,8 +347,19 @@ def AddDocumentToUser(request, id=None):
         document.documentOfOrganisation = False
         if document.save():
             print('Документ добавлен')
-            response['id'] = document_parentDocument.document.id
+            response['id'] = document.id
             document_parentDocument.save()
+            for document_variable in variables:
+                new_document_variable = VariableBlock()
+                new_document_variable.name = document_variable.name
+                new_document_variable.doc = document
+                new_document_variable.meaning = document_variable.meaning
+                new_document_variable.save()
+            for document_object in objects:
+                new_document_object = DocumentPattern_Objects()
+                new_document_object.document = document
+                new_document_object.object = document_object.object
+                new_document_object.save()
             return response
         else:
             print('документ не сохранен')
