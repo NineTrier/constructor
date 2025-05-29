@@ -47,14 +47,7 @@ def login1(request):
             form = AuthenticationForm(request.POST)
             username = request.POST['username']
             password = request.POST['password']
-            if 'target' in request.POST:
-                target = request.POST['target']
-            else:
-                target = '0'
-            if request.META['HTTP_REFERER'] == "https://xn--4-7sbba6cqgjoe.xn--p1ai/" or request.META['REMOTE_ADDR'] == "90.189.6.250":
-                user = User.objects.filter(username=username)[0]
-            else:
-                user = authenticate(username=username,password=password)
+            user = authenticate(username=username,password=password)
             print(user)
             profile_of_user = Profile.objects.filter(user=user)
             if not profile_of_user:
@@ -68,24 +61,12 @@ def login1(request):
             if user:
                 if user.is_active:
                     login(request,user)
-                    print(target)
-                    if target == '3':
-                        if 'idDoc' in request.POST:
-                            fileId = request.POST['idDoc']
-                        if 'numfirst' in request.POST:
-                            numfirst = request.POST['numfirst']
-                            print(numfirst)
-                        if 'vks_id' in request.POST:
-                            vks_id = request.POST['vks_id']
-                        return redirect(f'/document/view?id={fileId}&type=0&vksid={vks_id}&numfirst={numfirst.replace("/", "-")}')
-                    else:
-                        return redirect('/')
+                    print('Пользователь залогинен')
+                    return redirect('/')
             else:
                 print('Неверный логин или пароль')
                 messages.error(request,'username or password not correct')
                 return redirect(reverse('login'))
-
-
         else:
             form = AuthenticationForm()
         return render(request,'user_manager/login.html',{'form':form})
