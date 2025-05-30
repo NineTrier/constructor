@@ -3615,17 +3615,18 @@
                 .then(columns =>{
                     data = JSON.parse(columns)[0];
                     for(let [key, value] of Object.entries(data)){
+                        let object_parameter = document.querySelector('.obj_parameter[data-idParam="'+key+'"]')
                         data_type = value['data_type']
                         data_value = value['value']
                         if(data_value == 'nan')
                             data_value = ''
                         if(data_type == 'TXT' || data_type == 'TXTS' || data_type == 'DATE'){
-                            let inp = form.querySelector('input[name="'+key+'"]')
+                            let inp = object_parameter.querySelector('input[name="'+key+'"]')
                             inp.value = data_value
                             inp.dispatchEvent(new Event('change'))
                         }
                         else if(data_type == 'ARRAY'){
-                            let container = form.querySelector('.array_data_container')
+                            let container = object_parameter.querySelector('.array_data_container')
                             container.innerHTML = ''
                             for(let i = 0; i < data_value.length; i++){
                                 container.insertAdjacentHTML('beforeend', `
