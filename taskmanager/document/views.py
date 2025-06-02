@@ -274,6 +274,8 @@ def CopyDocument(request, id=None):
         print(stroke)
         profile = Profile.objects.filter(user=request.user)[0]
         documentToCopy = DocumentsPattern.objects.get(id=stroke['id'])
+        objects = DocumentPattern_Objects.objects.filter(document=documentToCopy)
+        variables = VariableBlock.objects.filter(doc=documentToCopy.id)
         document = DocumentsPattern()
         document.name = documentToCopy.name + '-копия'
         document.owner = profile
@@ -295,6 +297,18 @@ def CopyDocument(request, id=None):
         if document.save():
             print('Документ добавлен')
             response['id'] = document.id
+            for document_variable in variables:
+                print(document_variable)
+                new_document_variable = VariableBlock()
+                new_document_variable.name = document_variable.name
+                new_document_variable.doc = document
+                new_document_variable.meaning = document_variable.meaning
+                new_document_variable.save()
+            for document_object in objects:
+                new_document_object = DocumentPattern_Objects()
+                new_document_object.document = document
+                new_document_object.object = document_object.object
+                new_document_object.save()
             return response
         else:
             print('документ не сохранен')
@@ -350,6 +364,7 @@ def AddDocumentToUser(request, id=None):
             response['id'] = document.id
             document_parentDocument.save()
             for document_variable in variables:
+                print(document_variable)
                 new_document_variable = VariableBlock()
                 new_document_variable.name = document_variable.name
                 new_document_variable.doc = document
