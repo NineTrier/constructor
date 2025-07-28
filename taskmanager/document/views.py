@@ -4,7 +4,7 @@ import re
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import CreateView
-from .models import DocumentsPattern, DocumentPattern_Objects,Fonts, SavedElements, VariableBlock, DocType, Document_ParentDocument
+from .models import DocumentsPattern, DocumentPattern_Objects,Fonts, SavedElements, VariableBlock, DocType, Document_ParentDocument, Document_VariableBlock
 from database_manager.models import Object, Parameter
 from .forms import DocumentForm
 from django.core.files.storage import FileSystemStorage
@@ -238,17 +238,15 @@ def SaveVariable(request):
     """Обработчик запроса для сохранения переменной в базу данных"""
     request_data = request.body
     stroke = json.loads(request_data)
-    variable = VariableBlock.objects.filter(name=stroke['name'], doc_id=stroke['id_doc'])
-    if len(variable) > 0 and stroke['id'] == '-1':
-        response = HttpResponseNotModified()
-        response['MessageOfError'] = 'Не удалось создать переменную. Переменная с таким именем существует.'.encode('utf-8')
-        response['TypeOfError'] = 'Ошибка переменных'.encode('utf-8')
-        return response
-    if len(variable) == 1 and stroke['id'] != str(variable[0].id):
-        response = HttpResponseNotModified()
-        response['MessageOfError'] = 'Не удалось переименовать переменную. Переменная с таким именем существует.'.encode('utf-8')
-        response['TypeOfError'] = 'Ошибка переменных'.encode('utf-8')
-        return response
+    doc_variables = Document_VariableBlock.objects.filter(document=stroke['id_doc'])
+    if doc_variables == None:
+        doc_variables = []
+    for doc_variable in doc_variables:
+        if doc_variable.variable.name == stroke['name']:
+            response = HttpResponseNotModified()
+            response['MessageOfError'] = 'Переменная с таким именем существует.'.encode('utf-8')
+            response['TypeOfError'] = 'Ошибка переменных'.encode('utf-8')
+            return response
     response = HttpResponse()
     if stroke['id'] == '-1':
         variable = VariableBlock()
@@ -256,8 +254,11 @@ def SaveVariable(request):
         variable = VariableBlock.objects.filter(id=stroke['id'])[0]
     variable.name = stroke['name']
     variable.meaning = stroke['value']
-    variable.doc_id = stroke['id_doc']
     variable.save()
+    new_doc_variable = Document_VariableBlock()
+    new_doc_variable.document = DocumentsPattern.objects.filter(id=stroke['id_doc'])[0]
+    new_doc_variable.variable = variable
+    new_doc_variable.save()
     response['id'] = variable.id
     return response
 
@@ -275,7 +276,7 @@ def CopyDocument(request, id=None):
         profile = Profile.objects.filter(user=request.user)[0]
         documentToCopy = DocumentsPattern.objects.get(id=stroke['id'])
         objects = DocumentPattern_Objects.objects.filter(document=documentToCopy)
-        variables = VariableBlock.objects.filter(doc=documentToCopy.id)
+        variables = Document_VariableBlock.objects.filter(document=documentToCopy.id)
         document = DocumentsPattern()
         document.name = documentToCopy.name + '-копия'
         document.owner = profile
@@ -299,10 +300,9 @@ def CopyDocument(request, id=None):
             response['id'] = document.id
             for document_variable in variables:
                 print(document_variable)
-                new_document_variable = VariableBlock()
-                new_document_variable.name = document_variable.name
-                new_document_variable.doc = document
-                new_document_variable.meaning = document_variable.meaning
+                new_document_variable = Document_VariableBlock()
+                new_document_variable.variable = document_variable.variable
+                new_document_variable.document = document
                 new_document_variable.save()
             for document_object in objects:
                 new_document_object = DocumentPattern_Objects()
@@ -331,7 +331,7 @@ def AddDocumentToUser(request, id=None):
         documentToCopy = DocumentsPattern.objects.get(id=stroke['id'])
         document_parentDocument = Document_ParentDocument.objects.filter(parent=documentToCopy).filter(userRequested=profile)
         objects = DocumentPattern_Objects.objects.filter(document=documentToCopy)
-        variables = VariableBlock.objects.filter(doc=documentToCopy.id)
+        variables = Document_VariableBlock.objects.filter(document=documentToCopy.id)
         if document_parentDocument:
             document = DocumentsPattern.objects.get(id=document_parentDocument[0].document.id)
             document_parentDocument = document_parentDocument[0]
@@ -365,10 +365,9 @@ def AddDocumentToUser(request, id=None):
             document_parentDocument.save()
             for document_variable in variables:
                 print(document_variable)
-                new_document_variable = VariableBlock()
-                new_document_variable.name = document_variable.name
-                new_document_variable.doc = document
-                new_document_variable.meaning = document_variable.meaning
+                new_document_variable = Document_VariableBlock()
+                new_document_variable.variable = document_variable.variable
+                new_document_variable.document = document
                 new_document_variable.save()
             for document_object in objects:
                 new_document_object = DocumentPattern_Objects()
@@ -451,7 +450,7 @@ def ViewDocument(request):
         'title': 'Просмотр документа',
         'Doc': Doc,
         'fonts': Fonts.objects.order_by('id'),
-        'variable': json.dumps({var.id: f"{var.name}:{var.meaning}" for var in VariableBlock.objects.filter(doc=Doc.id)}),
+        'variable': json.dumps({var.variable.id: f"{var.variable.name}:{var.variable.meaning}" for var in Document_VariableBlock.objects.filter(document=Doc.id)}),
         'document_json': json.dumps(Doc.json),
         'objects': objects,
     }
@@ -483,7 +482,7 @@ def ViewDocumentAndCreateDocument(request):
         'title': 'Просмотр документа',
         'Doc': Doc,
         'fonts': Fonts.objects.order_by('id'),
-        'variable': json.dumps({var.id: f"{var.name}:{var.meaning}" for var in VariableBlock.objects.filter(doc=Doc.id)}),
+        'variable': json.dumps({var.variable.id: f"{var.variable.name}:{var.variable.meaning}" for var in Document_VariableBlock.objects.filter(document=Doc.id)}),
         'document_json': json.dumps(Doc.json),
         'objects': objects,
         'create_document': True,

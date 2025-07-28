@@ -53,9 +53,10 @@ class DocumentsPattern(models.Model):
         verbose_name_plural = 'Документы'
 
 
+
+#TO DO Убрать как ненужное
 class VariableBlock(models.Model):
     name = models.CharField(verbose_name='Название', max_length=100, null=True, blank=True)
-    doc = models.ForeignKey(DocumentsPattern, on_delete=models.CASCADE, null=True, blank=True)
     meaning = models.TextField(verbose_name='Значение', null=True, blank=True)
     
     def __str__(self):
@@ -64,6 +65,11 @@ class VariableBlock(models.Model):
     class Meta:
         verbose_name = 'Переменная'
         verbose_name_plural = 'Переменные'
+        
+    
+class Document_VariableBlock(models.Model):
+    document = models.ForeignKey(DocumentsPattern, on_delete=models.CASCADE, null=True, blank=True)
+    variable = models.ForeignKey(VariableBlock, on_delete=models.CASCADE, null=True, blank=True)
 
 
 class Fonts(models.Model):
