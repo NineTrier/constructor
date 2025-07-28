@@ -546,7 +546,7 @@ def AcceptFilters(request):
                 value['phrase'] = ChangeCattle(value)
             if filter == 'ChangeCase':
                 value['phrase'] = UpperCase(value)
-        result[key] = value['phrase']
+        result[key] = str(value['phrase']).replace('ё', 'е').replace('Ё', 'Е')
     response = HttpResponse()
     response.content = json.dumps(result)
     response.charset = 'utf-8'
