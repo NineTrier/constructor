@@ -33,7 +33,7 @@ from django.db.models import Q
 def upload_csv_and_get_columns(request):
     if request.method == 'POST':
         csv_file = request.FILES['csv_file']
-        df = pd.read_csv(csv_file)
+        df = pd.read_csv(csv_file, converters={i: str for i in range(100)})
         return HttpResponse(";".join(str(x) for x in df.columns.tolist()))
     
 def get_object_parameters(request, pk):
@@ -48,7 +48,7 @@ def get_object_parameters(request, pk):
 def view_data(request):
     if request.method == 'POST':
         csv_file = request.FILES['csv_file']
-        df = pd.read_csv(csv_file)
+        df = pd.read_csv(csv_file, converters={i: str for i in range(100)})
         if request.POST['drop_column'] != '-1':
             df = df.dropna(subset=[request.POST['drop_column']])
         return HttpResponse(df.to_html())
@@ -56,7 +56,7 @@ def view_data(request):
 def object_manager(request):
     if request.method == 'POST':
         csv_file = request.FILES['csv_file']
-        df = pd.read_csv(csv_file)
+        df = pd.read_csv(csv_file, converters={i: str for i in range(100)})
         if request.POST['drop_column'] != '-1':
             df = df.dropna(subset=[request.POST['drop_column']])
         return HttpResponse(df.to_html())
@@ -201,7 +201,7 @@ def upload_csv(request):
     if request.method == 'POST':
         # читаем файл
         csv_file = request.FILES['csv_file']
-        df = pd.read_csv(csv_file)
+        df = pd.read_csv(csv_file, converters={i: str for i in range(100)})
 
         # если выбран столбец для удаления, то удаляем
         drop_column = request.POST.get('drop_column', '-1')
@@ -486,7 +486,7 @@ def update_csv(request, pk):
             
         # читаем файл
         csv_file = request.FILES['csv_file']
-        df = pd.read_csv(csv_file)
+        df = pd.read_csv(csv_file, converters={i: str for i in range(100)})
 
         drop_column = request.POST.get('drop_column', '-1')
         if drop_column != '-1':
