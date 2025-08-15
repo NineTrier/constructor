@@ -67,6 +67,20 @@
                 {% for param in parameters %}{% if param.identificator %}<option value="{{ param.id }}" selected>{{ param.name }}</option>{% else %}<option value="{{ param.id }}" >{{ param.name }}</option>{% endif %}{% endfor %}
             </select>
         </div>
+        <div class="d-flex flex-column w-100">
+            <div style="display: flex;">
+                <h3>Связанные объекты (подчиненные)</h3>
+                <a type="button" class="btn btn-labeled" onclick="add_param_object_link(event)"><i class="fa-solid fa-plus"></i></a>
+            </div>
+            <div class="d-flex flex-column w-100" id="columns_list">
+                {% for param_object in parameters_objects %}
+                <div class="d-flex flex-row w-100 align-items-center object_param_item">
+                    <a type="button" class="btn btn-labeled">{{ param_object.name }}</a>
+                    <a type="button" class="btn btn-labeled" onclick="delete_param_object_link(event)"><i class="fa-solid fa-trash" style="color: red;"></i></a>
+                </div>
+                {% endfor %}
+            </div>  
+        </div>
         <button type="submit" class="btn btn-success w-50">Сохранить объект</button>
         <!-- <div id="view_data_block" class="">
             <button type="button" class="btn btn-warning" id="button_view_data">Просмотр данных</button>
@@ -82,6 +96,32 @@
     </datalist> 
 </div>
 
+<div class="modal fade" id="addObjectLinkModal" tabindex="-1" aria-labelledby="addObjectLinkModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="addObjectLinkModalLabel">Связать с объектом</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="addObjectLinkModal_body">
+            <form method="post" enctype="multipart/form-data" action="#" id="form_add_object_link">
+                {% csrf_token %}
+                <span class="mt-5">Выберите объекты для связки:</span>
+                <select name="child_object_idents[]" class="form-select " multiple>
+                    {% for obj in objects %}
+                        <option value="{{ obj.id }}">{{ obj.name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-primary" onclick="submit_param_object_link(event)">Сохранить</button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 {% endblock %}
 
 {% block script %}
@@ -92,6 +132,27 @@
 
     function param_changed(){
         changed = 1
+    }
+
+    function add_param_object_link(event){
+        modal = new bootstrap.Modal(document.querySelector('#addObjectLinkModal'))
+        modal.show()
+    }
+
+    function submit_param_object_link(event){
+        event.preventDefault()
+        event.stopPropagation()
+        form = new FormData(document.querySelector('#form_add_object_link'))
+        fetch('add_param_object_link/', {
+            method: 'POST',
+            body: form,
+        })
+        .then(response => response.text())
+        .then(message =>{
+            console.log(message);
+            location.reload()
+        })
+        .catch(error => console.error(error));
     }
 
     function add_param(event){

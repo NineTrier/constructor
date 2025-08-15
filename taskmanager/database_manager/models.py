@@ -61,3 +61,13 @@ class Parameter(models.Model):
                 return str_date
             except ValueError:
                 return date_str
+
+
+class Object_ParentObject(models.Model):
+    object = models.ForeignKey(Object, on_delete=models.CASCADE, related_name='object', blank=True, null=True)
+    parent_object = models.ForeignKey(Object, on_delete=models.CASCADE, related_name='parent_object', blank=True, null=True)
+    
+class ObjectLink_identificators(models.Model):
+    object_link = models.ForeignKey(Object_ParentObject, on_delete=models.CASCADE, related_name='object_link', blank=True, null=True)
+    object_identificator = models.CharField(max_length=255, blank=True, null=True)
+    parent_object_identificator = models.CharField(max_length=255, blank=True, null=True)

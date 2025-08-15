@@ -8,6 +8,7 @@ urlpatterns = [
     path('create_new_object/', views.create_new_object, name='create_new_object'),
     path('update_csv/<int:pk>/', views.update_csv, name='update_csv'),
     path('update_object/<int:pk>/', views.update_object, name='update_object'),
+    path('update_object/<int:pk>/add_param_object_link/', views.add_objects_links, name='add_objects_link'),
     path('delete_param/<int:pk>/', views.delete_param, name='delete_param'),
     path('upload_csv_to_get_columns/', views.upload_csv_and_get_columns, name='upload_csv_to_get_columns'),
     path('view_data/', views.view_data, name='view_data'),

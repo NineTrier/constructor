@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from .models import Object, Parameter
+from .models import Object, Parameter, Object_ParentObject, ObjectLink_identificators
 from django.views.generic import CreateView
 from django.contrib.auth import views, models
 from django.db.models import Q
@@ -308,10 +308,14 @@ def update_object(request, pk):
         data_obj.to_pickle(object.data.path)
         # возвращаем ответ
         return HttpResponse(status=200)
+    parameters_objects = Object_ParentObject.objects.filter(parent_object=object)
+    
     # отображаем форму
     return render(request, 'database_manager/update_object.html', context={
         'object': object,
+        'objects': Object.objects.all(),
         'parameters': sorted(Parameter.objects.filter(object=object), key=lambda x: x.id),
+        'parameters_objects': [po.object for po in parameters_objects],
     })
     
 def get_unique_filtered_strings(list_of_values):
@@ -411,26 +415,19 @@ def get_indexed_unique_filtered_values(values_list, array_separator=None):
     indexed_values = [(i, data) for i, data in enumerate(unique_filtered)]
     return indexed_values
     
-def update_element_to_object(request, pk):
-    object = get_object_or_404(Object, pk=pk)
-    file_path = object.data
+def get_parameters_data(object: Object, param_ident_id) -> list:
     with open(f'{settings.MEDIA_ROOT}\{object.data}', 'rb') as f:
         data_obj = pickle.load(f)
-    param_ident_id = request.GET.get('id')
-    print(param_ident_id)
-    row = data_obj[data_obj['id_to_connect'] == param_ident_id]
-    print(row)
-    if request.method == 'POST':
-        col_ids = map(int, request.POST.getlist('col_id[]'))
-        for col_id in col_ids:
-            col_values = request.POST.getlist(f'col_value_{col_id}[]')
-            parameter = Parameter.objects.get(id=col_id)
-            data_obj.loc[data_obj['id_to_connect'] == param_ident_id, int(col_id)] = str(col_values[0]) if len(col_values) == 1 else f"{parameter.array_separator}".join(col_values)
-        data_obj.to_pickle(file_path.path)
-        return HttpResponse()
-    parameters_data = [] 
+    if param_ident_id is None:
+        row = None
+    else:
+        row = data_obj[data_obj['id_to_connect'] == param_ident_id]
+    parameters_data = []
     for parameter in Parameter.objects.filter(object=object):
-        current_data = str(row[int(parameter.id)].iloc[0]).strip()
+        if row is None or row.empty:
+            current_data = ""
+        else:
+            current_data = str(row[int(parameter.id)].iloc[0]).strip()
         current_data = current_data if current_data not in ['None', 'nan', None, '<NA>'] else ""
         param_data = data_obj[int(parameter.id)].dropna().values.tolist()
         if parameter.data_type == 'ARRAY':
@@ -443,11 +440,38 @@ def update_element_to_object(request, pk):
             param_data = [value for value in param_data if value not in ['None', 'nan', None, '<NA>'] and value]
             param_data = [(i, data) for i, data in enumerate(param_data)]
             parameters_data.append((parameter, param_data, find_in_params_data(param_data, current_data, parameter), current_data))
-    
+    return parameters_data
+
+
+def update_element_to_object(request, pk):
+    object = get_object_or_404(Object, pk=pk)
+    file_path = object.data
+    with open(f'{settings.MEDIA_ROOT}\{object.data}', 'rb') as f:
+        data_obj = pickle.load(f)
+    param_ident_id = request.GET.get('id')
+    print(param_ident_id)
+    if request.method == 'POST':
+        col_ids = map(int, request.POST.getlist('col_id[]'))
+        for col_id in col_ids:
+            col_values = request.POST.getlist(f'col_value_{col_id}[]')
+            parameter = Parameter.objects.get(id=col_id)
+            data_obj.loc[data_obj['id_to_connect'] == param_ident_id, int(col_id)] = str(col_values[0]) if len(col_values) == 1 else f"{parameter.array_separator}".join(col_values)
+        data_obj.to_pickle(file_path.path)
+        return HttpResponse()
+    parameters_data = get_parameters_data(object, param_ident_id)
+    parameters_objects = Object_ParentObject.objects.filter(parent_object=object)
+    parameters_objects_params_data = []
+    for po in parameters_objects:
+        parameters_link = ObjectLink_identificators.objects.filter(object_link=po, parent_object_identificator=param_ident_id).first()
+        linked_param_ident_id = parameters_link.object_identificator if parameters_link else None
+        parameters_objects_params_data.append((po.object, get_parameters_data(po.object, linked_param_ident_id), True if po.id == parameters_objects[0].id else False))
+    print(parameters_objects_params_data)
     return render(request, 'database_manager/update_element_to_object.html', context={
         'object': object,
         'parameters_data': sorted(parameters_data, key=lambda x: x[0].id), #parameters_data,
-        'param_ident_id': param_ident_id
+        'param_ident_id': param_ident_id,
+        'parameters_objects': [(po.object, True if po.id == parameters_objects[0].id else False) for po in parameters_objects],
+        'parameters_objects_params_data': parameters_objects_params_data,
     })
     
 def delete_element_to_object(request, pk):
@@ -553,4 +577,34 @@ def generate_excel_file(request, pk):
     if os.path.exists(file_path):
         return FileResponse(open(file_path, 'rb'), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     raise Http404
+
+@require_http_methods(['POST'])
+def add_objects_links(request, pk):
+    object = get_object_or_404(Object, pk=pk)
+    child_object_idents = request.POST.getlist('child_object_idents[]')
+    if not child_object_idents:
+        return HttpResponseForbidden("No child object identifiers provided.")
+    for child_object_ident in child_object_idents:
+        try:
+            child_object_id = int(child_object_ident)
+        except ValueError:
+            continue
+        if child_object_id == object.id:
+            continue
+        add_objects_link(object.id, child_object_id)
+    return HttpResponse('')
     
+def add_objects_link(object_id, object_child_id):
+    object = Object.objects.get(id=int(object_id))
+    if not object_child_id:
+        return False
+    if object_child_id == str(object.id):
+        return False
+    object_child = Object.objects.get(id=int(object_child_id))
+    if not object_child:
+        return False
+    object_to_object = Object_ParentObject()
+    object_to_object.object = object_child
+    object_to_object.parent_object = object
+    object_to_object.save()
+    return True

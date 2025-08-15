@@ -90,6 +90,85 @@
                     {% endif %}
                 {% endfor %}
             </div>
+            <nav>
+                <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                    {% for param_object, is_selected in parameters_objects %}
+                        <button class="nav-link {% if is_selected %}active{% endif %}" id="nav-{{ param_object.id }}-tab" data-bs-toggle="tab" data-bs-target="#nav-{{ param_object.id }}" type="button" role="tab" aria-controls="nav-{{ param_object.id }}" aria-selected="{% if is_selected %}true{% else %}false{% endif %}">{{ param_object.name }}</button>
+                    {% endfor %}
+                </div>
+            </nav>
+            <div class="tab-content" id="nav-tabContent">
+                
+                {% for param_object, param_object_data, is_selected in parameters_objects_params_data %}
+                <div class="tab-pane fade show {% if is_selected %}active{% endif %}" id="nav-{{ param_object.id }}" role="tabpanel" aria-labelledby="nav-{{ param_object.id }}-tab">  
+                    {% for param, data, id_selected, value_texted in param_object_data %}
+                        {% if param.identificator %}
+                        <div class="d-flex flex-row w-100 align-items-center object_param_item identificator">
+                            
+                            <input id="col_id_{{ param.id }}" class="form-control invisible" type="text" value="{{ param.id }}" name="col_id[]">
+                            <div>
+                                <i class="fa-solid fa-star"></i>
+                                <label for="col_value_{{ param.id }}">{{ param.name }}</label>
+                            </div>
+                            {% if param.data_type == 'TXT' %}
+                            <input id="col_value_{{ param.id }}" name="col_value_{{ param.id }}[]" class="form-control w-75 identificator_param" style="width: 75%" value="{{ value_texted }}">
+                            {% elif param.data_type == 'TXTS' %}
+                            <!-- <input id="col_value_{{ param.id }}" list="col_value_{{ param.id }}_list" name="col_value[]" class="form-control w-25" type="text" required>
+                            <datalist id="col_value_{{ param.id }}_list">
+                                {% for param_data in data %}
+                                    <option>{{ param_data }}</option>
+                                {% endfor %}
+                            </datalist> -->
+                            <select id="col_value_{{ param.id }}" name="col_value_{{ param.id }}[]" class="form-control w-75 identificator_param" style="width: 75%">
+                                <option value=""></option>
+                                {% for id, param_data in data %}<option {% if id in id_selected  %}selected{% endif %}>{{ param_data }}</option>{% endfor %}
+                            </select>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        <div class="d-flex flex-row w-100 align-items-center object_param_item">
+                            <input id="col_id_{{ param.id }}" class="form-control invisible" type="text" value="{{ param.id }}" name="col_id[]">
+                            <label for="col_value_{{ param.id }}">{{ param.name }}</label>
+                            {% if param.data_type == 'TXT' %}
+                            <input id="col_value_{{ param.id }}" name="col_value_{{ param.id }}[]" class="form-control w-75" style="width: 75%" value="{{ value_texted }}">
+                            {% elif param.data_type == 'TXTS' %}
+                            <!-- <input id="col_value_{{ param.id }}" list="col_value_{{ param.id }}_list" name="col_value[]" class="form-control w-25" type="text">
+                            <datalist id="col_value_{{ param.id }}_list">
+                                {% for param_data in data %}
+                                <option>{{ param_data }}</option>
+                                {% endfor %}
+                            </datalist> -->
+                            <select id="col_value_{{ param.id }}" name="col_value_{{ param.id }}[]" class="form-control w-75" style="width: 75%">
+                                <option value=""></option>
+                                {% for id, param_data in data %}<option {% if id in id_selected  %}selected{% endif %}>{{ param_data }}</option>{% endfor %}
+                            </select>
+                            {% elif param.data_type == 'DATE' %}
+                            <input id="col_value_{{ param.id }}" class="form-control w-75" type="datetime-local" name="col_value_{{ param.id }}[]" style="width: 75%">
+                            {% elif param.data_type == 'ARRAY' %}
+                            <!-- <div id="col_value_{{ param.id }}" class="d-flex flex-column w-100 col_array_container">
+                                <div class="d-flex flex-row col_array_controlset_container">
+                                    <input type="text">
+                                </div>
+                                <div class="d-flex flex-column col_array_values_container" data-separator="{{ param.array_separator }}">
+
+                                </div>
+                                <input name="col_value[]">
+                            </div> -->
+                            <!-- <input id="col_value_{{ param.id }}" class="form-control w-25 invisible" type=""> -->
+                            <select id="col_value_{{ param.id }}" class="form-control w-25" multiple style="width: 75%" name="col_value_{{ param.id }}[]">
+                                <option value=""></option>
+                                {% for id, param_data in data %}<option {% if id in id_selected  %}selected{% endif %}>{{ param_data }}</option>{% endfor %}
+                            </select>
+                            {% elif param.data_type == 'INT' %}
+                            <input id="col_value_{{ param.id }}" class="form-control w-25" type="number" name="col_value_{{ param.id }}[]">
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                    </div>  
+                {% endfor %}
+            </div>
+            
         </div>
         <button type="submit" class="btn btn-success w-50">Сохранить</button>
         
