@@ -10,7 +10,40 @@ vst = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 vst1 = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
 vst2 = "{http://schemas.openxmlformats.org/markup-compatibility/2006}"
 
-vsts = {"{http://schemas.openxmlformats.org/wordprocessingml/2006/main}": "w", "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}": "r"}
+vsts = { 
+    "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}": "w", 
+    "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}": "r", 
+    "{http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas}": "wpc", 
+    "{http://schemas.microsoft.com/office/drawing/2014/chartex}": "cx", 
+    "{http://schemas.microsoft.com/office/drawing/2015/9/8/chartex}": "cx1", 
+    "{http://schemas.microsoft.com/office/drawing/2015/10/21/chartex}": "cx2", 
+    "{http://schemas.microsoft.com/office/drawing/2016/5/9/chartex}": "cx3", 
+    "{http://schemas.microsoft.com/office/drawing/2016/5/10/chartex}": "cx4", 
+    "{http://schemas.microsoft.com/office/drawing/2016/5/11/chartex}": "cx5", 
+    "{http://schemas.microsoft.com/office/drawing/2016/5/12/chartex}": "cx6", 
+    "{http://schemas.microsoft.com/office/drawing/2016/5/13/chartex}": "cx7", 
+    "{http://schemas.microsoft.com/office/drawing/2016/5/14/chartex}": "cx8", 
+    "{http://schemas.openxmlformats.org/markup-compatibility/2006}": "mc", 
+    "{http://schemas.microsoft.com/office/drawing/2016/ink}": "aink", 
+    "{http://schemas.microsoft.com/office/drawing/2017/model3d}": "am3d", 
+    "{urn:schemas-microsoft-com:office:office}": "o", 
+    "{http://schemas.microsoft.com/office/2019/extlst}": "oel", 
+    "{http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing}": "wp14", 
+    "{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}": "wp", 
+    "{urn:schemas-microsoft-com:vml}": "v", 
+    "{http://schemas.microsoft.com/office/word/2010/wordml}": "w14", 
+    "{http://schemas.microsoft.com/office/word/2012/wordml}": "w15", 
+    "{http://schemas.microsoft.com/office/word/2018/wordml/cex}": "w16cex", 
+    "{http://schemas.microsoft.com/office/word/2016/wordml/cid}": "w16cid", 
+    "{http://schemas.microsoft.com/office/word/2018/wordml}": "w16", 
+    "{http://schemas.microsoft.com/office/word/2023/wordml/word16du}": "w16du", 
+    "{http://schemas.microsoft.com/office/word/2020/wordml/sdtdatahash}": "w16sdtdh", 
+    "{http://schemas.microsoft.com/office/word/2015/wordml/symex}": "w16se", 
+    "{http://schemas.microsoft.com/office/word/2010/wordprocessingGroup}": "wpg", 
+    "{http://schemas.microsoft.com/office/word/2010/wordprocessingInk}": "wpi", 
+    "{http://schemas.microsoft.com/office/word/2006/wordml}": "wne", 
+    "{http://schemas.microsoft.com/office/word/2010/wordprocessingShape}": "wps" 
+}
 i_id = 0
 
 

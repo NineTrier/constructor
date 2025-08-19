@@ -1,7 +1,6 @@
 from docx import Document
 from docx.oxml import OxmlElement, ns
 
-
 # Пока что не знаю куда разместить эти функции, поэтому лежат просто в файле
 # Функция создаёт элемент xml
 def create_element(name: str):
@@ -59,6 +58,8 @@ class WordAPI:
             for bad in body:
                 body.remove(bad)
             for par in lxmlBody:
+                if par.tag != 'p':
+                    continue
                 print(par)
                 res, el = par.to_lxml()
                 if(res):

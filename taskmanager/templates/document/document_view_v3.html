@@ -415,6 +415,24 @@
                             <label type="button" class="optionLabel" for="optionDependence">Зависимости</label>
                         </div>
                     </div>
+                    <div id="objectParametersFast">
+                        {% for obj in objects %}
+                        <div>
+                            <span style="font-weight: bold;">{{ obj.object.name }}</span>
+                            {% for parameter in obj.params %}
+                                {% if parameter.identificator %}
+                                    <div class="obj_parameter_fast row" data-idObj="{{ obj.object.id }}" data-idParam="{{ parameter.id }}" data-paramName="{{ obj.object.name }}.{{ parameter.name }}">
+                                        <div class="col-2">
+                                            <i class="fa-solid fa-star"></i>
+                                            <span class="identificator obj_parameter_name">{{ parameter.name }}</span>
+                                        </div>
+                                        <input type="text" class="form-control identificator col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.id}}" onclick="getObjectData(event, '{{ obj.object.id }}')" onchange="onChangeVariableMean(event);">
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
                     <div id="tree_document">
                         <ul class="list-group-flush" id="document_tree"></ul>
                     </div>
@@ -425,7 +443,6 @@
                         </div> -->
                         <div id="fixedVariablesList"></div>
                     </div>
-                    
                     
                     <div id="Variables" class="invisible">
                         <div class="d-flex flex-row align-items-center"><i class="fa-solid fa-bolt fa-xl me-2"></i><h3>Переменные</h3></div>
@@ -760,6 +777,7 @@
                 let Context = document.querySelector('#rightMenuTopContext')
                 let fixVariables = document.querySelector('#fixedVariables')
                 let variables = document.querySelector('#Variables')
+                let object_param_fast = document.querySelector('#objectParametersFast')
                 if(enable){
                     Context.classList.remove('invisible')
                     document.querySelector('#optionTreeElement').checked = true;
@@ -767,6 +785,7 @@
                     variables.classList.add('invisible')
                     tree.classList.remove('invisible')
                     tree.querySelector('#document_tree').classList.remove('smaller')
+                    object_param_fast.classList.add('invisible')
                 }
                 else{
                     Context.classList.add('invisible')
@@ -775,6 +794,7 @@
                     variables.classList.add('invisible')
                     tree.classList.remove('invisible')
                     tree.querySelector('#document_tree').classList.add('smaller')
+                    object_param_fast.classList.remove('invisible')
                 }
                 for(let tree_elem of document.querySelectorAll('.tree_element')){
                     if(enable){
@@ -3653,9 +3673,14 @@
             function click_to_ident(evt, object_id, value, param_ident_id){
                 let object = document.querySelector('#object_'+object_id)
                 let input = object.querySelector('input.identificator')
+                let input_fast = document.querySelector('.obj_parameter_fast[data-idObj="'+object_id+'"]')
                 let input_id_to_connect = object.querySelector('input[name="param_ident_id"]')
                 input.value = value
                 input_id_to_connect.value = param_ident_id
+                console.log(input_fast)
+                console.log(input_fast.innerHTML)
+                if(input_fast !== null && input_fast !== undefined)
+                    input_fast.querySelector('input').value = value
                 input.dispatchEvent(new Event('change'))
                 getDataFromObject(object_id, object.querySelector('form'))
             }

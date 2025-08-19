@@ -13,6 +13,15 @@
     max-width: 600px;
 }
 
+.obj_parameter_fast{
+    padding: 20px;
+    overflow: hidden;
+}
+
+#objectParametersFast{
+    padding: 5px;
+}
+
 .variable{
     display: flex;
     flex-direction: row;
