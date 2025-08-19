@@ -19,8 +19,8 @@ from transliterate import translit
 from transliterate.decorators import transliterate_function
 from user_manager.models import Profile, user_directory_path
 
-import pymorphy2
-from pymorphy2.shapes import restore_capitalization
+import pymorphy3
+from pymorphy3.shapes import restore_capitalization
 
 raskrit = {
     'ООО': 'Общество с ограниченной ответственностью',
@@ -36,7 +36,7 @@ matchers ={
     r'\s?Акционерн\w*\sобществ\w?': r'\s?Акционерн\w*\sобществ\w?\s',
 }
 
-morph = pymorphy2.MorphAnalyzer()
+morph = pymorphy3.MorphAnalyzer()
 
 # Класс, который помогает создавать новый записи в базу данных Documents
 # и открывает страницу с добавлением новых документов
@@ -101,14 +101,13 @@ def create_New_Document(request):
             print(exc)
             fileDirect = 0
         print(fileDirect)
-        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}"):
-            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}")
-        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}"):
-            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}")
+        os.makedirs(os.path.dirname(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}"), exist_ok=True)
+        os.makedirs(os.path.dirname(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}"), exist_ok=True)
         file_name = f"{translit_russian(document.name)}{translit_russian(document.owner.__str__())}"[:50]
         file_url = f"documents\\user_{request.user.id}\\{fileDirect}\\{file_name}.docx"
         document.file = file_url
         doc_file = Document(f"{settings.MEDIA_ROOT}\\blank.docx")
+        os.makedirs(os.path.dirname(f"{settings.MEDIA_ROOT}\\{file_url}"), exist_ok=True)
         doc_file.save(f"{settings.MEDIA_ROOT}\\{file_url}")
         document.save()
         return redirect(f"/document/view?id={document.id}&type=1")
@@ -300,12 +299,17 @@ def CopyDocument(request, id=None):
             response['id'] = document.id
             for document_variable in variables:
                 print(document_variable)
+                new_document_variable = Document_VariableBlock.objects.filter(document=document, variable=document_variable.variable).first()
+                if not new_document_variable:
+                    new_document_variable = Document_VariableBlock()
                 new_document_variable = Document_VariableBlock()
                 new_document_variable.variable = document_variable.variable
                 new_document_variable.document = document
                 new_document_variable.save()
             for document_object in objects:
-                new_document_object = DocumentPattern_Objects()
+                new_document_object = DocumentPattern_Objects().objects.filter(object=document_object.object, document=document).first()
+                if not new_document_object:
+                    new_document_object = DocumentPattern_Objects()
                 new_document_object.document = document
                 new_document_object.object = document_object.object
                 new_document_object.save()
@@ -365,12 +369,17 @@ def AddDocumentToUser(request, id=None):
             document_parentDocument.save()
             for document_variable in variables:
                 print(document_variable)
+                new_document_variable = Document_VariableBlock.objects.filter(document=document, variable=document_variable.variable).first()
+                if not new_document_variable:
+                    new_document_variable = Document_VariableBlock()
                 new_document_variable = Document_VariableBlock()
                 new_document_variable.variable = document_variable.variable
                 new_document_variable.document = document
                 new_document_variable.save()
             for document_object in objects:
-                new_document_object = DocumentPattern_Objects()
+                new_document_object = DocumentPattern_Objects().objects.filter(object=document_object.object, document=document).first()
+                if not new_document_object:
+                    new_document_object = DocumentPattern_Objects()
                 new_document_object.document = document
                 new_document_object.object = document_object.object
                 new_document_object.save()
