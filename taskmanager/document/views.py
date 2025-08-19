@@ -307,7 +307,7 @@ def CopyDocument(request, id=None):
                 new_document_variable.document = document
                 new_document_variable.save()
             for document_object in objects:
-                new_document_object = DocumentPattern_Objects().objects.filter(object=document_object.object, document=document).first()
+                new_document_object = DocumentPattern_Objects.objects.filter(object=document_object.object, document=document).first()
                 if not new_document_object:
                     new_document_object = DocumentPattern_Objects()
                 new_document_object.document = document
@@ -377,7 +377,7 @@ def AddDocumentToUser(request, id=None):
                 new_document_variable.document = document
                 new_document_variable.save()
             for document_object in objects:
-                new_document_object = DocumentPattern_Objects().objects.filter(object=document_object.object, document=document).first()
+                new_document_object = DocumentPattern_Objects.objects.filter(object=document_object.object, document=document).first()
                 if not new_document_object:
                     new_document_object = DocumentPattern_Objects()
                 new_document_object.document = document
@@ -659,7 +659,9 @@ def connect_objects_to_document(request, pk):
         # Подключить выбранные объекты к документу
         for obj_id in selected_objects:
             obj = Object.objects.get(id=obj_id)
-            doc_obj = DocumentPattern_Objects()
+            doc_obj = DocumentPattern_Objects.objects.filter(document=document, object=obj).first()
+            if doc_obj is None:
+                doc_obj = DocumentPattern_Objects()
             doc_obj.document = document
             doc_obj.object = obj
             doc_obj.save()
