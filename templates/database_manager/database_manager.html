@@ -1,0 +1,89 @@
+{% extends  'base.html' %}
+
+{% block title %}
+Работа с базой данных
+{% endblock %}
+
+{% block connection %}
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/database_manager/database_manager.css' %}">
+{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="header-bar mt-2">
+        <h1>Переменные из базы данных</h1>
+    </div>
+    <div id="bigDiv">
+        <h3>{{ profile.organisation }}</h3>
+        <div id="divConnection">
+            <select id="id_connection" onchange="ConnectionChanged();">
+                {% for connection in connections %}
+                <option value="{{ connection.id }}">{{ connection }}</option>
+                {% endfor %}
+            </select>
+            <div id='connection_indicator_container'><div id="connection_indicator" class="bad_connection"></div></div>
+            <a class="btn btn-primary" href="{% url 'create_connection' %}">Создать подключение</a>
+            {% comment %} <a class="btn btn-primary" onclick="TestConnection();">Тест подключения</a> {% endcomment %}
+            <a class="btn btn-primary" onclick="GetTables();">Получить таблицы</a>
+            <a class="btn btn-primary" href="{% url 'upload_csv' %}">Загрузить CSV-файл из Notion</a>
+        </div>
+        {% comment %} <a class="btn btn-primary" onclick="SyncUsers();">Синхронизация пользователей</a> {% endcomment %}
+        <div class="divSQLVariableContainer">
+            <h4>Переменные SQL-параметры</h4>
+            <div id="divSQLVariableSet">
+            {% for var in sql_variables_set %}
+                <div class="sql_variable sql_variable_set" data-idVar="{{ var.id }}" data-idCon="{{ var.connection.id }}">
+                    <span>Название переменной:</span>
+                    <input class="sql_variable_name" value="{{ var.name }}" readonly="true">
+                    <span>Название столбца:</span>
+                    <input class="sql_variable_sql" value="{{ var.sql }}" readonly="true">
+                    <input class="sql_variable_value">
+                    <div>
+                        <a class="btn btn-labeled btn_pen" onclick="MakeUpdatable(event);"><i class="fa-solid fa-pen"></i></a>
+                        <a class="btn btn-labeled btn_pen" onclick="DeleteVar(event);"><i class="fa-solid fa-trash" style="color: #ff0000;"></i></a>
+                    </div>
+                    <div hidden="true">
+                        <a class="btn btn-labeled btn_check" onclick="AcceptChange(event);"><i class="fa-solid fa-check" style="color: #0ed100;"></i></a>
+                        <a class="btn btn-labeled btn_x" onclick="" ><i class="fa-solid fa-xmark" style="color: #ff0000;"></i></a>
+                    </div>
+                </div>
+            {% endfor %}
+            </div>
+            <a class="btn btn-primary" onclick="CreateSQLVariableSet();">Добавить переменную</a>
+        </div>
+        <div id="divSQLVariable">
+            <div class="divSQLVariableContainer">
+                <h4>Переменные SQL-запросы</h4>
+                <div id="divSQLVariableGet">
+                {% for var in sql_variables_get %}
+                    <div class="sql_variable sql_variable_get" data-idVar="{{ var.id }}" data-idSet="{% for varSetGet in set_get %}{% if varSetGet.variableGet == var %}{{ varSetGet.variableSet.id }};{% endif %}{% endfor %}" data-idCon="{{ var.connection.id }}">
+                        <input class="sql_variable_name" value="{{ var.name }}" readonly="true">
+                        <input class="sql_variable_sql" readonly="true" value="{{ var.sql }}">
+                        <input readonly="true" class="sql_variable_value">
+                        <div>
+                            <a class="btn btn-labeled btn_pen" onclick="MakeUpdatable(event);"><i class="fa-solid fa-pen"></i></a>
+                            <a class="btn btn-labeled btn_pen" onclick="DeleteVar(event);"><i class="fa-solid fa-trash" style="color: #ff0000;"></i></a>
+                        </div>
+                        <div hidden="true">
+                            <a class="btn btn-labeled btn_check" onclick="AcceptChange(event);"><i class="fa-solid fa-check" style="color: #0ed100;"></i></a>
+                            <a class="btn btn-labeled btn_x" onclick="" ><i class="fa-solid fa-xmark" style="color: #ff0000;"></i></a>
+                        </div>
+                    </div>
+                {% endfor %}
+                </div>
+                <a class="btn btn-primary" onclick="CreateSQLVariableGet();">Добавить переменную</a>
+            </div>
+            
+        </div>
+        {% comment %} <a class="btn btn-success" onclick="TestGetFromDB();">Тест</a> {% endcomment %}
+    </div>
+    
+</div>
+
+{% endblock %}
+
+{% block script %}
+
+<script defer src="{% static 'js/database_manager.js' %}"></script>
+
+{% endblock %}

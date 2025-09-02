@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+
+
+{% block title %}
+{{ title }}
+{% endblock %}
+
+{% block connection %}
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/main/index.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div id="main">
+    {% for typ, values in documents.items %}
+    <div class="DocsBlockContainer">
+        <div class="DocsBlockTitleContainer">
+            <span class="DocsBlockTitle">{{ typ.name }}</span>
+        </div>
+        <div class="DocsBlockMain">
+            {% for el in values %}
+                {% for key, value in el.items %}
+                <div class="DocBlockDocument" type="button" onclick="ClickOnDocument(event);" data-idDB="{{ key.id }}">
+                    <span class="DocumentName" >{{ key.name }}</span>
+                    <div class="DocumentAdvancedInform">
+                        
+                        {% if key.documentOfOrganisation %}
+                            <i class="fa-solid fa-building"></i>
+                        {% else %}
+                            <i class="fa-solid fa-user"></i>
+                        {% endif %}
+                        <div class="vr"></div>
+                        <div class="DocumentAdvancedInformButtons">
+                            {% if user == key.owner.user %}
+                                <a onclick="ClickOnDocumentCopy(event);" class="btn btn-labeled"><i class="fas fa-copy"></i></a>
+                                <a onclick="ClickOnDocumentDelete(event);" type="button" class="btn btn-labeled doc_del_button"><i class="fas fa-trash" style="color:red;"></i></a>
+                            {% else %}
+                                <a onclick="ClickOnDocumentAdd(event);" class="btn btn-labeled"><i class="fas fa-plus"></i></a>
+                            {% endif %}
+                        </div>
+                        <div class="vr"></div>
+                        <span class="DocumentDateLastUpdate">{{ key.print_lastUpdate_in_other_format }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- <div class="main">
+    <h2>Последние документы</h2>
+    <div class="containerOfDocument">
+    {% if documentsOfUser %}
+        <ul class="list_of_document">
+            {% for el in documentsOfUser %}
+            <li onclick="{% if user == el.owner.user %}ClickOnDocument(event);{% else %}ClickOnDocumentAdd(event);{% endif %}" class="doc_in_list" data-idDB="{{ el.id }}" style="background-image: url({% if el.picture %}{{ el.picture.url }}{% else %}{{ noimage }}{% endif %});background-size: contain;">
+                <div class="doc_container">
+                    <div class="btns_container">
+                        <a href="/document/download?id={{ el.id }}" target="_blank" class="btn btn-labeled"><i class="fas fa-download"></i></a>
+                        {% if user == el.owner.user %}
+                        <a onclick="ClickOnDocument(event);" class="btn btn-labeled"><i class="fas fa-pen"></i></a>
+                        <a onclick="ClickOnDocumentCopy(event);" class="btn btn-labeled"><i class="fas fa-copy"></i></a>
+                        <button type="button" class="btn btn-labeled doc_del_button"><i class="fas fa-trash" style="color:red;"></i></button>
+                        {% else %}
+                        <a onclick="ClickOnDocumentAdd(event);" class="btn btn-labeled"><i class="fas fa-plus"></i></a>
+                        {% endif %}
+                    </div>
+                    <div class="doc_info">
+                        <span class="docname">{{ el.name }}</span>
+                        <span class="docowner">{{ el.owner }}</span>
+                        <span class="docdescr">{{ el.description }}</span>
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    
+    {% else %}
+        <p>Нет записей</p>
+    {% endif %}
+    </div> -->
+
+    <!-- <h2>Шаблоны организации</h2>
+    <div class="containerOfDocument">
+    {% if documentsOfOrganisation %}
+        <ul class="list_of_document">
+            {% for el in documentsOfOrganisation %}
+            <li onclick="{% if user == el.owner.user %}ClickOnDocument(event);{% else %}ClickOnDocumentAdd(event);{% endif %}" class="doc_in_list" data-idDB="{{ el.id }}" style="background-image: url({% if el.picture %}{{ el.picture.url }}{% else %}{{ noimage }}{% endif %});background-size: contain;">
+                <div class="doc_container">
+                    <div class="btns_container">
+                        <a href="/document/download?id={{ el.id }}" target="_blank" class="btn btn-labeled"><i class="fas fa-download"></i></a>
+                        {% if user == el.owner.user %}
+                        <a onclick="ClickOnDocument(event);" class="btn btn-labeled"><i class="fas fa-pen"></i></a>
+                        <button type="button" class="btn btn-labeled doc_del_button"><i class="fas fa-trash" style="color:red;"></i></button>
+                        {% else %}
+                        <a onclick="ClickOnDocumentAdd(event);" class="btn btn-labeled"><i class="fas fa-plus"></i></a>
+                        {% endif %}
+                    </div>
+                    <div class="doc_info">
+                        <span class="docname">{{ el.name }}</span>
+                        <span class="docowner">{{ el.owner }}</span>
+                        <span class="docdescr">{{ el.description }}</span>
+                    <div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Нет записей</p>
+    {% endif %}
+    </div>
+
+    <h2>Личные шаблоны сотрудников</h2>
+    <div class="containerOfDocument">
+    {% if documentOfAll %}
+        <ul class="list_of_document">
+            {% for el in documentOfAll %}
+            <li onclick="{% if user == el.owner.user %}ClickOnDocument(event);{% else %}ClickOnDocumentAdd(event);{% endif %}" class="doc_in_list" data-idDB="{{ el.id }}" style="background-image: url({% if el.picture %}{{ el.picture.url }}{% else %}{{ noimage }}{% endif %});background-size: contain;">
+                <div class="doc_container">
+                    <div class="btns_container">
+                        <a href="/document/download?id={{ el.id }}" target="_blank" class="btn btn-labeled"><i class="fas fa-download"></i></a>
+                        {% if user == el.owner.user %}
+                        <a onclick="ClickOnDocument(event);" class="btn btn-labeled"><i class="fas fa-pen"></i></a>
+                        <button type="button" class="btn btn-labeled doc_del_button"><i class="fas fa-trash" style="color:red;"></i></button>
+                        {% else %}
+                        <a onclick="ClickOnDocumentAdd(event);" class="btn btn-labeled"><i class="fas fa-plus"></i></a>
+                        {% endif %}
+                    </div>
+                    <div class="doc_info">
+                        <span class="docname">{{ el.name }}</span>
+                        <span class="docowner">{{ el.owner }}</span>
+                        <span class="docdescr">{{ el.description }}</span>
+                    <div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Нет записей</p>
+    {% endif %}
+</div> -->
+</div>
+{% endblock %}
+
+{% block script %}
+    <script lang="JavaScript">
+        function ClickOnDocumentDelete(evt){
+            btn = evt.target
+            evt.stopPropagation();
+            var spisok_element = btn.closest('.DocBlockDocument');
+            if(spisok_element.getAttribute('data-idDB') != -1){
+                $.ajax({
+                    type: "POST",
+                    url: "document/delete",
+                    data: JSON.stringify({'id': spisok_element.getAttribute('data-idDB')}),
+                    contentType: "application/json; charset=utf-8",
+                    success: spisok_element.parentNode.removeChild(spisok_element)
+                });
+            
+            }
+            else{
+                var_elem.parentNode.removeChild(spisok_element);
+            }
+        }
+        {% comment %} var btns_del = document.getElementsByClassName("doc_del_button");
+        for(let btn of btns_del){
+            btn.onclick = function(evt){
+                evt.stopPropagation();
+                var spisok_element = btn.closest('.doc_in_list');
+                if(spisok_element.getAttribute('data-idDB') != -1){
+                    $.ajax({
+                        type: "POST",
+                        url: "document/delete",
+                        data: JSON.stringify({'id': spisok_element.getAttribute('data-idDB')}),
+                        contentType: "application/json; charset=utf-8",
+                        success: spisok_element.parentNode.removeChild(spisok_element)
+                    });
+                
+                }
+                else{
+                    var_elem.parentNode.removeChild(spisok_element);
+                }
+            }
+        } {% endcomment %}
+        function ClickOnDocument(evt){
+            const parent = evt.target.closest('.DocBlockDocument');
+            location.href = "/document/view?id="+ parent.getAttribute('data-iddb') +"&type=0"
+        }
+        function ClickOnDocumentAdd(evt){
+            evt.stopPropagation();
+            const parent = evt.target.closest('.DocBlockDocument');
+            console.log(parent)
+            $.ajax({
+                type: "POST",
+                url: "/document/document_add",
+                data: JSON.stringify({'id': parent.getAttribute('data-iddb')}),
+                contentType: "application/json; charset=utf-8",
+                success: function(res, status, xhr){
+                    console.log(xhr.getResponseHeader('id'))
+                    location.href = "/document/view?id="+ xhr.getResponseHeader('id') +"&type=0"
+                }
+            });
+            
+        }
+        function ClickOnDocumentCopy(evt){
+            evt.stopPropagation();
+            const parent = evt.target.closest('.DocBlockDocument');
+            console.log(parent)
+            $.ajax({
+                type: "POST",
+                url: "/document/document_copy",
+                data: JSON.stringify({'id': parent.getAttribute('data-iddb')}),
+                contentType: "application/json; charset=utf-8",
+                success: function(res, status, xhr){
+                    console.log(xhr.getResponseHeader('id'))
+                    location.href = "/document/view?id="+ xhr.getResponseHeader('id') +"&type=0"
+                }
+            });
+            
+        }
+    </script>
+{% endblock %}
+
+

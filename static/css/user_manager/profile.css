@@ -1,0 +1,10 @@
+#profile_img{
+    width: 30vw;
+    height: 30vw;
+    border-radius: 100%;
+}
+
+.fieldWrappers {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}

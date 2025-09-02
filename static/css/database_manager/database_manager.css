@@ -1,0 +1,245 @@
+.divSQLVariableContainer{
+    box-shadow: 1px 1px 5px gray;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+    margin-top: 50px;
+}
+
+.ParamBlocks{
+    margin-top: 10px;
+    margin-bottom: 10px;    
+}
+
+.operationLogic{
+    margin-top: 15px;
+    margin-bottom: 10px;  
+}
+
+.table_container{
+    margin-top: 10px;
+    margin-bottom: 10px;
+    width: 100%;
+    max-height: 400px;
+    overflow: auto;
+}
+
+.hrBig{
+    border-top:2px solid black;
+    color: black;
+    opacity: .5;
+}
+
+.SQLColumns{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+#selectContainer{
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.operationLogicContainer{
+    margin-top: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.SQLtableSelect{
+    width: 300px;
+}
+
+.SQLTableResultSelect{
+    width: 300px;
+}
+
+.radioContainer{
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+#table_view{
+    border: 1px solid black;
+}
+
+td{
+    border: 1px solid black;
+}
+
+td:hover{
+    background-color:rgba(95, 158, 160, 0.623);
+}
+
+th{
+    border: 1px solid black;
+    text-align: center;
+    margin-left: 2px;
+    margin-right: 2px;
+}
+
+#divConnection{
+    display: flex;
+    flex-direction: row;
+
+}
+
+#divConnection > *{
+    margin-left: 10px;
+}
+
+#connection_indicator_container{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.good_connection{
+    background-color: rgb(10, 168, 10);
+}
+
+.bad_connection{
+    background-color: rgb(252, 22, 22);
+}
+
+#connection_indicator{
+    width:10px;
+    height: 10px;
+    border-radius: 100%;
+}
+
+#form_create_object, #form_create_object > div{
+    display: flex;
+    flex-direction: column;
+}
+
+#form_create_object > *, #form_create_object > div > *{
+    margin-bottom: 10px;
+}
+
+#form_update_csv_object, #form_update_csv_object > div{
+    display: flex;
+    flex-direction: column;
+}
+
+#form_update_csv_object > *, #form_update_csv_object > div > *{
+    margin-bottom: 10px;
+}
+
+.invisible{
+    display: none!important;
+}
+
+.objectCon{
+    display: flex;
+    border-radius: 15px;
+    padding: 30px;
+    background-color: rgb(163, 163, 163);
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    min-width: 200px;
+}
+
+.objectCon:hover{
+    background-color: rgb(141, 141, 141);
+}
+
+.objectsContainer > *{
+    margin-right: 10px;
+    margin-bottom: 10px;
+}
+
+.objectParametersContainer{
+    display: flex;
+    flex-direction: column;
+    width:100%;
+}
+
+.obj_parameter{
+    padding: 15px;
+    display: flex;
+    flex-direction: row;
+    width:100%;
+}
+
+.ident{
+    padding: 15px;
+    display: flex;
+    flex-direction: row;
+    border: 1px solid black;
+    border-radius: 10px;
+    align-items: center;
+    justify-content: center;
+    margin-right: 10px;
+    margin-bottom: 10px;
+    text-wrap: nowrap;
+    cursor: pointer;
+}
+
+.ident:hover{
+    background-color: rgb(194, 194, 194);
+}
+
+.object_param_item > *{
+    margin-right: 10px;
+}
+
+.object_param_item{
+    margin-bottom: 15px;
+}
+
+.object_param_arr_delim_container > *{
+    margin-right: 10px;
+}
+
+.array_data_container{
+    display: flex;
+    flex-direction: row;
+    padding: 10px;
+    flex-wrap: wrap;
+    border: 1px solid rgb(126, 125, 125);
+    border-radius: 5px;
+
+}
+
+.array_data{
+    display: flex;
+    flex-direction: row;
+    padding: 10px;
+    margin-right: 10px;
+    margin-bottom: 10px;
+    background-color: rgb(194, 194, 194);
+    border: 1px solid rgb(126, 125, 125);
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.select2-selection__rendered {
+    line-height: 50px !important;
+}
+.select2-container .select2-selection--single {
+    height: 55px !important;
+}
+.select2-selection__arrow, .select2-selection__clear {
+    height: 54px !important;
+}
+
+.select2-container .select2-selection--multiple{
+    min-height: 100px !important;
+}
+
+#columns_list .object_param_item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}

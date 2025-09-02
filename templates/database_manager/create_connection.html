@@ -1,0 +1,72 @@
+{% extends  'base.html' %}
+
+{% block title %}
+Создать подключение
+{% endblock %}
+
+{% block connection %}
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/database_manager/database_manager.css' %}">
+{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="header-bar">
+        <h1>Создать подключение</h1>
+    </div>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="fieldWrapper">
+            {{ form.name.errors }}
+            <label for="{{ form.name.id_for_label }}">Название подключения:</label>
+            {{ form.name }}
+        </div>
+        <div class="fieldWrapper">
+            {{ form.dialect.errors }}
+            <label for="{{ form.dialect.id_for_label }}">Диалект:</label>
+            {{ form.dialect }}
+        </div>
+        <div class="fieldWrapper">
+            {{ form.username.errors }}
+            <label for="{{ form.username.id_for_label }}">Имя пользователя:</label>
+            {{ form.username }}
+        </div>
+        <div class="fieldWrapper">
+            {{ form.password.errors }}
+            <label for="{{ form.password.id_for_label }}">Пароль:</label>
+            {{ form.password }}
+        </div>
+        <div class="fieldWrapper">
+            {{ form.host.errors }}
+            <label for="{{ form.host.id_for_label }}">Адрес БД:</label>
+            {{ form.host }}
+        </div>
+        <div class="fieldWrapper">
+            {{ form.port.errors }}
+            <label for="{{ form.port.id_for_label }}">Порт:</label>
+            {{ form.port }}
+        </div>
+        <div class="fieldWrapper">
+            {{ form.service.errors }}
+            <label for="{{ form.service.id_for_label }}">Имя базы данных, к которой происходит подключение:</label>
+            {{ form.service }}
+        </div>
+
+        <button class="btn btn-primary btn-lg" onclick="Load();" type="submit">
+            <span class="spinner-border spinner-border-sm" id="loadButtonGif" role="status" aria-hidden="true" hidden></span>
+            Сохранить
+        </button>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block script %}
+
+<script language="JavaScript">
+    function Load(){
+        console.log('Загрузка началась');
+        loadButtonGif.removeAttribute('hidden')
+    }
+</script>
+
+{% endblock %}

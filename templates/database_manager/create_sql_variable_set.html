@@ -1,0 +1,160 @@
+{% extends  'base.html' %}
+
+{% block title %}
+Добавить поисковую переменную
+{% endblock %}
+
+{% block connection %}
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/database_manager/database_manager.css' %}">
+{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="header-bar">
+        <h1>Создать SQL-переменную</h1>
+    </div>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="fieldWrapper">
+            {{ form.connection.errors }}
+            <label id="label_sql" for="{{ form.connection.id_for_label }}">Подключение:</label>
+            {{ form.connection }}  
+        </div>
+        <div class="fieldWrapper">
+            {{ form.name.errors }}
+            <label for="{{ form.name.id_for_label }}">Название:</label>
+            {{ form.name }}
+        </div>
+        <div class="fieldWrapper">
+            <label for="fromTables">Таблица:</label>
+            <select id="fromTables" onchange="tableSelected();">
+            </select>
+        </div>
+        <div class="fieldWrapper">
+            <label for="fromColumns">Столбец:</label>
+            <select id="fromColumns" onchange="columnSelected();">
+            </select>
+        </div>
+        <div class="table_container">
+            <table class='table table-striped' id="table_view">
+                <thead id="table_view_head"></thead>
+                <tbody id="table_view_body"></tbody>
+            </table>
+        </div>
+        <a class="btn btn-primary" onclick="FillTableView();">Просмотр</a>
+        <div class="fieldWrapper">
+            {{ form.sql.errors }}
+            <label id="label_sql" for="{{ form.sql.id_for_label }}">Название в таблице SQL:</label>
+            {{ form.sql }}
+        </div>
+        <button class="btn btn-primary btn-lg" type="submit">Сохранить</button>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block script %}
+
+<script language="JavaScript">
+
+    function FillTableView(){
+        var jsonp = JSON.parse("{{ conn.tables|escapejs }}");
+        var selectedTable = document.querySelector('#fromTables').value;
+        document.querySelector('#table_view_head').innerHTML = "";
+        document.querySelector('#table_view_body').innerHTML = "";
+        for(let [key, value] of Object.entries(jsonp[selectedTable]['columns'])){
+            var th = document.createElement('th');
+            th.textContent = value['name'];
+            document.querySelector('#table_view_head').appendChild(th)
+        }
+        FillTableViewBody();
+    }
+
+    function FillTableViewBody(){
+        $.ajax({
+                type: "POST",
+                url: "/database/get_table_body/",
+                data: JSON.stringify({'conn_id': "{{ conn.id }}", 'tables': [document.querySelector('#fromTables').value], 'tableSQL': document.querySelector('#fromTables').value}),
+                contentType: "application/json; charset=utf-8",
+                success: function(res, status, xhr){
+                    console.log(xhr.getResponseHeader('result'))
+                    var rows = JSON.parse(xhr.getResponseHeader('result'))['rows'];
+                        for(let row of rows){
+                            console.log(row)
+                            var tr = document.createElement('tr');
+                            document.querySelector('#table_view_body').appendChild(tr)
+                            for(let [key, value] of Object.entries(row)){
+                                var td = document.createElement('td');
+                                td.textContent = value;
+                                td.onclick = (evt)=>{
+                                    var selectedTable = document.querySelector('#fromTables').value;
+                                    var selectedColumn = document.querySelector('#table_view_head').querySelectorAll('th')[evt.target.cellIndex].textContent;
+                                    console.log(evt.target.cellIndex)
+                                    document.querySelector('#sql').value = selectedColumn;
+                                }
+                                tr.appendChild(td)
+                            }
+                        }
+                }
+            });
+            
+    }
+
+    function createSelectFromJSON(data, id){
+        try {
+            for(let [key, value] of Object.entries(data)){
+                var option = document.createElement('option');
+                option.value = key;
+                option.textContent = key;
+                document.querySelector('#'+id).appendChild(option)
+            }
+        } catch (error) {
+            console.log(error)
+            return;
+        }
+    }
+
+    function tableSelected(){
+        try {
+            var selectedTable = document.querySelector('#fromTables').value;
+            $('#fromColumns').selectize()[0].selectize.destroy();
+            document.querySelector('#fromColumns').innerHTML = "";
+            for(let [key, value] of Object.entries(jsonp[selectedTable]['columns'])){
+                var option = document.createElement('option');
+                option.value = value['name'];
+                option.textContent = value['name'];
+                document.querySelector('#fromColumns').appendChild(option)
+            }
+            $('#fromColumns').selectize();
+        } catch (error) {
+            console.log(error)
+            return;
+        }
+    }
+
+    function columnSelected(){
+        try {
+            var selectedTable = document.querySelector('#fromTables').value;
+            var selectedColumn = document.querySelector('#fromColumns').value;
+            document.querySelector('#sql').value = selectedColumn;
+        } catch (error) {
+            console.log(error)
+            return;
+        }
+    }
+
+    var jsonp = JSON.parse("{{ conn.tables|escapejs }}")
+
+    document.querySelector('#id_connection').value = "{{ conn.id }}"
+    $('#id_connection').selectize();
+
+    createSelectFromJSON(jsonp, 'fromTables')
+
+    $('#fromTables').selectize();
+
+    
+    
+    
+</script>
+
+{% endblock %}

@@ -1,0 +1,20 @@
+.main{
+    padding:50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width:100%;
+}
+
+.form_control{
+    width: 50%;
+}
+
+.form_control .fieldWrapper{
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.invisible{
+    display: none!important;
+}

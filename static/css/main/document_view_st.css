@@ -1,0 +1,1050 @@
+:root{
+    --color-primary: #F9FAFA;
+    --color-third: #D9D9D9;
+    --color-secondary:#b1defc;
+    --color-accent: #a5bcfc;
+    --color-document: #ffffff;
+
+    --document-size: 790.6px;
+    --button-menu-width: 25px;
+}
+
+#modal_variable{
+    max-width: 600px;
+}
+
+.obj_parameter_fast{
+    padding: 20px;
+    overflow: hidden;
+}
+
+#objectParametersFast{
+    padding: 5px;
+}
+
+.variable{
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
+
+.selectedVar{
+    background-color: #a5bcfc;
+}
+
+#Variables{
+    padding-left: 15px;
+    padding-top: 15px;
+    max-height: 80%;
+    overflow-y: scroll;
+}
+
+#Variables > div{
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
+
+.VariablesList{
+    max-height: 300px;
+    overflow-y: scroll;
+    padding:5px;
+}
+
+.variable > .variable_mean{
+    margin-left: auto;
+    width: 40%;
+    border: 1px solid #DBDBDB;
+}
+
+.variable > .variable_name{
+    width: 50%;
+    text-overflow: ellipsis;
+}
+
+.variable > .variable_thumbtack + label{
+    border: 0px solid black;
+}
+
+.variable > .variable_thumbtack_checked + label > i{
+    color:rgb(52, 53, 53);
+}
+
+.variable > .variable_thumbtack_not_checked + label > i{
+    color:rgb(165, 165, 165);
+}
+
+span{
+    padding:3px;
+}
+
+.btn_menu{
+    max-width: var(--button-menu-width);
+}
+
+#menu{
+    display: flex;
+    text-align: center;
+    background-color: var(--color-primary);
+    padding-top: 5px;
+    padding-bottom: 5px;
+    border-top: 1px solid #D9D9D9;
+    border-bottom: 1px solid #D9D9D9;
+    padding-left: 20px;
+    padding-right: 20px;
+    align-items: center;
+}
+
+#filters_menu{
+    display: flex;
+    text-align: center;
+    background-color: var(--color-primary);
+    padding-top: 5px;
+    padding-bottom: 5px;
+    border-top: 1px solid #D9D9D9;
+    border-bottom: 1px solid #D9D9D9;
+    padding-left: 20px;
+    align-items: center;
+}
+
+.btn-group-toggle{
+    border: 1px solid #646464;
+}
+
+#filters_menu .vr{
+    margin-right: 10px;
+    margin-left: 10px;
+}
+
+#menu .vr{
+    margin-right: 10px;
+    margin-left: 10px;
+}
+
+
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background-color: var(--color-primary);
+}
+
+#menu a {
+  text-decoration: none;
+  outline: none;
+  transition: .3s ease-in-out;
+}
+
+#menu > ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.paragraph{
+    min-height: 30px;
+    background-color: var(--color-document);
+	max-width: 100%;
+	padding: 10px;
+    line-height: 1;
+    text-indent: 0cm;
+    position: relative;
+}
+
+.paragraph * {
+    text-indent: 0;
+}
+
+.paragraph::after {
+    width: 100%;
+    height: 0;
+    visibility: hidden;
+    overflow: hidden;
+    content: '';
+    display: inline-block;
+
+}
+
+.paragraph:hover{
+    background-color: rgb(220, 220, 220);
+}
+
+.mainDocument{
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+}
+
+#rightMenu{
+    height: 100%;
+	display:flex;
+	flex-direction: column;
+	position: sticky;
+	top: 150px;
+	background-color: white;
+	padding: 10px;
+    margin-left: 5px;
+}
+
+#rightMenu > *{
+    margin-top: 10px;
+}
+
+#rightMenu button{
+    width: 100%;
+    height: 60px;
+}
+
+#rightMenu .list-container{
+    margin-top: 15px;
+    border-radius: 5px;
+}
+
+
+#document_main{
+    min-height: 1030px;
+	min-width: var(--document-size);
+    max-width: var(--document-size);
+	display:flex;
+	flex-direction: column;
+	background-color: var(--color-document);
+	margin-left: 30px;
+	margin-top: 20px;
+	padding-top: 80px;
+	padding-left: 100px;
+    padding-right: 50px;
+}
+
+#save_complete{
+    display: none;
+    align-items: center;
+    background-color: #EEEFF1;
+    color: #08101C;
+    border-radius: 5px;
+    padding: 5px;
+    
+}
+
+#selectedElement{
+    max-width: 50px;
+    display: none;
+}
+
+#span_value{
+    width:100%;
+    border-radius: 0px;
+}
+
+.runs{
+    color: black;
+    display: inline-block;
+    background-color: rgb(243, 243, 243);
+    margin-right: 2px;
+}
+
+td{
+	border: 1px solid black;
+}
+
+td.paragraph{
+	width: 100%;
+}
+
+
+#TopMenu{
+	position: sticky; 
+	top: 0px;
+    padding-top: 10px;
+	z-index: 1000;
+    background-color: var(--color-primary);
+}
+
+#DropDownFont{
+	width:300px;
+	text-align: left;
+}
+
+#ButtonDropDownFont{
+	width:100%;
+	text-align: right;
+}
+
+#DropDownFont ul{
+	width: 300px;
+	max-height: 300px;
+	overflow: auto;
+}
+
+#list_saved{
+    min-height: 200px;
+    max-height: 200px;
+    background-color: white;
+}
+
+#list_saved_sp{
+    max-height: 200px;
+    max-width: 250px;
+    min-width: 250px;
+    overflow-y: scroll;
+}
+
+.list_saved_element{
+    max-width: 232px;
+    max-height: 30px;
+    min-height: 30px;
+    min-width: 232px;
+}
+
+.list_saved_element_label{
+    font-size: 10px;
+}
+
+#table_oknapolya{
+    overflow: auto;
+    width: 90%;
+    height: 90%;
+    background-color: white;
+    padding: 5px;
+}
+
+.dropped{
+    border: 1px dashed red;
+}
+
+.dragged{
+    border: 1px dashed green;
+}
+
+#buttonMenu{
+    display: flex;
+    flex-direction: row;
+}
+
+.savedElement_container{
+    display: flex;
+    flex-direction: row;
+    max-height: 15px;
+}
+
+.savedElement_btns{
+    display: flex;
+    flex-direction: row;
+    position: absolute;
+    left: 93%;
+}
+
+#doc_name{
+    font-size: 20px;
+    margin-right: 10px;
+    font-weight: bold;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+#instruments_menu{
+    display: flex;
+    flex-direction: row;
+    margin-left: 10px;
+}
+
+#btnRadioInstruments{
+    border-radius: 100%;
+    height: 25px;
+    width: 25px;
+    border: 1px solid black;
+}
+
+
+.dropdownRadioMenu.show{
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    overflow-y: scroll;
+    width: 300px;
+    max-height: 300px;
+}
+
+.radioGroupIndicator{
+    border-radius: 100%;
+    width: 15px;
+    height: 15px;
+    margin-left: 10px;
+}
+
+.dropdownRadioGroup{
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    padding: 5px;
+    border-radius: 15px;
+}
+
+.selectedRadioGroupDocelement{
+    border-left-width: 5px!important;
+    border-left-style: solid;
+
+}
+
+.dropdownRadioGroup:hover{
+    background-color: #c4c4c4;
+}
+
+.dropdownRadioGroup > span{
+    width: 70%;
+    margin-left: 5px;
+}
+
+.dropdownRadioGroup > a{
+    border-radius: 100%;
+    height: 25px;
+    width: 25px;
+    min-width: 25px;
+    border: 1px solid black;
+    padding: 0;
+}
+
+#doc_name_container{
+    display: flex;
+    align-items: center;
+}
+
+.selectedRadioGroup{
+    border:1px solid rgb(52, 53, 53)
+}
+
+#font_select{
+    background-color: var(--color-primary);
+    border: 1px solid var(--color-primary);
+    max-width: 300px;
+    min-width: 200px;
+}
+
+#leftMenu{
+    width: 50px;
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 240px;
+    height: 12vh;
+    background-color: white;
+}
+
+#leftMenu > div{
+    background-color: white;
+    padding: 15px;
+    margin-bottom: 10px;
+    flex-grow: 1;
+    max-width: 30vw;
+    min-height: 40vh;
+}
+
+.RadioGroup{
+    margin-bottom: 10px;
+    padding: 10px;
+}
+
+.containerTextColorRadioGroup > input {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-color: transparent;
+    width: 30px;
+    height: 30px;
+    border: none;
+    cursor: pointer;
+  }
+  .containerTextColorRadioGroup > input::-webkit-color-swatch {
+    border-radius: 50%;
+    border: 1px solid #000000;
+  }
+  .containerTextColorRadioGroup > input::-moz-color-swatch {
+    border-radius: 50%;
+    border: 1px solid #000000;
+  }
+
+#leftMenu > a{
+    padding: 5px;
+}
+
+.deleteButton:hover i{
+    color: red;
+}
+
+#leftMenu ul{
+    border-radius: 15px;
+}
+
+#tree_paragraph{
+    background-color: var(--color-primary);
+    padding:20px;
+    max-height: 400px;
+    overflow: auto;
+}
+
+.tree_element{
+    width: 100%;
+    z-index: 10;
+    margin-bottom: 10px;
+    
+}
+
+.tree_element_container{
+    display: flex;
+    align-items: center;
+    padding:5px;
+    border-bottom: 1px solid #D9D9D9;
+    
+    padding-left: 2%;
+}
+
+.hideCheckbox{
+    min-width: 20px;
+    min-height: 20px;
+}
+
+
+.tree_element_label{
+    margin-left:10px;
+    width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.treeElementInRadioLabel{
+    display: inline-block;
+    margin-left:10px;
+    width: 140px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.tree_element_label + ul{
+    margin-top: 10px;
+}
+
+
+#variable_error_message{
+    color: red;
+}
+.labeled_input{
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.inputNumberMenu{
+    max-width: 40px;
+    background-color: var(--color-primary);
+    border: 1px solid var(--color-primary);
+    padding: 5px 5px;
+    text-align: center;
+}
+
+input[type="number"]::-webkit-inner-spin-button{
+    display: none;
+}
+
+.inputButtons{
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-evenly;
+    padding-right: 1px;
+}
+
+.inputNumber{
+    display: flex;
+    flex-direction: row;
+    margin-right: 3px;
+    align-items: center;
+}
+
+.inputNumber:hover > .inputButtons{
+    display: flex;
+}
+
+.inputButton{
+    display: flex;
+    padding: 0px;
+    align-items: center;
+}
+
+#context_menu{
+    display:none;
+    position: absolute;
+    background-color: white;
+    z-index: 1005;
+    border: 1px solid rgb(172, 172, 172);
+    border-radius: 0.375rem;
+}
+
+#modal_radioGroup_body{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 15px;
+}
+
+.ulContainerRadioGroup{
+    min-height: 100px;
+}
+
+.containerTextColorRadioGroup{
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    margin-bottom: 10px;
+}
+
+.docelement.hovered_dependence{
+    border: 3px dotted rgb(138, 230, 0)!important;
+}
+
+.docelement.selected_event_caller{
+    border: 3px dotted rgb(255, 36, 36)!important;
+}
+
+.docelement.hovered_event_caller{
+    border: 3px dotted rgb(255, 36, 36)!important;
+}
+
+#rightRadioMenu{
+    overflow: auto;
+    background-color: var(--color-primary);
+    padding: 0px;
+    height: 510px;
+}
+
+.EventReceiver:hover{
+    border: 2px dotted rgb(138, 230, 0)!important;
+}
+
+#leftRadioMenu{
+    overflow: auto;
+    padding: 0px;
+    margin-right: 50px;
+}
+
+#modal_radioGroup_body ul{
+    border-radius: 5px;
+}
+
+.TreeElementInModalList{
+    margin: 3px 10px 3px 10px;
+    border-radius: 5px;
+    max-width: 200px;
+}
+
+#modal_radioGroup_list > li{
+    margin-top: 7px;
+    border-radius: 5px;
+}
+
+#document_tree{
+    overflow-y: auto;
+    max-height: 60vh;
+    max-width: 100%;
+    background-color: white;
+    padding:0px;
+}
+
+.setUserCheckbox + label{
+    min-width: 20px;
+    min-height: 20px;
+    margin-left: 5px;
+}
+
+
+#tree_develop{
+    margin-left: 15px;
+}
+
+#tree_develop + label{
+    margin-left: 5px;
+}
+
+#tree_develop_container{
+    padding: 10px;
+    padding-top: 25px;
+    padding-bottom: 25px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    border-bottom: 1px solid #D9D9D9;
+    margin-bottom: 15px;
+}
+
+.variable_ref{
+    cursor: pointer;
+}
+
+#fixedVariables{
+    max-height: 25vh;
+    overflow-y: auto;
+    margin-bottom: 5px;
+}
+
+.reference_to_data{
+    background-color: rgb(160, 226, 160)!important;
+    cursor: pointer;
+}
+
+.smaller{
+    max-height: 40vh!important;
+}
+
+#variable_fixed{
+    margin-left: 15px;
+}
+
+#variable_fixed + label{
+    margin-left: 5px;
+}
+
+#variable_fixed_container{
+    padding: 10px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    border-bottom: 1px solid #D9D9D9;
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+    margin-left: 6px;
+}
+  
+::-webkit-scrollbar-track {
+    -webkit-box-shadow: 5px 5px 5px -5px rgba(192, 192, 192, 0.836) inset;
+    background-color: #f9f9fd;
+    border-radius: 5px;  
+}
+  
+::-webkit-scrollbar-thumb {
+    border-radius: 5px;
+    background: linear-gradient(180deg, rgb(99, 98, 98) , rgb(148, 148, 148));
+}
+
+#errorWindowModal{
+    top: 100px;
+}
+
+.selectedParagraph{
+    border: 1px dashed gray;
+    margin-bottom: 30px;
+}
+
+.selectedRun{
+    background-color: #a5bcfc!important;
+}
+
+#context_add_menu{
+    position: absolute;
+    top:100%;
+    left: 0%;
+    z-index: 1000;
+}
+
+#context_add_menu div{
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+
+    border-radius: 15px;
+}
+
+
+.paragraph.docelementNotHidden[hidden]{
+    display: inline!important;
+    background-color: rgb(121, 121, 121);
+}
+
+.runs.docelementNotHidden[hidden]{
+    display: inline!important;
+    color: rgb(211, 210, 210);
+    text-decoration: line-through;
+}
+
+#rightMenu1{  
+    max-width: 800px;
+    display: flex;
+    flex-direction: column;
+    max-height: 78vh;
+    margin-left: auto;
+    flex-grow: 1;
+    position: sticky;
+	top: 240px;
+    background-color: var(--color-document);
+    margin-right: 1px;
+}
+
+#Dependences{
+    padding: 15px;
+}
+
+#DependencesList > *{
+    margin-bottom: 15px;
+}
+
+.get_event_receiver{
+    z-index: 100000!important;
+    position: absolute;
+}
+
+.get_event_receiver .runs:hover{
+    border: 2px dotted rgb(138, 230, 0)!important;
+    cursor: pointer;
+}
+
+#rightMenuTopContext{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+}
+
+.optionContainer{
+    flex-grow: 1;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    padding: 15px;
+    cursor: pointer;
+}
+
+.optionContainer:has(.optionInput:checked){
+    border-bottom: 2px solid #5E6878;
+}
+
+#zavisimosti{
+    display:none;
+}
+
+/* #rightMenu1 > div{
+    flex-grow: 1;
+    margin-bottom: 15px;
+    background-color: white;
+    padding: 15px;
+} */
+
+.FixedVariableContainer{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    border-bottom: 1px solid black;
+    padding: 10px;
+}
+
+.selectedTreeElement{
+    border: 1px dotted #a5bcfc;
+}
+
+#modal_event_body{
+    display: flex;
+    flex-direction: column;
+}
+
+#EventCallerContainer{
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+#EventCallerContainer > *{
+    margin-right: 5px;
+}
+
+#EventReceiversList{
+    display: flex;
+    flex-direction: column;
+    height: 50vh;
+    margin-top: 10px;
+    overflow: auto;
+}
+
+#img_profile{
+    width: 3vw;
+    border-radius: 100%;    
+    height: 3vw;
+}
+
+.EventReceiverIDContainer{
+    display: flex;
+    flex-direction: row;
+
+}
+
+.EventReceiverDoingContainer, .EventReceiverIfContainer{
+    display: flex;
+    flex-direction: row;
+}
+
+.EventReceiver{
+    display: flex;
+    flex-direction: row;
+    padding: 10px;
+    border: 1px solid black;
+    border-radius: 5px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    justify-content: space-between;
+    width: 95%;
+}
+
+.EventReceiverID{
+    max-width: 200px;
+}
+
+.imageDocElement{
+    resize: both;
+    overflow: auto;
+    max-width: inherit;
+    display:inline-block;
+}
+
+.imageForDocElement{
+    width: 100%;
+    height: 100%;
+}
+
+#TopMenu{
+    display: flex;
+    flex-direction: column;
+}
+
+#TopHeader{
+    display: flex;
+    flex-direction: row;
+}
+
+#DocNameContainer{
+    display: flex;
+    flex-direction: row;
+}
+
+#buttonBackContainer{
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+#buttonBackContainer > div{
+    background-color: #EEEFF1;
+    border-radius: 5px;
+    padding: 2px;
+    min-width: 50px;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    margin-left: 15px;
+}
+
+#buttonBackContainer > div > a{
+    color: #333333;
+}
+
+#DocMenuContainer{
+    display: flex;
+    flex-direction: column;
+    margin-left: 15px;
+}
+
+#profile_menu{
+    margin-left: auto;
+    margin-right: 15px;
+}
+
+#TopNavigator a{
+    font-weight: 500;
+}
+
+
+.invisible{
+    display: none!important;
+}
+
+.objectParametersContainer{
+    display: flex;
+    flex-direction: column;
+    width:100%;
+    height: 300px;
+    overflow: auto;
+}
+
+.obj_parameter{
+    padding: 15px;
+    display: flex;
+    flex-direction: row;
+    width:100%;
+}
+
+.ident{
+    padding: 15px;
+    display: flex;
+    flex-direction: row;
+    border: 1px solid black;
+    border-radius: 10px;
+    align-items: center;
+    justify-content: center;
+    margin-right: 10px;
+    margin-bottom: 10px;
+    text-wrap: nowrap;
+    cursor: pointer;
+}
+
+.ident:hover{
+    background-color: rgb(194, 194, 194);
+}
+
+.object_param_item > *{
+    margin-right: 10px;
+}
+
+.object_param_item{
+    margin-bottom: 15px;
+}
+
+.object_param_arr_delim_container > *{
+    margin-right: 10px;
+}
+
+.array_data_container{
+    display: flex;
+    flex-direction: row;
+    padding: 10px;
+    flex-wrap: wrap;
+    border: 1px solid rgb(126, 125, 125);
+    border-radius: 5px;
+
+}
+
+.array_data_container{
+    display: flex;
+    flex-direction: row;
+    padding: 10px;
+    flex-wrap: wrap;
+    border: 1px solid rgb(126, 125, 125);
+    border-radius: 5px;
+
+}
+
+.array_data{
+    display: flex;
+    flex-direction: row;
+    padding: 10px;
+    margin-right: 10px;
+    margin-bottom: 10px;
+    background-color: rgb(194, 194, 194);
+    border: 1px solid rgb(126, 125, 125);
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#colorsBackgroundRun{
+    min-width: 30px;
+    max-width: 30px;
+}

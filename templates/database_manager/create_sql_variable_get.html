@@ -1,0 +1,703 @@
+{% extends  'base.html' %}
+
+{% block title %}
+Добавить получаемую переменную
+{% endblock %}
+
+{% block connection %}
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/database_manager/database_manager.css' %}">
+{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="header-bar">
+        <h1>Создать SQL-переменную</h1>
+    </div>
+    <div class="fieldWrapper">
+        {{ form.connection.errors }}
+        <label id="label_sql" for="{{ form.connection.id_for_label }}">Подключение:</label>
+        {{ form.connection }}  
+    </div>
+    <div class="fieldWrapper">
+        {{ form.name.errors }}
+        <label for="{{ form.name.id_for_label }}">Название:</label>
+        {{ form.name }}
+    </div>
+    <hr/>
+    <div id="SQLtables" class="ParamBlocks">
+        <div class="SQLtable_container">
+            <div class="fieldWrapper">
+                <span>Таблица:</span>
+                <select class="SQLtableSelect" onchange="tableSelected(event);">
+                </select>
+                
+            </div>
+            <div class="table_container">
+                <table class='table table-striped table_view'>
+                    <thead class="table_view_head"></thead>
+                    <tbody class="table_view_body"></tbody>
+                </table>
+            </div>
+            <a class="btn btn-primary" onclick="FillTableView(event);">Просмотр</a>
+        </div>
+        <hr/>
+        <div class="btn_container">
+            <a class="btn btn-labeled" onclick="AddTable(event);"><i class="fa-solid fa-plus"></i> Добавить таблицу</a>
+        </div>
+    </div>
+    <hr class="hrBig"/>
+    <div>
+        <div id="WhereParams">
+            <span>Фильтрация по:</span>
+            <div class="ParamBlocks">
+                <div class="radioContainer">
+                    <input type="radio" name="typeOfWhere0" class="form-check-input SQLColumnRadio" onclick="RadioClicked(event);" checked>
+                    <span>Выбрать из таблицы SQL</span>
+                    
+                    <input type="radio" name="typeOfWhere0" class="form-check-input SQLVariableSetRadio" onclick="RadioClicked(event);">
+                    <span>Выбрать из созданных переменных SQL-параметров</span>
+                    
+                    <input type="radio" name="typeOfWhere0" class="form-check-input strokeRadio" onclick="RadioClicked(event);">
+                    <span>Написать строку</span>
+                </div>
+                <div class="SQLColumns">
+                    <select class="SQLTableResultSelect whereSelect" onchange="">
+                    </select>
+                    <select class="SQLLogicOperation">
+                        <option value="=">РАВНО</option>
+                        <option value="<>">НЕ РАВНО</option>
+                        <option value="<">МЕНЬШЕ</option>
+                        <option value=">">БОЛЬШЕ</option>
+                        <option value="<=">МЕНЬШЕ ЛИБО РАВНО</option>
+                        <option value=">=">БОЛЬШЕ ЛИБО РАВНО</option>
+                    </select>
+                    <input type="text">
+                </div>
+                <div class="SQLVariablesSet" hidden>
+                    <span>SQL-параметр:</span>
+                    <select>
+                        {% for sql_variable in sql_variables_set %}
+                        <option value="{{ sql_variable.id }}" data-idCon="{{ sql_variable.connection.id }}">{{ sql_variable.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <input class="SQLVariablesSetInput" placeholder="Значение для теста">
+                    
+                </div>
+                <div class="stroke" hidden>
+                    <input type="text">
+                </div>
+                
+            </div>
+            <div class="btn_container">
+                <a class="btn btn-labeled" onclick="AddWhereParam(event);"><i class="fa-solid fa-plus"></i></a>
+            </div>
+        </div>
+        <hr class="hrBig"/>
+        <label for="NeedOrderCheck">Нужна сортировка</label>
+        <input type="checkbox" class="form-check-input" onchange="NeedOrderCheckClicked(event);" id="NeedOrderCheck">
+        <div id="OrderParams" hidden>
+            <span>Сортировать по:</span>
+            <div class="ParamBlocks">
+                <div class="SQLColumns">
+                    <select class="whereSelect" onchange="">
+                    </select>
+                </div>
+            </div>
+            <select class="OrderingASCDESC">
+                <option value="ASC">По возрастанию</option>
+                <option value="DESC">По убыванию</option>
+            </select>
+    </div>
+    <div class="table_container" id="tableResult">
+        <table class='table table-striped table_view'>
+            <thead class="table_view_head"></thead>
+            <tbody class="table_view_body"></tbody>
+        </table>
+    </div>
+    <a class="btn btn-primary" onclick="FillTableViewResult();">Просмотр результативной таблицы</a>
+    <div id="selectContainer">
+        <span>Выбрать столбец:</span>
+        <select class="whereSelect" onchange="">
+        </select>
+    </div>
+    <a class="btn btn-primary" onclick="CheckClicked(event);">Сформировать SQL-запрос</a>
+    <!-- <div>
+        <p>Соберите SQL-запрос с использованием уже готовых поисковых переменных по типу:</p>
+        <p>SELECT [Имя столбца в базе даных] FROM [Таблица в базе данных] [Если есть необходимость объединяйте таблицы при помощи INNER JOIN] WHERE {: ID поисковой переменной из списка ниже :}</p>
+        <p>Пример:</p>
+        <p>SELECT Name FROM participant INNER JOIN case ON participant.case = case.objectid INNER JOIN subject ON subject.objectid = participant.subject WHERE {: 3 :} AND participant.category = 'B9C219FE6B5D4FCE85FFBF28AA892EFC'</p>
+    </div> -->
+    <div class="fieldWrapper">
+        {{ form.sql.errors }}
+        <label id="label_sql" for="{{ form.sql.id_for_label }}">SQL-запрос:</label>
+        {{ form.sql }}  
+    </div>
+    
+    <div>
+        <!-- <ul id="sql_variable_set_id">
+            {% for sql_variable in sql_variables_set %}
+            <li value="{{ sql_variable.id }}">{{ sql_variable.id }}. {{ sql_variable }}</option>
+            {% endfor %}
+        </ul>
+        <datalist id="datalist_sql_variables_set">
+            {% for sql_variable in sql_variables_set %}
+            <option value="{{ sql_variable.id }}. {{ sql_variable }}">
+            {% endfor %}
+        </datalist> -->
+    </div>
+    <button class="btn btn-primary" onclick="SaveVariable();" type="submit">Сохранить</button>
+</div>
+
+{% endblock %}
+
+{% block script %}
+
+<script language="JavaScript">
+
+    class SQLTable{
+        constructor(name){
+            this.tables = [name]
+            this.columns = []
+            for(let [key, value] of Object.entries(jsonp[name]['columns'])){
+                this.columns.push(value);
+            }
+            this.fks = []
+            for(let [key, value] of Object.entries(jsonp[name]['fks'])){
+                this.fks.push(value);
+            }
+            this.innerjoins = {}
+        }
+
+        changefirst(name){
+            if(name == "")
+                return;
+            this.deleteinnerjoinTable(sqltable.tables[0]);
+            this.tables.unshift(name);
+            for(let [key, value] of Object.entries(jsonp[name]['columns'])){
+                this.columns.push(value);
+            }
+            for(let [key, value] of Object.entries(jsonp[name]['fks'])){
+                this.fks.push(value);
+            }
+            FillWhereSelect();
+        }
+
+        innerjoinTable(name, firstCol, secondCol){
+            if(name == "")
+                return;
+            this.tables.push(name);
+            for(let [key, value] of Object.entries(jsonp[name]['columns'])){
+                this.columns.push(value);
+            }
+            for(let [key, value] of Object.entries(jsonp[name]['fks'])){
+                this.fks.push(value);
+            }
+            this.innerjoins[name] = [firstCol, secondCol]
+            FillWhereSelect();
+        }
+
+        deleteinnerjoinTable(name){
+            if(name == "")
+                return;
+            this.tables.splice(this.tables.indexOf(name), 1)
+            for(let [key, value] of Object.entries(jsonp[name]['columns'])){
+                this.columns.splice(this.columns.indexOf(value), 1)
+            }
+            for(let [key, value] of Object.entries(jsonp[name]['fks'])){
+                this.fks.splice(this.fks.indexOf(value), 1);
+            }
+            delete this.innerjoins[name]
+            FillWhereSelect();
+        }
+
+        createSQL(){
+            var sql = this.tables[0]
+            for(let [key, value] of Object.entries(this.innerjoins)){
+                sql += " INNER JOIN " + key + " ON " + value[0] + " = " + value[1];
+            }
+            return sql;
+        }
+    }
+
+    class WhereParam{
+        constructor(){
+            this.uslov = []
+            this.logic = []
+            this.sqlVariablesSet = {}
+        }
+
+        createUsl(){
+            this.uslov = [];
+            this.sqlVariablesSet = {};
+            var whereParams = document.querySelector('#WhereParams');
+            for(let paramBlock of whereParams.querySelectorAll('.ParamBlocks')){
+                this.addUsl(paramBlock);
+            }
+            this.logic = [];
+            for(let log of document.querySelectorAll('.operationLogic')){
+                this.logic.push(log.value);
+            }
+            console.log(this.uslov);
+            console.log(this.logic);
+        }
+
+        addUsl(paramBlock){
+            var radioChecked = paramBlock.querySelector('input:checked');
+            console.log(radioChecked);
+            var Cont = paramBlock.querySelector('.SQLColumns')
+            var uslov = "";
+            if(radioChecked.classList.contains('SQLColumnRadio')){
+                Cont = paramBlock.querySelector('.SQLColumns')
+                uslov += Cont.querySelector('.whereSelect').value;
+                uslov += ' ';
+                uslov += Cont.querySelector('.SQLLogicOperation').value;
+                uslov += ' ';
+                uslov += Cont.querySelector('input').value;
+            }
+            else if(radioChecked.classList.contains('SQLVariableSetRadio')){
+                Cont = paramBlock.querySelector('.SQLVariablesSet')
+                uslov += "{: " + Cont.querySelector('select').value + " :}";
+                this.sqlVariablesSet[Cont.querySelector('select').value] = Cont.querySelector('input').value;
+            }
+            else if(radioChecked.classList.contains('strokeRadio')){
+                Cont = paramBlock.querySelector('.stroke')
+                uslov += Cont.querySelector('input').value;
+            }
+            this.uslov.push(uslov);
+        }
+
+        createSQL(){
+            var sql = this.uslov[0];
+            for(let i = 1; i < this.uslov.length; i++){
+                sql += " " + this.logic[i-1] + " " + this.uslov[i];
+            }
+            return sql;
+        }
+    }
+
+    function RadioClicked(evt){
+        var cont = evt.target.closest('.ParamBlocks');
+        console.log(cont); 
+        if(evt.target.classList.contains('SQLColumnRadio')){
+            cont.querySelector('.SQLColumns').removeAttribute('hidden');
+            cont.querySelector('.SQLVariablesSet').setAttribute('hidden', 'true');
+            cont.querySelector('.stroke').setAttribute('hidden', 'true');
+        }
+        else if(evt.target.classList.contains('SQLVariableSetRadio')){
+            cont.querySelector('.SQLVariablesSet').removeAttribute('hidden');
+            cont.querySelector('.SQLColumns').setAttribute('hidden', 'true');
+            cont.querySelector('.stroke').setAttribute('hidden', 'true');
+        }
+        else if(evt.target.classList.contains('strokeRadio')){
+            cont.querySelector('.stroke').removeAttribute('hidden');
+            cont.querySelector('.SQLColumns').setAttribute('hidden', 'true');
+            cont.querySelector('.SQLVariablesSet').setAttribute('hidden', 'true');
+        }
+    }
+
+    function NeedOrderCheckClicked(evt){
+        if(evt.target.checked){
+            document.querySelector('#OrderParams').removeAttribute('hidden');
+        }
+        else{
+            document.querySelector('#OrderParams').setAttribute('hidden', 'true');
+        }
+    }
+
+    function CheckClicked(evt){
+        var whereParam = new WhereParam();
+        whereParam.createUsl();
+        console.log(whereParam.createSQL());
+        var selectCont = document.querySelector('#selectContainer');
+        var selectSQL = selectCont.querySelector('.whereSelect').value;
+        console.log(selectSQL)
+        if(document.querySelector('#NeedOrderCheck').checked){
+            var orderCont = document.querySelector('#OrderParams');
+            var orderbySQL = orderCont.querySelector('.whereSelect').value + " " + orderCont.querySelector('.OrderingASCDESC').value
+            console.log(orderbySQL)
+            document.querySelector('#sql').value = "SELECT " + selectSQL + " FROM " + sqltable.createSQL() + " WHERE " + whereParam.createSQL() + " ORDER BY " + orderbySQL
+        }
+        else{
+            document.querySelector('#sql').value = "SELECT " + selectSQL + " FROM " + sqltable.createSQL() + " WHERE " + whereParam.createSQL()
+        }
+    }
+
+    function SaveVariable(task){
+        $.ajax({
+            type: "POST",
+            url: "{% url 'save_var' %}",
+            data: JSON.stringify({'name': document.querySelector('#name').value, 'sql': document.querySelector('#sql').value, 'connection': document.querySelector('#id_connection').value}),
+            contentType: "application/json; charset=utf-8",
+            success: function(res, status, xhr){
+                switch(xhr.status){
+                    case 200:
+                        location.href="/database/setting_database"
+                        break;
+                    case 304:
+                        break;
+                }
+            }
+        });
+    }
+
+    function createSelectFromJSON(data, select){
+        try {
+            select.innerHTML = "";
+            for(let [key, value] of Object.entries(data)){
+                var option = document.createElement('option');
+                option.value = key;
+                option.textContent = key;
+                select.appendChild(option)
+            }
+            $(select).select2({
+                language: 'ru'
+            });
+        } catch (error) {
+            console.log(error)
+            return;
+        }
+    }
+
+    function createSelectColumnFromJSON(data, select){
+        try {
+            select.innerHTML = "";
+            for(let [key, value] of Object.entries(data)){
+                var option = document.createElement('option');
+                option.value = value['name'];
+                option.textContent = value['name'];
+                select.appendChild(option)
+            }
+            $(select).select2({
+                language: 'ru'
+            });
+        } catch (error) {
+            console.log(error)
+            return;
+        }
+    }
+
+    function addSelectColumnFKFromJSON(data, select){
+        try {
+            for(let [key, value] of Object.entries(data)){
+                var option = select.querySelector('option[value="'+ value['constrained_column'] +'"]')
+                option.textContent += ' | связан с ' + value['referr_column']
+            }
+        } catch (error) {
+            console.log(error)
+            return;
+        }
+    }
+
+    function FillTableViewResult(){
+        var sqlTableCont = document.querySelector('#tableResult');
+        var tableHead = sqlTableCont.querySelector('.table_view_head');
+        var tableBody = sqlTableCont.querySelector('.table_view_body');
+        tableHead.innerHTML = "";
+        tableBody.innerHTML = "";
+        for(let [key, value] of Object.entries(sqltable.columns)){
+            var th = document.createElement('th');
+            th.textContent = value['name'];
+            tableHead.appendChild(th)
+        }
+        for(let [key, value] of Object.entries(sqltable.fks)){
+            var th = $('th:contains("'+ value['constrained_column'] +'")')
+            console.log(th[0])
+            th[0].textContent += '(' + value['referr_table'] + ')'
+        }
+        var whereParam = new WhereParam();
+        whereParam.createUsl();
+        console.log(whereParam.createSQL());
+        $.ajax({
+                type: "POST",
+                url: "/database/get_table_body/",
+                data: JSON.stringify({'conn_id': document.querySelector('#id_connection').value, 'tables': sqltable.tables , 'tableSQL': sqltable.createSQL(), 'where': whereParam.createSQL(), 'sqlset': whereParam.sqlVariablesSet}),
+                contentType: "application/json; charset=utf-8",
+                success: function(res, status, xhr){
+                    console.log(xhr.getResponseHeader('result'))
+                    var rows = JSON.parse(xhr.getResponseHeader('result'))['rows'];
+                        for(let row of rows){
+                            console.log(row)
+                            var tr = document.createElement('tr');
+                            tableBody.appendChild(tr)
+                            for(let [key, value] of Object.entries(row)){
+                                var td = document.createElement('td');
+                                td.textContent = value;
+                                td.onclick = (evt)=>{
+                                    var selectedColumn = tableHead.querySelectorAll('th')[evt.target.cellIndex].textContent.split('(')[0];
+                                    console.log(selectedColumn);
+                                    var cont = document.querySelector('#selectContainer');
+                                    console.log($(cont.querySelector('.whereSelect')))
+                                    $(cont.querySelector('.whereSelect')).val(selectedColumn);
+                                    $(cont.querySelector('.whereSelect')).trigger('change');
+                                }
+                                tr.appendChild(td)
+                            }
+                        }
+                }
+            });
+    }
+
+    function FillTableView(evt){
+        var sqlTableCont = evt.target.closest('.SQLtable_container');
+        var tableSelect = sqlTableCont.querySelector('.SQLtableSelect');
+        var tableHead = sqlTableCont.querySelector('.table_view_head');
+        var tableBody = sqlTableCont.querySelector('.table_view_body');
+        tableHead.innerHTML = "";
+        tableBody.innerHTML = "";
+        for(let [key, value] of Object.entries(jsonp[tableSelect.value]['columns'])){
+            var th = document.createElement('th');
+            th.textContent = value['name'];
+            tableHead.appendChild(th)
+        }
+        for(let [key, value] of Object.entries(jsonp[tableSelect.value]['fks'])){
+            var th = $('th:contains("'+ value['constrained_column'] +'")')
+            console.log(th[0])
+            th[0].textContent += '(' + value['referr_table'] + ')'
+        }
+        $.ajax({
+                type: "POST",
+                url: "/database/get_table_body/",
+                data: JSON.stringify({'conn_id': document.querySelector('#id_connection').value, 'tables': [tableSelect.value], 'tableSQL': tableSelect.value}),
+                contentType: "application/json; charset=utf-8",
+                success: function(res, status, xhr){
+                    console.log(xhr.getResponseHeader('result'))
+                    var rows = JSON.parse(xhr.getResponseHeader('result'))['rows'];
+                        for(let row of rows){
+                            console.log(row)
+                            var tr = document.createElement('tr');
+                            tableBody.appendChild(tr)
+                            for(let [key, value] of Object.entries(row)){
+                                var td = document.createElement('td');
+                                td.textContent = value;
+                                td.onclick = (evt)=>{
+                                    var selectedColumn = tableHead.querySelectorAll('th')[evt.target.cellIndex].textContent.split('(')[0];
+                                    var cont = evt.target.closest('.SQLtable_container')
+                                    console.log($(cont.querySelector('.secondSelect')))
+                                    $(cont.querySelector('.secondSelect')).val(selectedColumn);
+                                    $(cont.querySelector('.secondSelect')).trigger('change');
+                                }
+                                tr.appendChild(td)
+                            }
+                        }
+                }
+            });
+    }
+
+    function AddTable(event){
+        var bigTable = document.querySelector('#SQLtables');
+        var i = bigTable.querySelectorAll('.SQLtable_container').length + 1;
+        bigTable.removeChild(bigTable.querySelector('.btn_container'))
+        bigTable.insertAdjacentHTML('beforeend',`
+        <div class="SQLtable_container">
+            <div class="fieldWrapper">
+                <span>Объединить с таблицей:</span>
+                <select class="SQLtableSelect" onchange="innerTableSelected(event);"></select>
+                <div class="container_sravn">
+                    <span>По признаку:</span>
+                    <div class="column_container_sravn">
+                        <select class="SQLTableResultSelect firstSelect" onchange=""></select>
+                        <span> = </span>
+                        <select class="secondSelect" onchange=""></select>
+                    </div> 
+                </div>
+                <div class="d-flex flex-row">
+                    <a class="btn btn-labeled acceptbtn" onclick="AcceptInnerJoin(event);"><i class="fa-solid fa-check"></i></a>
+                    <a class="btn btn-labeled changebtn" onclick="ChangeInnerJoin(event);" style="display: none;"><i class="fa-solid fa-pen"></i></a>
+                    <a class="btn btn-labeled deletebtn" onclick="DeleteInnerJoin(event);"><i class="fa-solid fa-trash"></i></a>
+                </div>
+            </div>
+            <div class="table_container">
+                <table class="table table-striped table_view">
+                    <thead class="table_view_head"></thead>
+                    <tbody class="table_view_body"></tbody>
+                </table>
+            </div>
+            <a class="btn btn-primary" onclick="FillTableView(event);">Просмотр</a>
+        </div>
+        <hr/>`);
+        bigTable.insertAdjacentHTML('beforeend',
+        `
+            <div class="btn_container">
+                <a class="btn btn-labeled" onclick="AddTable(event);"><i class="fa-solid fa-plus"></i> Добавить таблицу</a>
+            </div>
+        `)
+        var sqlTablesContainers = bigTable.querySelectorAll('.SQLtable_container');
+        var lastCont = sqlTablesContainers[sqlTablesContainers.length-1]
+        createSelectFromJSON(jsonp, lastCont.querySelector('.SQLtableSelect'))
+        var selectedTable = lastCont.querySelector('.SQLtableSelect').value;
+
+        createSelectColumnFromJSON(sqltable.columns, lastCont.querySelector('.firstSelect'))
+        addSelectColumnFKFromJSON(sqltable.fks, lastCont.querySelector('.firstSelect'))
+
+        createSelectColumnFromJSON(jsonp[selectedTable]['columns'], lastCont.querySelector('.secondSelect'))
+        addSelectColumnFKFromJSON(jsonp[selectedTable]['fks'], lastCont.querySelector('.secondSelect'))
+    }
+
+    function AcceptInnerJoin(evt){
+        var sqlTableCont = evt.target.closest('.SQLtable_container');
+        var selectedTable = sqlTableCont.querySelector('.SQLtableSelect');
+        selectedTable.setAttribute('disabled', 'true');
+        var first = sqlTableCont.querySelector('.firstSelect');
+        first.setAttribute('disabled', 'true');
+        var second = sqlTableCont.querySelector('.secondSelect');
+        second.setAttribute('disabled', 'true');
+        sqlTableCont.setAttribute('data-InnerJoined', '1');
+        sqltable.innerjoinTable(selectedTable.value, first.value, second.value);
+        sqlTableCont.querySelector('.changebtn').style.display = 'block';
+        sqlTableCont.querySelector('.acceptbtn').style.display = 'none';
+        for(let firstS of document.querySelectorAll('.firstSelect')){
+            if(firstS.getAttribute('disabled'))
+                continue;
+            createSelectColumnFromJSON(sqltable.columns, firstS)
+            addSelectColumnFKFromJSON(sqltable.columns, firstS)
+        }
+        console.log(sqltable)
+        document.querySelector('#sql').value = sqltable.createSQL();
+    }
+
+    function ChangeInnerJoin(evt){
+        var sqlTableCont = evt.target.closest('.SQLtable_container');
+        var selectedTable = sqlTableCont.querySelector('.SQLtableSelect');
+        selectedTable.removeAttribute('disabled');
+        var first = sqlTableCont.querySelector('.firstSelect');
+        first.removeAttribute('disabled');
+        var second = sqlTableCont.querySelector('.secondSelect');
+        second.removeAttribute('disabled');
+        sqlTableCont.removeAttribute('data-InnerJoined');
+        sqltable.deleteinnerjoinTable(selectedTable.value);
+        sqlTableCont.querySelector('.changebtn').style.display = 'none';
+        sqlTableCont.querySelector('.acceptbtn').style.display = 'block';
+        for(let firstS of document.querySelectorAll('.firstSelect')){
+            if(firstS.getAttribute('disabled'))
+                continue;
+            createSelectColumnFromJSON(sqltable.columns, firstS)
+            addSelectColumnFKFromJSON(sqltable.columns, firstS)
+        }
+        console.log(sqltable)
+        document.querySelector('#sql').value = sqltable.createSQL();
+    }
+
+    function DeleteInnerJoin(evt){
+        var sqlTableCont = evt.target.closest('.SQLtable_container');
+        var selectedTable = sqlTableCont.querySelector('.SQLtableSelect').value;
+        sqlTableCont.parentElement.removeChild(sqlTableCont);
+        if(sqlTableCont.getAttribute('data-InnerJoined') == '1')
+            sqltable.deleteinnerjoinTable(selectedTable);
+    }
+
+    function AddWhereParam(event){
+        var bigTable = document.querySelector('#WhereParams');
+        var i = bigTable.querySelectorAll('.ParamBlocks').length;
+        bigTable.removeChild(bigTable.querySelector('.btn_container'))
+        bigTable.insertAdjacentHTML('beforeend',`
+            <div class="ParamBlocks">
+                <div class="operationLogicContainer">
+                    <select class="operationLogic">
+                        <option value="AND">И</option>
+                        <option value="OR">ИЛИ</option>
+                    </select>
+                </div>
+                <div class="radioContainer">
+                    <input type="radio" name="typeOfWhere` + i + `" class="form-check-input SQLColumnRadio" onclick="RadioClicked(event);" checked>
+                    <span>Выбрать из таблицы SQL</span>
+                    
+                    <input type="radio" name="typeOfWhere` + i + `" class="form-check-input SQLVariableSetRadio" onclick="RadioClicked(event);">
+                    <span>Выбрать из созданных переменных SQL-параметров</span>
+                    
+                    <input type="radio" name="typeOfWhere` + i + `" class="form-check-input strokeRadio" onclick="RadioClicked(event);">
+                    <span>Написать строку</span>
+                </div>
+                <div class="SQLColumns">
+                    <select class="SQLTableResultSelect whereSelect" onchange="">
+                    </select>
+                    <select class="SQLLogicOperation">
+                        <option value="=">РАВНО</option>
+                        <option value="<>">НЕ РАВНО</option>
+                        <option value="<">МЕНЬШЕ</option>
+                        <option value=">">БОЛЬШЕ</option>
+                        <option value="<=">МЕНЬШЕ ЛИБО РАВНО</option>
+                        <option value=">=">БОЛЬШЕ ЛИБО РАВНО</option>
+                    </select>
+                    <input type="text">
+                </div>
+                <div class="SQLVariablesSet" hidden>
+                    <span>SQL-параметр:</span>
+                    <select>
+                        {% for sql_variable in sql_variables_set %}
+                        <option value="{{ sql_variable.id }}" data-idCon="{{ sql_variable.connection.id }}">{{ sql_variable.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <input class="SQLVariablesSetInput" placeholder="Значение для теста">
+                    
+                </div>
+                <div class="stroke" hidden>
+                    <input type="text">
+                </div>
+                <div>
+                    <a class="btn btn-labeled" onclick="DeleteWhereParam(event);"><i class="fa-solid fa-trash"></i></a>
+                </div>
+            </div>
+            <div class="btn_container">
+                    <a class="btn btn-labeled" onclick="AddWhereParam(event);"><i class="fa-solid fa-plus"></i></a>
+                </div>`);
+        var sqlTablesContainers = bigTable.querySelectorAll('.ParamBlocks');
+        var lastCont = sqlTablesContainers[sqlTablesContainers.length-1]
+        FillWhereSelect();
+        for(let select of lastCont.querySelectorAll('select')){
+            $(select).select2({
+                language: 'ru'
+            });
+        }
+    }
+
+    function DeleteWhereParam(evt){
+        var paramBlock = evt.target.closest('.ParamBlocks');
+        paramBlock.parentElement.removeChild(paramBlock);
+    }
+
+    function FillWhereSelect(){
+        for(let select of document.querySelectorAll('.whereSelect')){
+            createSelectColumnFromJSON(sqltable.columns, select)
+            addSelectColumnFKFromJSON(sqltable.fks, select)
+        }
+    }
+
+    function tableSelected(event){
+        var value = event.target.value;
+        sqltable.changefirst(value);
+        for(let cont of document.querySelectorAll('.SQLtable_container')){
+            if(event.target.closest('.SQLtable_container') === cont)
+                continue;
+            createSelectColumnFromJSON(sqltable.columns, cont.querySelector('.firstSelect'))
+            addSelectColumnFKFromJSON(sqltable.fks, cont.querySelector('.firstSelect'))
+            cont.querySelector('.acceptbtn').hidden = false;
+        }
+    }
+
+    function innerTableSelected(event){
+        var value = event.target.value;
+        var select = event.target.closest('.SQLtable_container').querySelector('.secondSelect')
+        createSelectColumnFromJSON(jsonp[value]['columns'], select)
+        addSelectColumnFKFromJSON(jsonp[value]['fks'], select)
+    }
+
+    var jsonp = JSON.parse("{{ conn.tables|escapejs }}")
+
+    document.querySelector('#id_connection').value = "{{ conn.id }}"
+    $('#id_connection').select2({
+        language: 'ru'
+    });
+    createSelectFromJSON(jsonp, document.querySelector('.SQLtableSelect'))
+    //$('#SQLtable1').selectize();
+
+    var sqltable = new SQLTable(document.querySelector('.SQLtableSelect').value)
+    FillWhereSelect();
+    for(let select of document.querySelectorAll('select')){
+            $(select).select2({
+                language: 'ru'
+            });
+        }
+
+</script>
+
+{% endblock %}

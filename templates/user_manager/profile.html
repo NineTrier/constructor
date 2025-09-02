@@ -1,0 +1,64 @@
+{% extends  'base.html' %}
+
+{% block title %}
+{{ profile }}
+{% endblock %}
+
+{% block connection %}
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/user_manager/profile.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="header-bar">
+        <h1>Профиль</h1>
+    </div>
+    <div class="d-flex flex-row">
+        <img id="profile_img" src="{% if profile.profile_pic %}{{ profile.profile_pic.url }}{% endif %}">
+        <div class="card-body" style="margin-left:50px">
+            <p><strong>Имя пользователя:</strong> {{ profile.user.username }}</p>
+            <p><strong>Фамилия:</strong> {{ profile.firstName }}</p>
+            <p><strong>Имя:</strong> {{ profile.lastName }}</p>
+            <p><strong>Отчество:</strong> {{ profile.middleName }}</p>
+            <p><strong>Организация:</strong> {{ profile.organisation.name }}</p>
+            {% if user.id == profile.user.id %}
+            <a class="btn btn-primary btn-lg" href="/accounts/change_profile/{{ profile.user.id }}/">Редактировать</a>
+            {% endif %}
+        </div>
+    </div> 
+    <!-- <button class="btn btn-primary" onclick="registerSw();">Включить уведомления</button> -->
+</div>
+
+
+{% endblock %}
+
+{% block script %}
+<script src="{% static '/js/registerSw.js' %}"></script>
+<script language="JavaScript">
+
+    // function GetProfileImage(){
+    //     $.ajax({
+    //         type: "POST",
+    //         url: "/accounts/get_profile_image/",
+    //         data: JSON.stringify({'user': '{{ profile.user.id }}'}),
+    //         contentType: "application/json; charset=utf-8",
+    //         success: function(res, status, xhr){
+    //             console.log(xhr.status);
+    //             switch(xhr.status){
+    //                 case 200:
+    //                     profile_image_preview.src = xhr.getResponseHeader('file');
+    //                     break;
+    //                 case 304:
+    //                     profile_image_preview.src = '/media/noimage.jpeg';
+    //                     break;
+    //             }
+    //         }
+    //     });
+    // }
+
+    // GetProfileImage();
+
+</script>
+
+{% endblock %}

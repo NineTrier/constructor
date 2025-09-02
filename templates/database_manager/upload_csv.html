@@ -1,0 +1,282 @@
+{% extends  'base.html' %}
+
+{% block title %}
+Создать объект
+{% endblock %}
+
+{% block connection %}
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/database_manager/database_manager.css' %}">
+{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="header-bar">
+        <h1>Создать объект</h1>
+    </div>
+    <form method="post" enctype="multipart/form-data" action="#" id="form_create_object">
+        {% csrf_token %}
+        <span>Название объекта:</span>
+        <input type="text" class="form-control" name="name" required>
+        <span>CSV-файл:</span>
+        <input type="file" name="csv_file" class="form-control" accept=".csv" required>
+        <div>
+            <span>Столбцы</span>
+            <div class="d-flex flex-column w-100" id="columns_list">
+
+            </div>
+        </div>
+        <div class="fieldWrapper invisible" id="identificator_block">
+            <span>Идентификатор объекта:</span>
+            <select class="form-select" name="ident_column" required>
+                <option value="-1">Выберите столбец, идентифицирующий объект</option>
+            </select>
+        </div>
+        <div class="fieldWrapper invisible" id="drop_column_block">
+            <span>Фильтрация данных:</span>
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" name="need_drop" id="check1">
+                <label class="form-check-label" for="check1">Убрать строки, где значение не задано</label>
+              </div>
+            <select name="drop_column" class="form-select invisible">
+                <option value="-1">Выберите столбец, по которому убрать строки таблицы</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-success w-50">Сохранить объект</button>
+        <div id="view_data_block" class="invisible">
+            <button type="button" class="btn btn-warning" id="button_view_data">Просмотр данных</button>
+            <table id="csv-table">
+            </table>
+        </div>
+        
+    </form>
+    <datalist id="date_formats">
+        <option value="DD.MM.YYYY"></option>
+        <option value="MM/DD/YYYY"></option>    
+        <option value="DD MMMM YYYY года в HH часов MM минут"></option>
+    </datalist> 
+</div>
+
+{% endblock %}
+
+{% block script %}
+
+<script language="JavaScript">
+    function fill_select(select, data){
+        for (const d of data) {
+            let option = document.createElement('option');
+            option.value = d;
+            option.text = d;
+            select.appendChild(option);
+        }
+    }
+
+    function validate_name(input){
+        if(input.value.trim() == ""){
+            input.classList.add('is-invalid')
+            input.classList.remove('is-valid')
+            return false
+        }
+        else{
+            input.classList.add('is-valid')
+            input.classList.remove('is-invalid')
+            return true
+        }
+    }
+
+    function validate_select_drop(select){
+        if(document.querySelector('input[name="need_drop"]').checked && select.value == "-1" ){
+            select.classList.add('is-invalid')
+            select.classList.remove('is-valid')
+            return false
+        }
+        else{
+            select.classList.add('is-valid')
+            select.classList.remove('is-invalid')
+            return true
+        }
+    }
+
+    function validate_select_ident(select){
+        if(select.value == "-1" ){
+            select.classList.add('is-invalid')
+            select.classList.remove('is-valid')
+            return false
+        }
+        else{
+            select.classList.add('is-valid')
+            select.classList.remove('is-invalid')
+            return true
+        }
+    }
+
+    function validate_file(input){
+        if(!input.value){
+            input.classList.add('is-invalid')
+            input.classList.remove('is-valid')
+            return false
+        }
+        else{
+            input.classList.add('is-valid')
+            input.classList.remove('is-invalid')
+            return true
+        }
+    }
+
+    function validate_form(){
+        let form = document.querySelector('form')
+        let name = form.querySelector('input[name="name"]')
+        let file = form.querySelector('input[type="file"]')
+        let select1 = document.querySelector('select[name="drop_column"]');
+        let select2 = document.querySelector('select[name="ident_column"]');
+        return validate_name(name) 
+        && validate_file(file) 
+        && validate_select_drop(select1)
+        && validate_select_ident(select2)
+    }
+
+    function fill_selects_from_columns(columns){
+        let select1 = document.querySelector('select[name="drop_column"]');
+        let select2 = document.querySelector('select[name="ident_column"]');
+        select1.innerHTML = '<option value="-1">Выберите столбец, по которому сбросить строки таблицы</option>';
+        select2.innerHTML = '<option value="-1">Выберите столбец, идентифицирующий объект</option>';
+        fill_select(select1, columns.split(';'))
+        fill_select(select2, columns.split(';'))
+    }
+
+    function param_type_changed(evt){
+        let param_type_select = evt.target.closest('.param_type_select')
+        let param_type = param_type_select.value
+        let object_param_item = evt.target.closest('.object_param_item')
+        if(param_type == "ARRAY"){
+            object_param_item.querySelector('.object_param_arr_delim_container').classList.remove('invisible')
+        }else if(param_type == "DATE"){
+            object_param_item.querySelector('.object_param_date_format_container').classList.remove('invisible')
+        }
+        else{
+            object_param_item.querySelector('.object_param_arr_delim_container').classList.add('invisible')
+            object_param_item.querySelector('.object_param_date_format_container').classList.add('invisible')
+            object_param_item.querySelector('.object_param_date_format_container input').value = ""
+        }
+    }
+
+    function fill_columns_list(columns){
+        let container = document.querySelector('#columns_list')
+        container.innerHTML = ""
+        i = 0
+        for(let col of columns.split(';')){
+            container.insertAdjacentHTML('beforeend', `
+                <div class="d-flex flex-row w-100 align-items-center object_param_item">
+                    <label for="col`+i+`">Переменная:</label>
+                    <input name="col[]" id="col`+i+`" class="form-control w-25" type="text" value="`+col+`">
+                    <label for="col`+i+`">Тип данных:</label>
+                    <select name="col_type[]" id="col_type`+i+`" class="form-select w-25 param_type_select" onchange="param_type_changed(event)">
+                        <option value="TXT">Текст</option>
+                        <option value="TXTS">Текст(Автозаполнение одного значения)</option>
+                        <option value="INT">Число</option>
+                        <option value="ARRAY">Список</option>
+                        <option value="DATE">Дата</option>
+                    </select>
+                    <div class="d-flex flex-row align-items-center w-25 object_param_arr_delim_container invisible">
+                        <label for="arr_delim`+i+`">Разделитель:</label>
+                        <select name="arr_delim[]" id="arr_delim`+i+`" class="form-select w-75">
+                            <option value=" ">Пробел</option>
+                            <option value=",">Запятая</option>
+                            <option value=";">Точка с запятой</option>
+                            <option value=":">Двоеточие</option>
+                            <option value="|">Параграф</option>
+                            <option value="-">Тире</option>
+                        </select>
+                    </div>
+                    <div class="d-flex flex-row align-items-center w-25 object_param_date_format_container invisible">
+                        <label for="date_format`+i+`">Формат даты:</label>
+                        <input name="date_format[]" id="date_format`+i+`" class="form-control w-75" type="text" list="date_formats">      
+                    </div>
+                </div>
+            `)
+            i++
+        }
+    }
+
+    document.querySelector('input[type="file"]').addEventListener('change', function() {
+        // Отправить запрос на сервер
+        fetch('/database/upload_csv_to_get_columns/', {
+            method: 'POST',
+            body: new FormData(document.querySelector('form')),
+        })
+        .then(response => response.text())
+        .then(columns =>{
+            console.log(columns);
+            fill_selects_from_columns(columns)
+            fill_columns_list(columns)
+            identificator_block.classList.remove('invisible');
+            drop_column_block.classList.remove('invisible');
+            view_data_block.classList.remove('invisible');
+        })
+        .catch(error => console.error(error));
+    });
+
+    document.querySelector('button[type="submit"]').addEventListener('click', function(event) {
+        // Отправить запрос на сервер
+        event.preventDefault();
+        if(!validate_form()){
+            alert('Ошибка введённых данных')
+            return;
+        }
+        fetch('/database/upload_csv/', {
+            method: 'POST',
+            body: new FormData(document.querySelector('form')),
+        })
+        .then(response => response.text())
+        .then(message =>{
+            console.log(message);
+            location.href = message
+        })
+        .catch(error => console.error(error));
+    });
+
+    document.querySelector('#button_view_data').addEventListener('click', function() {
+        fetch('/database/view_data/', {
+            method: 'POST',
+            body: new FormData(document.querySelector('form')),
+        })
+        .then(response => response.text())
+        .then(html => {
+            document.querySelector('#csv-table').innerHTML = html;
+            $('#csv-table').DataTable(
+                {
+                    scrollX: true,
+                    scrollY: '50vh',
+                    scroller: true,
+                    paging: true,
+                    searching: false,
+                    info: false
+                }
+            )
+        })
+        .catch(error => console.error(error));
+        // if ($.fn.dataTable.isDataTable('#csv-table')) {
+        //     $('#csv-table').DataTable().destroy();
+        // }
+        // $('#csv-table').DataTable({
+        //     ajax: {
+        //         url: '/database/view_data',
+        //         dataSrc: '',
+        //         contentType: 'application/json; charset=UTF-8',
+        //         error: function(xhr, error, thrown) {
+        //             console.log(xhr.responseText);
+        //         }
+        //     }
+        // });
+    });
+
+    document.querySelector('input[name="need_drop"]').addEventListener('change', function(evt) {
+        console.log(evt.target.checked);
+        let select =  drop_column_block.querySelector('select')
+        if(evt.target.checked)
+            select.classList.remove('invisible');
+        else
+            select.classList.add('invisible');
+    });
+</script>
+
+{% endblock %}

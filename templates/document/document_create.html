@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Загрузка документа
+{% endblock %}
+
+{% block connection %}
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/main/create_document.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="modal fade" id="typeModal" tabindex="-1" aria-labelledby="typeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="typeModalLabel">Добавить тип документов</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+        </div>
+        <div class="modal-body">
+            <label for="type_name">Название для типа данных:</label>
+            <input id="type_name">
+        </div>
+        <div class="modal-footer">
+            <button onclick="SaveType();">Добавить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+<div class="main">
+<h1>{{ title }}</h1>
+<div class="form_control">
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="fieldWrapper">
+        {{ form.name.errors }}
+        <label for="{{ form.name.id_for_label }}">Название:</label>
+        {{ form.name }}
+    </div>
+    <div class="fieldWrapper">
+        {{ form.type.errors }}
+        <label for="{{ form.type.id_for_label }}">Тип документа:</label>
+        <div class="type_div">
+            {{ form.type }}
+            <a class="btn btn-labeled" onclick="BtnAddType(event);"><i class="fas fa-plus" style="color: green;"></i></a>
+            <a class="btn btn-labeled" onclick="BtnRemoveType(event);"><i class="fas fa-xmark" style="color: red;"></i></a>
+        </div>
+    </div>
+    {% if profile.canAddOrganisationDocument %}
+    <div class="fieldWrapper">
+        {{ form.documentOfOrganisation.errors }}
+        <label for="{{ form.documentOfOrganisation.id_for_label }}">Документ для организации:</label>
+        {{ form.documentOfOrganisation }}
+    </div>
+    {% endif %}
+    <div class="fieldWrapper">
+        {{ form.description.errors }}
+        <label for="{{ form.description.id_for_label }}">Описание:</label>
+        {{ form.description }}
+    </div>
+    <div class="fieldWrapper">
+        {{ form.file.errors }}
+        <label for="{{ form.file.id_for_label }}">Файл:</label>
+        {{ form.file }}
+    </div>
+    <button type="submit" class="btn btn-success">Создать</button>
+</form>
+</div>
+</div>
+{% endblock %}
+
+{% block script %}
+    <script lang="JavaScript">
+
+        function BtnAddType(evt){
+            document.querySelector('#type_name').value = "";
+            typeModal.toggle();
+        }
+
+        function BtnRemoveType(){
+            if (document.querySelector('#id_type').value == 1){
+                alert('Вы не можете удалить этот тип')
+                return;
+            }
+            $.ajax({
+                type: "POST",
+                url: "/document/doctype_remove",
+                data: JSON.stringify({id: document.querySelector('#id_type').value}),
+                contentType: "application/json; charset=utf-8",
+                success: function(res, status, xhr){
+                    switch (xhr.status){
+                        case 200:
+                            var option = document.querySelector('option[value="'+ document.querySelector('#id_type').value +'"]');
+                            document.querySelector('#id_type').removeChild(option);
+                            break;
+                        case 304:
+                            break;
+                    }
+                } 
+            });
+        }
+
+
+        function SaveType(){
+            $.ajax({
+                type: "POST",
+                url: "/document/doctype_add",
+                data: JSON.stringify({name: document.querySelector('#type_name').value}),
+                contentType: "application/json; charset=utf-8",
+                success: function(res, status, xhr){
+                    switch (xhr.status){
+                        case 200:
+                            var option = document.createElement('option');
+                            option.value = xhr.getResponseHeader('id'); 
+                            option.textContent = document.querySelector('#type_name').value;
+                            document.querySelector('#id_type').appendChild(option);
+                            typeModal.toggle();
+                            document.querySelector('#id_type').value = xhr.getResponseHeader('id')
+                            break;
+                        case 304:
+                            break;
+                    }
+                } 
+            });
+        }
+
+        document.getElementById("inputFile").onchange = function(){
+            elem = document.getElementById("inputFile");
+            splitted = elem.value.split('\\');
+            document.getElementById("id_name").value = splitted[splitted.length - 1].split('.')[0];
+        }
+
+        var typeModal = new bootstrap.Modal(document.getElementById('typeModal'), {
+            keyboard: false
+        })
+    </script>
+{% endblock %}
+
+
+
+

@@ -1,0 +1,54 @@
+{% extends  'base.html' %}
+
+{% block title %}
+Работа с объектами
+{% endblock %}
+
+{% block connection %}
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/database_manager/database_manager.css' %}">
+{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="header-bar mt-2">
+        <h1>Объекты</h1>
+    </div>
+    <a class="btn btn-primary" onclick="createNewObject();">Создать новый объект</a>
+    <a class="btn btn-primary" href="{% url 'upload_csv' %}">Загрузить из CSV-файла</a>
+    <div id="bigDiv">
+        <div class="objectsContainer row" onclick="objectClicked(event)">
+            <h4>Существующие объекты</h4>
+            {% for obj in objects %}
+            <div class="objectCon col" data-id="{{ obj.id }}">
+                <span>{{ obj.name }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block script %}
+
+<script lang="JavaScript">
+    function createNewObject(){
+        let name = prompt("Введите название объекта");
+        let form = new FormData();
+        form.append("name", name)
+        fetch('/database/create_new_object/', {
+            method: 'POST',
+            body: form,
+        })
+        .then(response => response.text())
+        .then(data =>{
+            d = JSON.parse(data)
+            location.href = `/database/update_object/${d.id}/`
+        })   
+    }
+
+    function objectClicked(evt){
+        location.href = '/database/get_object/' + evt.target.closest('.objectCon').getAttribute('data-id')
+    }
+</script>
+{% endblock %}
