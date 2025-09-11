@@ -18,9 +18,11 @@ try:
     from document.models import (
         DocumentsPattern,
         DocumentPattern_Objects,
-        Object as ObjectModel,
-        Parameter,
         CreatedDocument,
+    )
+    from database_manager.models import (
+        Object,
+        Parameter,
     )
 except ImportError as exc:
     # Provide a helpful error message if the import fails.
@@ -33,7 +35,7 @@ except ImportError as exc:
 __all__ = [
     "DocumentsPattern",
     "DocumentPattern_Objects",
-    "ObjectModel",
+    "Object",
     "Parameter",
     "CreatedDocument",
 ]
