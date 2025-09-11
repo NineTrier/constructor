@@ -12,6 +12,7 @@ urlpatterns = [
     path('database/', include('database_manager.urls')),
     re_path(r'^media/(?P<path>.*)$', serve,{'document_root': settings.MEDIA_ROOT}), 
     re_path(r'^static/(?P<path>.*)$', serve,{'document_root': settings.STATIC_ROOT}), 
+    path("", include("apps.documents.urls")),
 ]
 
 if settings.DEBUG:

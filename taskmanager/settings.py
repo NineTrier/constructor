@@ -49,6 +49,8 @@ INSTALLED_APPS = [
     'user_manager',
     'database_manager',
     'corsheaders',
+    'apps.documents',
+    'constructor',
 ]
 
 MIDDLEWARE = [
