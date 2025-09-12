@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 
 from pathlib import Path
 import os
+import sys
 
 import wsgiref.util
 wsgiref.util._hoppish = {
@@ -35,6 +36,10 @@ ALLOWED_HOSTS = ["*"]
 CSRF_TRUSTED_ORIGINS = ['http://localhost:8080', 'https://портал4аас.рф']
 
 # Application definition
+
+APPS_DIR = BASE_DIR / "apps"
+if str(APPS_DIR) not in sys.path:
+    sys.path.insert(0, str(APPS_DIR))
 
 INSTALLED_APPS = [
     'django_extensions',

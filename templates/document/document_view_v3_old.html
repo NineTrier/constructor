@@ -18,10 +18,6 @@
         <link rel="stylesheet" href="{% static 'css/fontawesome.css' %}">
         <link rel="stylesheet" href="{% static 'css/solid.css' %}">
         <link rel="stylesheet" href="{% static 'css/interFonts.css' %}">
-
-        <!-- Стили и JS панели инструментов -->
-        <link rel="stylesheet" href="{% static 'documents/tools_panel.css' %}">
-        <script src="{% static 'documents/tools_panel.js' %}"></script>
         
         <link rel="stylesheet" type="text/css" href="{% static 'css/main/index.css' %}">
         <link rel="stylesheet" type="text/css" href="{% static 'css/main/document_view_st.css' %}">
@@ -534,22 +530,6 @@
             <div class="overlay" id="overlay-modal"></div>
             
     </body>
-
-    {% include "documents/_tools_panel.html" %}
-
-    <script>
-        // Обязательные контекстные данные для панели:
-        window.DOCUMENT_PATTERN_ID = {{ pattern.id }};
-
-        // Если у вас уже есть выбранные записи в форме — заполните этот словарь.
-        // Ключ — имя Object (как в шаблоне), значение — record_id.
-        window.DOCUMENT_SELECTED_IDS = {{ selected_ids_json|default:"{}"|safe }};
-
-        // (Опционально) Если выбранные записи задаются input/select’ами на странице —
-        // можно собирать их динамически в tools_panel.js (см. раздел 4).
-        window.DOCUMENT_HOST_SELECTOR = '#document_main';
-    </script>
-
     <script lang="JavaScript">
             
             

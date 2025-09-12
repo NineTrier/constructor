@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Sample Document with Tools Panel</title>
+  <!-- Link the panel styles -->
+  <link rel="stylesheet" href="../static/documents/tools_panel.css">
+  <!-- Inline style for demonstration of placeholder highlighting -->
+  <style>
+    .document {
+      border: 1px solid #ddd;
+      padding: 16px;
+      margin-bottom: 20px;
+      font-family: "Times New Roman", serif;
+      line-height: 1;
+      font-size: 15px;
+    }
+  </style>
+  <!-- Include the panel script -->
+  <script src="../static/documents/tools_panel.js"></script>
+  <script>
+    // For this standalone example we define global variables required by the panel
+    window.DOCUMENT_PATTERN_ID = 1;
+    // Selected record identifiers — leave empty for demonstration
+    window.DOCUMENT_SELECTED_IDS = {};
+  </script>
+</head>
+<body>
+  <h1>Sample Document</h1>
+  <!-- Document content area.  The panel can highlight placeholders inside this element -->
+  <div class="document" id="doc-canvas" contenteditable="false">
+    <!-- Below is an example snippet copied from your existing project.  It includes
+         a mix of static text and placeholders within spans.  You can replace
+         this markup with your own document content. -->
+    <div class="paragraph docelement userCanSeeInTree" data-name="asdaskdjj  jasdlkjasldkj  " data-idradiogroup="radioGroup-1" id="p_0" draggable="true" style="line-height: 1; margin-bottom: 0em; margin-top: 0em; text-align: left; text-indent: 0cm;"><span class="runs docelement userCanSeeInTree" id="r_0" data-invis="asdaskdjj" data-name="asdaskdjj" data-idradiogroup="radioGroup-1" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;">asdaskdjj </span><span class="runs docelement userCanSeeInTree" id="r_1" data-invis="jasdlkjasldkj" data-name="jasdlkjasldkj" data-idradiogroup="radioGroup-1" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;">jasdlkjasldkj</span><span class="runs docelement userCanSeeInTree" id="r_2" data-invis="" data-name="" data-idradiogroup="radioGroup-1" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;"></span></div>
+    <div class="paragraph docelement" data-name="asjdkajsdklajds  asdkjasldkj  aslkdjasldkj " data-idradiogroup="radioGroup-1" id="p_4" draggable="true" style="line-height: 1; margin-bottom: 0em; margin-top: 0em; text-align: left; text-indent: 0cm;"><span class="runs docelement" id="r_4" data-invis="asjdkajsdklajds" data-name="asjdkajsdklajds" data-idradiogroup="radioGroup-1" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;">asjdkajsdklajds </span><span class="runs docelement" id="r_5" data-invis="asdkjasldkj" data-name="asdkjasldkj" data-idradiogroup="radioGroup-1" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;">asdkjasldkj </span><span class="runs docelement" id="r_6" data-invis="aslkdjasldkj" data-name="aslkdjasldkj" data-idradiogroup="radioGroup-1" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;">aslkdjasldkj</span></div>
+    <div class="paragraph docelement" data-name="  19 августа 2025 года {: Банкротные дела.2НДФЛ за 3 года :} {: Банкротные дела.Адрес АУ БД :}  " data-idradiogroup="radioGroup-1" id="p_8" draggable="true" style="line-height: 1; margin-bottom: 0em; margin-top: 0em; text-align: left; text-indent: 0cm;"><span class="runs docelement" id="r_8" data-invis=" " data-name=" " data-idradiogroup="radioGroup-1" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;"> </span><span class="runs docelement reference_to_data variable_ref" id="r_13" data-invis="{: Дата сегодня :}" data-name="19 августа 2025 года" data-idradiogroup="radioGroup-1" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;" data-idvar="system;date_today">11 сентября 2025 года</span><span class="runs docelement reference_to_data object_param_ref" id="r_14" data-invis="{: Банкротные дела.2НДФЛ за 3 года :}" data-name="{: Банкротные дела.2НДФЛ за 3 года :}" data-idradiogroup="radioGroup-1" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;" data-idobjparam="187">{: Банкротные дела.2НДФЛ за 3 года :}</span><span class="runs docelement reference_to_data object_param_ref" id="r_15" data-invis="{: Банкротные дела.Адрес АУ БД :}" data-name="{: Банкротные дела.Адрес АУ БД :}" data-idradiogroup="radioGroup-1" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;" data-idobjparam="190">{: Банкротные дела.Адрес АУ БД :}</span><span class="runs docelement" id="r_16" data-invis="" data-name="" data-idradiogroup="radioGroup-1" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;"></span></div>
+    <div class="paragraph docelement" data-name=" " data-idradiogroup="radioGroup-1" id="p_10" draggable="true" style="line-height: 1; margin-bottom: 0em; margin-top: 0em; text-align: left; text-indent: 0cm;" contenteditable="false"><span class="runs docelement" id="r_10" data-invis="asdasdad" data-name="asdasdad" data-idradiogroup="radioGroup-1" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;">asdasdad</span></div>
+    <div id="p_18" class="paragraph docelement" data-name=" " draggable="true" style="line-height: 1; margin-bottom: 0em; margin-top: 0em; text-align: left; text-indent: 0cm;" contenteditable="false"><span id="r_18" data-invis="" class="runs docelement" data-name="" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;"></span></div>
+    <div id="p_20" class="paragraph docelement selectedParagraph" data-name=" " draggable="true" style="line-height: 1; margin-bottom: 0em; margin-top: 0em; text-align: left; text-indent: 0cm;"><span id="r_20" data-invis="asdasdisuad" class="runs docelement selected selectedRun" data-name="asdasdisuad" draggable="true" contenteditable="true" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;">asdasdisuad</span><span id="r_19" data-invis="" class="runs docelement" data-name="" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;"></span><span id="r_17" data-invis="" class="runs docelement" data-name="" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;"></span></div>
+    <div class="paragraph docelement" data-name="askdjalskdjalsdj     " data-idradiogroup="radioGroup-1" id="p_12" draggable="true" style="line-height: 1; margin-bottom: 0em; margin-top: 0em; text-align: left; text-indent: 0cm;"><span class="runs docelement" id="r_12" data-invis="askdjalskdjalsdj" data-name="askdjalskdjalsdj" data-idradiogroup="radioGroup-1" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;">askdjalskdjalsdj</span><span class="runs docelement" id="r_11" data-invis="" data-name="" data-idradiogroup="radioGroup-1" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;"></span><span class="runs docelement" id="r_9" data-invis="" data-name="" data-idradiogroup="radioGroup-1" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;"></span><span class="runs docelement" id="r_7" data-invis="" data-name="" data-idradiogroup="radioGroup-1" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;"></span><span class="runs docelement" id="r_3" data-invis="" data-name="" data-idradiogroup="radioGroup-1" draggable="true" contenteditable="false" style="font-family: &quot;Times New Roman&quot;; font-size: 15px;"></span></div>
+  </div>
+
+  <!-- Panel for template tools.  The markup is included directly here so you can open
+       this file standalone without Django.  In your project, you should use
+       `{% include 'documents/_tools_panel.html' %}` instead. -->
+  <div id="documents-tools-panel" class="documents-tools-panel">
+    <div class="documents-tools-header">
+      <h3>Template Tools</h3>
+    </div>
+    <div class="documents-tools-actions">
+      <button id="documents-validate-btn" type="button">Check Placeholders</button>
+      <button id="documents-generate-async-btn" type="button">Generate with Progress</button>
+    </div>
+    <div id="documents-validation-result" class="documents-tools-result"></div>
+    <div id="documents-render-progress" class="documents-tools-progress"></div>
+  </div>
+
+  <!-- In a real project the API endpoints would be provided by Django.  For this
+       example we stub the responses using a simple fetch override.  Feel free
+       to remove this script when integrating into your project. -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Save the original fetch
+      const orig = window.fetch;
+      window.fetch = async function(url, options) {
+        // Stub validation endpoint
+        if (url.includes('/validate/')) {
+          return {
+            ok: true,
+            async json() {
+              return { issues: [
+                'Unknown field: foo',
+                'Unknown filter: bar'
+              ] };
+            }
+          };
+        }
+        // Stub render start endpoint
+        if (url.includes('/generate/async/')) {
+          return {
+            ok: true,
+            async json() {
+              return { job_id: 1 };
+            }
+          };
+        }
+        // Stub job polling endpoint
+        if (url.includes('/jobs/1/poll/')) {
+          return {
+            ok: true,
+            async json() {
+              return {
+                status: 'completed',
+                placeholders_replaced: 5,
+                placeholders_total: 5,
+                events: [
+                  { timestamp: new Date().toISOString(), message: 'Render started' },
+                  { timestamp: new Date().toISOString(), message: 'Render complete' }
+                ],
+                output_file: '#'
+              };
+            }
+          };
+        }
+        return orig(url, options);
+      };
+    });
+  </script>
+</body>
+</html>

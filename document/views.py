@@ -465,6 +465,10 @@ def ViewDocument(request):
     }
     if request.user.is_authenticated:
         context['profile'] = Profile.objects.filter(user=request.user)[0]
+
+    # добавляем идентификатор шаблона и (опционально) выбранные записи для панели
+    context['pattern'] = Doc
+    context['selected_ids_json'] = json.dumps({})
     return render(request, 'document/document_view_v3.html', context)
 
 def CreateDocumentMultiple(request):
@@ -498,6 +502,8 @@ def ViewDocumentAndCreateDocument(request):
     }
     if request.user.is_authenticated:
         context['profile'] = Profile.objects.filter(user=request.user)[0]
+    context['pattern'] = Doc
+    context['selected_ids_json'] = json.dumps({})
     return render(request, 'document/document_view_v3.html', context)
 
 def SavedElementFromJSON(json_stroke):
