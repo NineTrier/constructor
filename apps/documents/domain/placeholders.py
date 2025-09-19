@@ -53,7 +53,7 @@ class Placeholder:
 
 # Regular expression to capture the body of a placeholder.  The body is
 # everything between ``{:`` and ``:}``, non‑greedy.
-_BODY_PATTERN = re.compile(r"\{:\s*(.*?)\s*:\}")
+_BODY_PATTERN = re.compile(r'{:\\s*([^:}]+)\\s*:}')
 
 
 def _parse_body(body: str) -> Tuple[Optional[str], str, List[Tuple[str, List[str]]]]:

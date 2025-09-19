@@ -1,8 +1,10 @@
-"""URL configuration for the documents application.
+"""
+URL configuration for the documents application.
 
-This module declares the URL patterns that map to the document
-generation and validation views.  It should be included in the
-project's main ``urlpatterns`` to expose these endpoints.
+These patterns expose endpoints for document generation, validation, versioning
+and asynchronous job polling and downloading.  The URLs include integer path
+parameters where appropriate instead of the broken placeholders from the original
+repository.
 """
 
 from __future__ import annotations
@@ -61,7 +63,10 @@ urlpatterns = [
         ValidateTemplateView.as_view(),
         name="documents.validate",
     ),
-    path("documents/jobs/<uuid:job_id>/download/", 
-         DownloadRenderJobView.as_view(), 
-         name="job_download"),
+    # Endpoint to download the generated document once rendering is completed.
+    path(
+        "documents/jobs/<int:job_id>/download/",
+        DownloadRenderJobView.as_view(),
+        name="job_download",
+    ),
 ]

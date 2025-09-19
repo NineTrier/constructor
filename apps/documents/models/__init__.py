@@ -1,9 +1,8 @@
-"""Expose models for the documents application.
+"""
+Package for document-related Django models.
 
-Importing these models here ensures that Django registers them when
-the application is loaded.  Without these imports the versioning and
-progress models might not be discovered by the app registry.
+Currently contains the ``RenderJob`` model used to track asynchronous
+document rendering tasks.
 """
 
-from .versioning import DocumentPatternVersion  # noqa: F401
-from .progress import RenderJob, RenderEvent  # noqa: F401
+from .progress import RenderJob  # noqa: F401

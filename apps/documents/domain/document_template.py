@@ -16,6 +16,7 @@ represented in the future.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from typing import Any, Dict, Iterable, List, Optional
 
 from django.utils.functional import cached_property
@@ -111,6 +112,7 @@ class DocumentTemplate:
             A domain object wrapping the model and its JSON data.
         """
         model = DocumentsPattern.objects.get(id=pattern_id)
+        print(model.json)
         struct = TemplateStructure(raw_json=model.json or {})
         return cls(model=model, structure=struct)
 
