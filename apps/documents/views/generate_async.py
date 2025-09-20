@@ -1,14 +1,15 @@
 """
-Asynchronous document generation view.
+Asynchronous document generation view that reads templates from the database.
 
-This view accepts an HTML template and an optional JSON context, replaces
-placeholders in the HTML using values from the context, converts the resulting
-HTML into a DOCX using Pandoc, and returns a job identifier to the client.
+This view loads the template HTML from the ``DocumentsPattern.json`` field,
+performs placeholder replacement based on the provided context, converts the
+resulting text into a DOCX file using a built‑in fallback (no external
+dependencies), and tracks the job status via the ``RenderJob`` model.
 
-The rendering happens in a background thread so that the HTTP request can
-return immediately.  Progress can be polled via ``PollRenderJobView`` and the
-resulting file downloaded via ``DownloadRenderJobView`` once the job has
-completed.
+Clients should send a POST request to ``/documents/<pattern_id>/generate/async/``
+with an optional ``context`` parameter (JSON) that maps placeholder
+expressions to replacement values.  The response contains a ``job_id`` that
+can be used to poll for status and download the generated file.
 """
 
 from __future__ import annotations
@@ -17,31 +18,51 @@ import json
 import os
 import tempfile
 import threading
-import subprocess
-from typing import Any, Dict
 import zipfile
 import xml.sax.saxutils as saxutils
 import re
 import html as html_module
+from typing import Any, Dict, List
 
 from django.http import JsonResponse, HttpRequest, HttpResponseBadRequest
 from django.views import View
 
 from ..models.progress import RenderJob
 from ..services.placeholder_utils import extract_placeholders, replace_placeholders
+from ..services.json_template import parse_document_json
+
+
+try:
+    # Attempt to import the DocumentsPattern model.  Adjust the import path
+    # according to your project structure.
+    from document.models import DocumentsPattern # type: ignore
+except Exception:
+    DocumentsPattern = None  # type: ignore
 
 
 class GenerateDocumentAsyncView(View):
     """Handle POST requests to start an asynchronous document rendering job."""
 
     def post(self, request: HttpRequest, pattern_id: int = None) -> JsonResponse:
-        # The raw HTML template is expected under the 'html' key of the POST
-        # body.  It can be sent as form data or JSON encoded.
-        html = request.POST.get("html") or (request.body.decode() if request.body else None)
-        if not html:
-            return HttpResponseBadRequest("Missing HTML content")
+        # Ensure we have a pattern id to load the template.
+        if pattern_id is None:
+            return HttpResponseBadRequest("Missing pattern_id")
 
-        # Optional context mapping placeholder expressions to replacement values.
+        # Load the template JSON from the database.
+        if DocumentsPattern is None:
+            return HttpResponseBadRequest("DocumentsPattern model is not available")
+        try:
+            pattern = DocumentsPattern.objects.get(pk=pattern_id)
+        except Exception:
+            return HttpResponseBadRequest("Invalid pattern_id")
+        raw_json = pattern.json or {}
+
+        # Deserialize paragraphs from the raw JSON structure.
+        paragraphs = parse_document_json(raw_json)
+        if not paragraphs:
+            return HttpResponseBadRequest("Template is empty or could not be parsed")
+
+        # Read placeholder values from the optional context JSON.
         context_json = request.POST.get("context") or "{}"
         try:
             context: Dict[str, Any] = json.loads(context_json)
@@ -53,110 +74,69 @@ class GenerateDocumentAsyncView(View):
 
         # Launch a background thread to perform the rendering.
         thread = threading.Thread(
-            target=self._render_job, args=(job.id, html, context), daemon=True
+            target=self._render_job, args=(job.id, paragraphs, context), daemon=True
         )
         thread.start()
 
         # Return the job identifier to the client.
         return JsonResponse({"job_id": job.id})
 
-    def _render_job(self, job_id: int, html: str, context: Dict[str, Any]) -> None:
+    def _render_job(self, job_id: int, paragraphs: List[str], context: Dict[str, Any]) -> None:
         """Worker function to render the document and update the job status."""
-        # Fetch the job and update status to running.
         job = RenderJob.objects.get(id=job_id)
         job.status = RenderJob.STATUS_RUNNING
         job.save(update_fields=["status"])
 
-        # Count placeholders in the original HTML.
-        placeholders = extract_placeholders(html)
-        job.placeholders_total = len(placeholders)
-
-        # Replace placeholders using the provided context.
-        replaced_html = replace_placeholders(html, context)
-        job.placeholders_replaced = sum(1 for ph in placeholders if ph in context)
+        # Count placeholders across all paragraphs and replace them.
+        all_placeholders: List[str] = []
+        replaced_paragraphs: List[str] = []
+        replaced_count = 0
+        for para in paragraphs:
+            placeholders = extract_placeholders(para)
+            all_placeholders.extend(placeholders)
+            replaced_para = replace_placeholders(para, context)
+            # Count replaced placeholders: those present in context
+            replaced_count += sum(1 for p in placeholders if p in context)
+            replaced_paragraphs.append(replaced_para)
+        job.placeholders_total = len(all_placeholders)
+        job.placeholders_replaced = replaced_count
         job.save(update_fields=["placeholders_total", "placeholders_replaced"])
 
         try:
-            # Write the rendered HTML to a temporary file.
-            with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False) as tmp_html:
-                tmp_html.write(replaced_html)
-                tmp_html_path = tmp_html.name
-
-            # Define output directory and file name.
+            # Write the replaced paragraphs into a DOCX file using fallback.
             out_dir = tempfile.mkdtemp()
             output_filename = f"document_{job_id}.docx"
             output_path = os.path.join(out_dir, output_filename)
+            self._write_docx(replaced_paragraphs, output_path)
 
-
-            # Try to use pandoc to convert HTML to DOCX.  If pandoc is not
-            # available (e.g., FileNotFoundError), fall back to a manual
-            # conversion routine that creates a minimal DOCX with plain text.
-            try:
-                result = subprocess.run(
-                    ["pandoc", tmp_html_path, "-o", output_path],
-                    capture_output=True,
-                    text=True,
-                )
-                if result.returncode != 0:
-                    raise RuntimeError(result.stderr.strip() or "Pandoc conversion failed")
-            except (FileNotFoundError, RuntimeError):
-                # Fallback: manually build a simple DOCX package containing the
-                # replaced HTML as plain paragraphs.  This does not attempt to
-                # preserve styles but ensures Word can open the file.
-                self._manual_html_to_docx(replaced_html, output_path)
-
-            # Update job with completed status and output details.
             job.output_path = output_path
             job.output_name = output_filename
             job.status = RenderJob.STATUS_COMPLETED
             job.error_message = ""
             job.save(update_fields=["output_path", "output_name", "status", "error_message"])
         except Exception as exc:
-            # Mark the job as failed and record the error message.
             job.status = RenderJob.STATUS_FAILED
             job.error_message = str(exc)
             job.save(update_fields=["status", "error_message"])
-        finally:
-            # Clean up the temporary HTML file.
-            try:
-                os.remove(tmp_html_path)
-            except Exception:
-                pass
 
-    def _manual_html_to_docx(self, html_str: str, output_path: str) -> None:
+    def _write_docx(self, paragraphs: List[str], output_path: str) -> None:
         """
-        Fallback method to convert an HTML string to a minimal DOCX file.
+        Create a minimal DOCX file from a list of paragraphs.
 
-        This method extracts plain text from paragraph-level elements and
-        constructs a basic WordprocessingML document.  It does not preserve
-        formatting but ensures that the resulting file can be opened in Word.
-
-        Args:
-            html_str: The HTML content to convert.
-            output_path: The destination path for the DOCX file.
+        Each paragraph is written as a WordprocessingML paragraph.  This
+        implementation avoids external dependencies and should work in
+        constrained environments.
         """
-        # Extract plain text from <p> and <div> elements without relying on
-        # BeautifulSoup.  Use a regular expression to locate paragraph tags
-        # and strip any nested HTML tags.
-        paragraphs = []
-        for match in re.findall(r"<(?:p|div)[^>]*>(.*?)</(?:p|div)>", html_str or "", re.DOTALL | re.IGNORECASE):
-            # Remove any nested tags within the paragraph/div
-            text_with_tags = re.sub(r"<[^>]+>", "", match)
-            text = html_module.unescape(text_with_tags).strip()
-            if text:
-                paragraphs.append(text)
-
-        # Construct the document XML for Word.
-        body_elements = []
+        # Build XML for each paragraph.
+        body_elements: List[str] = []
         for para in paragraphs:
             escaped = saxutils.escape(para)
             body_elements.append(
                 f"<w:p><w:r><w:t xml:space=\"preserve\">{escaped}</w:t></w:r></w:p>"
             )
-        # Always include a section properties element to satisfy Word.
         body_elements.append(
-            "<w:sectPr><w:pgSz w:w=\"12240\" w:h=\"15840\"/><w:pgMar w:top=\"1440\" w:right=\"1440\" "
-            "w:bottom=\"1440\" w:left=\"1440\" w:header=\"720\" w:footer=\"720\" w:gutter=\"0\"/></w:sectPr>"
+            "<w:sectPr><w:pgSz w:w=\"12240\" w:h=\"15840\"/><w:pgMar w:top=\"1440\" w:right=\"1440\" w:bottom=\"1440\" w:left=\"1440\" "
+            "w:header=\"720\" w:footer=\"720\" w:gutter=\"0\"/></w:sectPr>"
         )
         document_xml = (
             "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
@@ -165,8 +145,6 @@ class GenerateDocumentAsyncView(View):
             + "".join(body_elements)
             + "</w:body></w:document>"
         )
-
-        # Define other required parts.
         content_types = (
             "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
             "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">"
@@ -178,13 +156,10 @@ class GenerateDocumentAsyncView(View):
         rels_xml = (
             "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
             "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
-            "<Relationship Id=\"rId1\" "
-            "Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" "
+            "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" "
             "Target=\"word/document.xml\"/>"
             "</Relationships>"
         )
-
-        # Write the ZIP structure for the DOCX file.
         with zipfile.ZipFile(output_path, "w") as zf:
             zf.writestr("[Content_Types].xml", content_types)
             zf.writestr("_rels/.rels", rels_xml)

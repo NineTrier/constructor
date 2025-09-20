@@ -1,38 +1,57 @@
-"""API endpoint to validate document templates.
+"""
+Template validation view.
 
-This view exposes a JSON endpoint that runs the placeholder
-validation on a template and returns any issues found.  It is useful
-for template editors to check their work before attempting to
-generate documents.
+This view inspects a saved document template and returns the list of
+placeholder expressions it contains.  It deserializes the raw JSON
+structure stored in the ``DocumentsPattern.json`` field, extracts plain
+text paragraphs and uses the same placeholder detection logic as the
+document generator.
 
-Example request::
-
-    GET /documents/123/validate/
-
-The response is a JSON object with a single key ``issues`` that
-contains a list of issue dictionaries. Each issue has the fields
-``code``, ``message``, ``path`` (JSON path as a list of keys) and
-``placeholder`` (the raw placeholder text).
+Clients can call ``/documents/<pattern_id>/validate/`` to receive a
+JSON payload with the placeholders found in the template.  A 400
+response is returned if the pattern id does not exist.
 """
 
 from __future__ import annotations
 
 import json
-from django.http import JsonResponse, HttpRequest, HttpResponseBadRequest
+from typing import Any, Dict, List
+
+from django.http import HttpRequest, HttpResponseBadRequest, JsonResponse
 from django.views import View
 
-from ..domain.document_template import DocumentTemplate
-from ..services.validator import validate_template
+try:
+    # Attempt to import the DocumentsPattern model from the local app.
+    from document.models import DocumentsPattern  # type: ignore
+except Exception:
+    DocumentsPattern = None  # type: ignore
+
+from ..services.json_template import parse_document_json
+from ..services.placeholder_utils import extract_placeholders
 
 
 class ValidateTemplateView(View):
-    """Handle GET requests to validate a document template."""
+    """Return a list of placeholders present in a saved template."""
 
-    def get(self, request: HttpRequest, pattern_id: int):
+    def get(self, request: HttpRequest, pattern_id: int = None) -> JsonResponse:
+        if pattern_id is None:
+            return HttpResponseBadRequest("Missing pattern_id")
+        if DocumentsPattern is None:
+            return HttpResponseBadRequest("DocumentsPattern model is not available")
         try:
-            # Load the template by id. If not found, raise a 404 via the ORM.
-            template = DocumentTemplate.load(pattern_id)
+            pattern = DocumentsPattern.objects.get(pk=pattern_id)
         except Exception:
-            return HttpResponseBadRequest("Invalid template id")
-        issues = validate_template(template)
-        return JsonResponse({"issues": issues}, json_dumps_params={"ensure_ascii": False})
+            return HttpResponseBadRequest("Invalid pattern_id")
+        raw_json: Dict[str, Any] = pattern.json or {}
+        paragraphs: List[str] = parse_document_json(raw_json)
+        placeholders: List[str] = []
+        for para in paragraphs:
+            placeholders.extend(extract_placeholders(para))
+        # Return unique placeholders preserving order.
+        seen = set()
+        uniq: List[str] = []
+        for ph in placeholders:
+            if ph not in seen:
+                seen.add(ph)
+                uniq.append(ph)
+        return JsonResponse({"placeholders": uniq})
