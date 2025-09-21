@@ -1,179 +1,275 @@
-{% extends  'base.html' %}
+{% extends 'base.html' %}
 
 {% block title %}
-Работа с объектом
+Изменить объект
 {% endblock %}
 
-{% block connection %}
-    {% load static %}
-    <link rel="stylesheet" type="text/css" href="{% static 'css/database_manager/database_manager.css' %}">
-{% endblock %}
 {% block content %}
-<div class="container">
-    <div class="header-bar">
-        <h1>Создать объект</h1>
+<h3>Изменить объект</h3>
+<form method="post" enctype="multipart/form-data" id="update_object_form" data-objectId="{{ object.id }}">
+    {% csrf_token %}
+    {# Hidden field used by the view to determine whether schema changes should be saved.
+       The default value is set to 1 so that updates always persist. #}
+    <input type="hidden" name="changed" value="1">
+    <div class="mb-3">
+        <label for="object_name" class="form-label">Название объекта:</label>
+        <input type="text" name="name" id="object_name" class="form-control" value="{{ object.name }}" required>
     </div>
-    <form method="post" enctype="multipart/form-data" action="#" id="form_create_object" data-objectId="{{ object.id }}">
-        {% csrf_token %}
-        <h3>Название объекта:</h3>
-        <input type="text" class="form-control" name="name" value="{{ object.name }}" required>
-        <!-- <span>CSV-файл:</span>
-        <input type="file" name="csv_file" class="form-control" accept=".csv" required> -->
-        <div class="d-flex flex-column w-100">
-            <div style="display: flex;">
-                <h3>Переменные</h3>
-                <a type="button" class="btn btn-labeled" onclick="add_param(event)"><i class="fa-solid fa-plus"></i></a>
-            </div>
-            <div class="d-flex flex-column w-100" id="columns_list">
-                {% for param in parameters %}
-                <div class="d-flex flex-row w-100 align-items-center object_param_item">
-                    <a type="button" class="btn btn-labeled" onclick="delete_param(event)"><i class="fa-solid fa-trash" style="color: red;"></i></a>
-                    <input name="col_ids[]" id="col_id_{{ param.id }}" class="form-control w-25 invisible param_id" type="text" value="{{ param.id }}">
-                    <label for="col_{{ param.id }}">Переменная:</label>
-                    <input name="col[]" id="col_{{ param.id }}" class="form-control w-25 param_name" type="text" value="{{ param.name }}" onchange="param_name_changed(event);param_changed()">
-                    <label for="col_type_{{ param.id }}">Тип данных:</label>
-                    <select name="col_type[]" id="col_type_{{ param.id }}" class="form-select w-25 param_type_select" onchange="param_type_changed(event);param_changed()">
-                        {% if param.data_type == 'TXT' %}<option value="TXT" selected>Текст</option>{% else %}<option value="TXT">Текст</option>{% endif %}
-                        {% if param.data_type == 'TXTS' %}<option value="TXTS" selected>Текст(Автозаполнение одного значения)</option>{% else %}<option value="TXTS">Текст(Автозаполнение одного значения)</option>{% endif %}
-                        {% if param.data_type == 'INT' %}<option value="INT" selected>Число</option>{% else %}<option value="INT">Число</option>{% endif %}
-                        {% if param.data_type == 'ARRAY' %}<option value="ARRAY" selected>Список</option>{% else %}<option value="ARRAY">Список</option>{% endif %}
-                        {% if param.data_type == 'DATE' %}<option value="DATE" selected>Дата</option>{% else %}<option value="DATE">Дата</option>{% endif %}
+    <hr>
+    <h4>Параметры</h4>
+    <table class="table table-bordered table-sm" id="columns_table">
+        <thead class="table-light">
+            <tr>
+                <th>Переменная</th>
+                <th>Тип данных</th>
+                <th>Разделитель</th>
+                <th>Формат даты</th>
+                <th>Категория</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for param in parameters %}
+            <tr class="object_param_item align-middle">
+                <td>
+                    <input type="hidden" name="col_ids[]" class="param_id" value="{{ param.id }}">
+                    <input name="col[]" class="form-control param_name" type="text" value="{{ param.name }}">
+                </td>
+                <td>
+                    <select name="col_type[]" class="form-select param_type_select">
+                        <option value="TXT" {% if param.data_type == 'TXT' %}selected{% endif %}>Текст</option>
+                        <option value="TXTS" {% if param.data_type == 'TXTS' %}selected{% endif %}>Текст (автозаполнение одного значения)</option>
+                        <option value="INT" {% if param.data_type == 'INT' %}selected{% endif %}>Число</option>
+                        <option value="ARRAY" {% if param.data_type == 'ARRAY' %}selected{% endif %}>Список</option>
+                        <option value="DATE" {% if param.data_type == 'DATE' %}selected{% endif %}>Дата</option>
                     </select>
-                    <div class="d-flex flex-row align-items-center w-25 object_param_arr_delim_container invisible">
-                        <label for="arr_delim_{{ param.id }}">Разделитель:</label>
-                        <select name="arr_delim[]" id="arr_delim_{{ param.id }}" class="form-select w-75" onchange="param_changed()">
-                            {% if param.array_separator == ' ' %}<option value=" " selected>Пробел</option>{% else %}<option value=" ">Пробел</option>{% endif %}
-                            {% if param.array_separator == ',' %}<option value="," selected>Запятая</option>{% else %}<option value=",">Запятая</option>{% endif %}
-                            {% if param.array_separator == ';' %}<option value=";" selected>Точка с запятой</option>{% else %}<option value=";">Точка с запятой</option>{% endif %}
-                            {% if param.array_separator == ':' %}<option value=":" selected>Двоеточие</option>{% else %}<option value=":">Двоеточие</option>{% endif %}
-                            {% if param.array_separator == '|' %}<option value="|" selected>Параграф</option>{% else %}<option value="|">Параграф</option>{% endif %}
-                            {% if param.array_separator == '-' %}<option value="-" selected>Тире</option>{% else %}<option value="-">Тире</option>{% endif %}
+                </td>
+                <td>
+                    <div class="object_param_arr_delim_container {% if param.data_type != 'ARRAY' %}invisible{% endif %}">
+                        <select name="arr_delim[]" class="form-select arr_delim_select">
+                            <option value=" " {% if param.array_separator == ' ' %}selected{% endif %}>Пробел</option>
+                            <option value="," {% if param.array_separator == ',' %}selected{% endif %}>Запятая</option>
+                            <option value=";" {% if param.array_separator == ';' %}selected{% endif %}>Точка с запятой</option>
+                            <option value=":" {% if param.array_separator == ':' %}selected{% endif %}>Двоеточие</option>
+                            <option value="|" {% if param.array_separator == '|' %}selected{% endif %}>Параграф</option>
+                            <option value="-" {% if param.array_separator == '-' %}selected{% endif %}>Тире</option>
                         </select>
                     </div>
-                    <div class="d-flex flex-row align-items-center w-25 object_param_date_format_container invisible">
-                        <label for="date_format_{{ param.id }}">Формат даты:</label>
-                        <input name="date_format[]" id="date_format_{{ param.id }}" class="form-control w-75" type="text" list="date_formats" value="{{ param.date_format }}" onchange="param_changed()">      
+                </td>
+                <td>
+                    <div class="object_param_date_format_container {% if param.data_type != 'DATE' %}invisible{% endif %}">
+                        <input name="date_format[]" class="form-control" type="text" value="{{ param.date_format|default:'' }}">
                     </div>
-                </div>
+                </td>
+                <td>
+                    <input name="col_category[]" class="form-control" type="text" list="category_names" value="{% if param.category %}{{ param.category.name }}{% else %}{% endif %}">
+                </td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-danger delete-param-btn">Удалить</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <button type="button" class="btn btn-secondary my-2" onclick="add_param_row()">Добавить переменную</button>
+    <hr>
+    <div class="mt-4">
+        <h5>Связанные объекты</h5>
+        {% if object_links %}
+            <ul class="list-unstyled">
+            {% for link in object_links %}
+                <li class="mb-2">
+                    {{ link.object.name }}
+                    <!-- Select to choose link type (single or multiple) -->
+                    <select name="link_type_{{ link.id }}" class="form-select d-inline w-auto ms-2 me-2">
+                        <option value="single" {% if link.link_type == 'single' %}selected{% endif %}>Один элемент</option>
+                        <option value="multiple" {% if link.link_type == 'multiple' %}selected{% endif %}>Несколько элементов</option>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-outline-danger delete-link-btn" data-link-id="{{ link.id }}">Удалить</button>
+                </li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p class="text-muted">Связей нет.</p>
+        {% endif %}
+        <div class="mb-2">
+            <label for="child_object_select" class="form-label">Добавить связь с объектами:</label>
+            <select id="child_object_select" class="form-select" multiple>
+                {% for o in objects %}
+                    {% if o.id != object.id and o not in parameters_objects %}
+                        <option value="{{ o.id }}">{{ o.name }}</option>
+                    {% endif %}
                 {% endfor %}
-            </div>
-            <a type="button" class="btn btn-labeled" onclick="add_param(event)"><i class="fa-solid fa-plus"></i>Добавить переменную</a>
-        </div>
-        <div class="fieldWrapper" id="identificator_block">
-            <span>Идентификатор объекта:</span>
-            <select class="form-select" name="ident_column" onchange="param_changed()" required>
-                {% for param in parameters %}{% if param.identificator %}<option value="{{ param.id }}" selected>{{ param.name }}</option>{% else %}<option value="{{ param.id }}" >{{ param.name }}</option>{% endif %}{% endfor %}
             </select>
         </div>
-        <div class="d-flex flex-column w-100">
-            <div style="display: flex;">
-                <h3>Связанные объекты (подчиненные)</h3>
-                <a type="button" class="btn btn-labeled" onclick="add_param_object_link(event)"><i class="fa-solid fa-plus"></i></a>
-            </div>
-            <div class="d-flex flex-column w-100" id="columns_list">
-                {% for param_object in parameters_objects %}
-                <div class="d-flex flex-row w-100 align-items-center object_param_item">
-                    <a type="button" class="btn btn-labeled">{{ param_object.name }}</a>
-                    <a type="button" class="btn btn-labeled" onclick="delete_param_object_link(event)"><i class="fa-solid fa-trash" style="color: red;"></i></a>
-                </div>
-                {% endfor %}
-            </div>  
-        </div>
-        <button type="submit" class="btn btn-success w-50">Сохранить объект</button>
-        <!-- <div id="view_data_block" class="">
-            <button type="button" class="btn btn-warning" id="button_view_data">Просмотр данных</button>
-            <table id="csv-table">
-            </table>
-        </div> -->
-        
-    </form>
-    <datalist id="date_formats">
-        <option value="DD.MM.YYYY"></option>
-        <option value="MM/DD/YYYY"></option>    
-        <option value="DD MMMM YYYY года в HH часов MM минут"></option>
-    </datalist> 
-</div>
-
-<div class="modal fade" id="addObjectLinkModal" tabindex="-1" aria-labelledby="addObjectLinkModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="addObjectLinkModalLabel">Связать с объектом</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body" id="addObjectLinkModal_body">
-            <form method="post" enctype="multipart/form-data" action="#" id="form_add_object_link">
-                {% csrf_token %}
-                <span class="mt-5">Выберите объекты для связки:</span>
-                <select name="child_object_idents[]" class="form-select " multiple>
-                    {% for obj in objects %}
-                        <option value="{{ obj.id }}">{{ obj.name }}</option>
-                    {% endfor %}
-                </select>
-            </form>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-primary" onclick="submit_param_object_link(event)">Сохранить</button>
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
-        </div>
-      </div>
+        <button type="button" class="btn btn-outline-primary" onclick="addObjectsLinks()">Добавить связь</button>
     </div>
-  </div>
-
+    <hr>
+    <div id="identificator_block" class="mb-3">
+        <label class="form-label">Идентификатор объекта:</label>
+        <select name="ident_column" class="form-select">
+            <option value="-1">Не выбрано</option>
+            {% for param in parameters %}
+                <option value="{{ param.id }}" {% if param.identificator %}selected{% endif %}>{{ param.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Сохранить объект</button>
+</form>
+<datalist id="category_names">
+    {% for cat in categories %}
+        <option value="{{ cat.name }}"></option>
+    {% endfor %}
+</datalist>
 {% endblock %}
 
 {% block script %}
-
-<script language="JavaScript">
-
-    changed = 0
-
-    function param_changed(){
-        changed = 1
+<script>
+// Validate parameter names to avoid duplicates. Highlights duplicates and disables submit.
+function validateParamNames() {
+    const nameInputs = Array.from(document.querySelectorAll('.param_name'));
+    const names = nameInputs.map(el => el.value.trim().toLowerCase()).filter(Boolean);
+    // Count occurrences
+    const counts = {};
+    names.forEach(name => { counts[name] = (counts[name] || 0) + 1; });
+    let hasDuplicate = false;
+    nameInputs.forEach(input => {
+        const val = input.value.trim().toLowerCase();
+        if (val && counts[val] > 1) {
+            input.classList.add('is-invalid');
+            hasDuplicate = true;
+        } else {
+            input.classList.remove('is-invalid');
+        }
+    });
+    const submitBtn = document.querySelector('#update_object_form button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.disabled = hasDuplicate;
     }
+    // Optionally display a message (could be improved to show one global message)
+}
 
-    function add_param_object_link(event){
-        modal = new bootstrap.Modal(document.querySelector('#addObjectLinkModal'))
-        modal.show()
+// Attach validation handler
+document.addEventListener('input', function(e) {
+    if (e.target.classList.contains('param_name')) {
+        validateParamNames();
     }
+});
 
-    function submit_param_object_link(event){
-        event.preventDefault()
-        event.stopPropagation()
-        form = new FormData(document.querySelector('#form_add_object_link'))
-        fetch('add_param_object_link/', {
-            method: 'POST',
-            body: form,
-        })
-        .then(response => response.text())
-        .then(message =>{
-            console.log(message);
-            location.reload()
-        })
-        .catch(error => console.error(error));
+// Initial validation on load
+validateParamNames();
+// Toggle visibility of delimiter/date format based on selected type
+document.addEventListener('change', function(e) {
+    if(e.target.classList.contains('param_type_select')) {
+        const container = e.target.closest('.object_param_item');
+        const val = e.target.value;
+        const arr = container.querySelector('.object_param_arr_delim_container');
+        const df = container.querySelector('.object_param_date_format_container');
+        if(val === 'ARRAY') {
+            arr.classList.remove('invisible');
+            df.classList.add('invisible');
+            df.querySelector('input').value = '';
+        } else if(val === 'DATE') {
+            arr.classList.add('invisible');
+            df.classList.remove('invisible');
+        } else {
+            arr.classList.add('invisible');
+            df.classList.add('invisible');
+            df.querySelector('input').value = '';
+        }
     }
+});
 
-    function add_param(event){
-        let params_list = document.querySelector('#columns_list')
-        let ident = params_list.querySelectorAll('.new_param').length
-        params_list.insertAdjacentHTML('beforeend', `
-        <div class="d-flex flex-row w-100 align-items-center object_param_item new_param">
-            <a type="button" class="btn btn-labeled" onclick="delete_param(event)"><i class="fa-solid fa-trash" style="color: red;"></i></a>
-            <input name="col_ids[]" id="col_id_new_${ident}" class="form-control w-25 invisible param_id" type="text" value="-1">
-            <label for="col_new_${ident}">Переменная:</label>
-            <input name="col[]" id="col_new_${ident}" class="form-control w-25 param_name" type="text" value="Новая переменная" onchange="param_name_changed(event);param_changed()">
-            <label for="col_type_new_${ident}">Тип данных:</label>
-            <select name="col_type[]" id="col_type_new_${ident}" class="form-select w-25 param_type_select" onchange="param_type_changed(event);param_changed()">
-                <option value="TXT" selected>Текст</option>
-                <option value="TXTS">Текст(Автозаполнение одного значения)</option>
+// Handle deletion of parameter rows
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('delete-param-btn')) {
+        const row = e.target.closest('tr');
+        const idInput = row.querySelector('.param_id');
+        if (idInput && idInput.value && idInput.value !== '-1') {
+            // Existing parameter, send delete request
+            fetch(`/database/delete_param/${idInput.value}/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrftoken }
+            }).then(response => {
+                if (response.ok) {
+                    row.remove();
+                    validateParamNames();
+                }
+            });
+        } else {
+            // New parameter, just remove from DOM
+            row.remove();
+            validateParamNames();
+        }
+    }
+    // Delete linked object
+    if (e.target.classList.contains('delete-link-btn')) {
+        const linkId = e.target.getAttribute('data-link-id');
+        if (linkId) {
+            fetch(`/database/delete_object_link/${linkId}/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrftoken }
+            }).then(response => {
+                if (response.ok) {
+                    // Reload to reflect removal
+                    location.reload();
+                }
+            });
+        }
+    }
+});
+
+// CSRF token helper (Django sets this in the form)
+const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+// Current object ID (parent object for linking)
+const objectId = {{ object.id }};
+
+// Send selected object links to the server. Posts to /database/add_objects_links/<objectId>/
+function addObjectsLinks() {
+    const select = document.getElementById('child_object_select');
+    const selected = Array.from(select.selectedOptions).map(opt => opt.value);
+    if (selected.length === 0) return;
+    // Prepare form data
+    const formData = new FormData();
+    selected.forEach(id => formData.append('child_object_ids[]', id));
+    // Note: Django route uses update_object/<pk>/add_param_object_link/ for linking
+    fetch(`/database/update_object/${objectId}/add_param_object_link/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken
+        },
+        body: formData,
+    }).then(response => {
+        if (response.ok) {
+            // Reload the page to show updated linked objects
+            location.reload();
+        }
+    });
+}
+
+// Add new parameter row into the table
+function add_param_row() {
+    const tbody = document.querySelector('#columns_table tbody');
+    const tr = document.createElement('tr');
+    tr.className = 'object_param_item align-middle new_param';
+    tr.innerHTML = `
+        <td>
+            <input type="hidden" name="col_ids[]" class="param_id" value="-1">
+            <input name="col[]" class="form-control param_name" type="text" value="">
+        </td>
+        <td>
+            <select name="col_type[]" class="form-select param_type_select">
+                <option value="TXT">Текст</option>
+                <option value="TXTS">Текст (автозаполнение одного значения)</option>
                 <option value="INT">Число</option>
                 <option value="ARRAY">Список</option>
                 <option value="DATE">Дата</option>
             </select>
-            <div class="d-flex flex-row align-items-center w-25 object_param_arr_delim_container invisible">
-                <label for="arr_delim_new_${ident}">Разделитель:</label>
-                <select name="arr_delim[]" id="arr_delim_new_${ident}" class="form-select w-75" onchange="param_changed()">
-                    <option value=" " selected="">Пробел</option>
+        </td>
+        <td>
+            <div class="object_param_arr_delim_container invisible">
+                <select name="arr_delim[]" class="form-select arr_delim_select">
+                    <option value=" ">Пробел</option>
                     <option value=",">Запятая</option>
                     <option value=";">Точка с запятой</option>
                     <option value=":">Двоеточие</option>
@@ -181,161 +277,20 @@
                     <option value="-">Тире</option>
                 </select>
             </div>
-            <div class="d-flex flex-row align-items-center w-25 object_param_date_format_container invisible">
-                <label for="date_format_new_${ident}">Формат даты:</label>
-                <input name="date_format[]" id="date_format_new_${ident}" class="form-control w-75" type="text" list="date_formats" value="" onchange="param_changed()">      
+        </td>
+        <td>
+            <div class="object_param_date_format_container invisible">
+                <input name="date_format[]" class="form-control" type="text" value="">
             </div>
-        </div>
-        `)
-        changed = 1
-    }
-
-    function delete_param(event){
-        if (!confirm("Вы точно хотите удалить эту переменную?"))
-            return
-        let param = event.target.closest('.object_param_item')
-        let ident_param_select = document.querySelector('#identificator_block select')
-        if (!param)
-            return
-        if (param.classList.contains('new_param')){
-            param.parentNode.removeChild(param)
-        }
-        fetch('/database/delete_param/' + param.querySelector('.param_id').value + '/', {
-            method: 'POST',
-            body: JSON.stringify({}),
-        })
-        .then(response => response.text())
-        .then(message =>{
-            ident_param_select.removeChild(ident_param_select.querySelector(`option[value="${param.querySelector('.param_id').value}"]`))
-            param.parentNode.removeChild(param)
-        })
-        .catch(error => console.error(error));
-    }
-
-    function fill_select(select, data){
-        for (const d of data) {
-            let option = document.createElement('option');
-            option.value = d;
-            option.text = d;
-            select.appendChild(option);
-        }
-    }
-
-    function validate_name(input){
-        if(input.value.trim() == ""){
-            input.classList.add('is-invalid')
-            input.classList.remove('is-valid')
-            return false
-        }
-        else{
-            input.classList.add('is-valid')
-            input.classList.remove('is-invalid')
-            return true
-        }
-    }
-
-    function validate_select_drop(select){
-        if(document.querySelector('input[name="need_drop"]').checked && select.value == "-1" ){
-            select.classList.add('is-invalid')
-            select.classList.remove('is-valid')
-            return false
-        }
-        else{
-            select.classList.add('is-valid')
-            select.classList.remove('is-invalid')
-            return true
-        }
-    }
-
-    function validate_select_ident(select){
-        if(select.value == "-1" ){
-            select.classList.add('is-invalid')
-            select.classList.remove('is-valid')
-            return false
-        }
-        else{
-            select.classList.add('is-valid')
-            select.classList.remove('is-invalid')
-            return true
-        }
-    }
-
-    function validate_form(){
-        let form = document.querySelector('form')
-        let name = form.querySelector('input[name="name"]')
-        let file = form.querySelector('input[type="file"]')
-        let select2 = document.querySelector('select[name="ident_column"]');
-        return validate_name(name) 
-        && validate_select_ident(select2)
-    }
-
-    function param_type_changed(evt){
-        let param_type_select = evt.target.closest('.param_type_select')
-        let param_type = param_type_select.value
-        let object_param_item = evt.target.closest('.object_param_item')
-        if(param_type == "ARRAY"){
-            object_param_item.querySelector('.object_param_arr_delim_container').classList.remove('invisible')
-        }else if(param_type == "DATE"){
-            object_param_item.querySelector('.object_param_date_format_container').classList.remove('invisible')
-        }
-        else{
-            object_param_item.querySelector('.object_param_arr_delim_container').classList.add('invisible')
-            object_param_item.querySelector('.object_param_date_format_container').classList.add('invisible')
-            object_param_item.querySelector('.object_param_date_format_container input').value = ""
-        }
-    }
-
-    function checkNames(){
-        let params = document.querySelectorAll('.param_name')
-        let params_names = []
-        for(let pni of params){
-            params_names.push(pni.value)
-        }
-        let params_names_set = new Set(params_names)
-        return params_names.length == params_names_set.size
-    }
-
-    function param_name_changed(evt){
-        let param_name_input = evt.target.closest('.object_param_item').querySelector('.param_name')
-        let name = param_name_input.value
-        param_name_input.classList.remove('is-invalid')
-        if(!checkNames()){
-            alert('Есть дубликаты названий переменных. Переименуйте')
-            return
-        }
-    }
-
-    document.querySelector('button[type="submit"]').addEventListener('click', function(event) {
-        // Отправить запрос на сервер
-        event.preventDefault();
-        if(!validate_form()){
-            alert('Ошибка введённых данных')
-            return;
-        }
-        if(!checkNames()){
-            alert('Есть дубликаты названий переменных. Переименуйте')
-            return
-        }
-        form = new FormData(document.querySelector('form'))
-        form.append('changed', changed)
-        fetch('/database/update_object/' + document.querySelector('form').getAttribute('data-objectId') + '/', {
-            method: 'POST',
-            body: form,
-        })
-        .then(response => response.text())
-        .then(message =>{
-            console.log(message);
-            location.reload()
-        })
-        .catch(error => console.error(error));
-    });
-
-
-    $(document).ready(function() {
-        console.log('Готово!')
-        for(let data_type of document.querySelectorAll('.param_type_select'))
-            data_type.dispatchEvent(new Event('change'))
-    });
+        </td>
+        <td>
+            <input name="col_category[]" class="form-control" type="text" list="category_names" value="">
+        </td>
+        <td>
+            <button type="button" class="btn btn-sm btn-danger delete-param-btn">Удалить</button>
+        </td>
+    `;
+    tbody.appendChild(tr);
+}
 </script>
-
 {% endblock %}

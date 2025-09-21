@@ -1,449 +1,275 @@
-{% extends  'base.html' %}
+{% extends 'base.html' %}
+
+{% load static %}
 
 {% block title %}
-Создать объект
+Добавить элемент
 {% endblock %}
 
-{% block connection %}
-    <meta name="csrf_token" content="{{ csrf_token }}">
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.20/css/jquery.dataTables.min.css">
-    <script type="text/javascript" src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js"></script>
-    {% load static %}
-    <link rel="stylesheet" type="text/css" href="{% static 'css/database_manager/database_manager.css' %}">
-{% endblock %}
+
 {% block content %}
-<div class="container">
-    <div class="header-bar">
-        <h1>Добавить новый элемент</h1>
-    </div>
-    <form enctype="multipart/form-data" id="form_add_data_to_object" data-objectId="{{ object.id }}" onkeydown="return event.key != 'Enter';">
-        {% csrf_token %}
-        <h3>Название объекта:</h3>
-        <h4>{{ object.name }}</h4>
-        <div>
-            <div class="d-flex flex-column w-100" id="columns_list">
-                {% for param, data in parameters_data %}
-                    {% if param.identificator %}
-                    <div class="d-flex flex-row w-100 align-items-center object_param_item identificator">
-                        
-                        <input id="col_id_{{ param.id }}" class="form-control invisible" type="text" value="{{ param.id }}" name="col_id[]">
-                        <div>
-                            <i class="fa-solid fa-star"></i>
-                            <label for="col_value_{{ param.id }}">{{ param.name }}</label>
-                        </div>
-                        {% if param.data_type == 'TXT' %}
-                        <input id="col_value_{{ param.id }}" name="col_value_{{ param.id }}[]" class="form-control w-75 identificator_param" style="width: 75%">
-                        {% elif param.data_type == 'TXTS' %}
-                        <!-- <input id="col_value_{{ param.id }}" list="col_value_{{ param.id }}_list" name="col_value[]" class="form-control w-25" type="text" required>
-                        <datalist id="col_value_{{ param.id }}_list">
-                            {% for param_data in data %}
-                                <option>{{ param_data }}</option>
-                            {% endfor %}
-                        </datalist> -->
-                        <select id="col_value_{{ param.id }}" name="col_value_{{ param.id }}[]" class="form-control w-75 identificator_param" style="width: 75%">
-                            <option value=""></option>
-                            {% for param_data in data %}<option>{{ param_data }}</option>{% endfor %}
-                        </select>
+<link rel="stylesheet" href="{% static 'css/database_manager/add_element.css' %}">
+
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<h3>Добавить элемент в объект</h3>
+<h4>{{ object.name }}</h4>
+{% if error_message %}
+<div class="alert alert-danger" role="alert">{{ error_message }}</div>
+{% endif %}
+<form method="post" id="form_add_data_to_object" data-objectId="{{ object.id }}">
+    {% csrf_token %}
+    
+    {% for category_name, params in parameters_group_data %}
+        <div class="mt-4">
+            <h5>{{ category_name }}</h5>
+            <div class="row">
+        {% for pair in params %}
+                    <div class="col-md-4 mb-3 obj_parameter" data-idParam="{{ pair.0.id }}">
+                        <input type="hidden" name="col_id[]" value="{{ pair.0.id }}">
+                        <label class="form-label">
+                            {{ pair.0.name }}{% if pair.0.identificator %} (идентификатор){% endif %}:
+                        </label>
+                        {% if pair.0.data_type == 'TXT' %}
+                        <input type="text" class="form-control{% if pair.0.identificator %} identificator-field{% endif %}" name="col_value_{{ pair.0.id }}[]" value="" {% if pair.0.identificator %}required{% endif %}>
+                        {% elif pair.0.data_type == 'TXTS' %}
+                            <select class="form-select select2-tags{% if pair.0.identificator %} identificator-field{% endif %}" name="col_value_{{ pair.0.id }}[]" {% if pair.0.identificator %}required{% endif %}>
+                                <option value="">-- Выберите --</option>
+                                {% for opt in pair.1 %}
+                                    <option value="{{ opt }}">{{ opt }}</option>
+                                {% endfor %}
+                            </select>
+                        {% elif pair.0.data_type == 'INT' %}
+                            <input type="number" class="form-control{% if pair.0.identificator %} identificator-field{% endif %}" name="col_value_{{ pair.0.id }}[]" value="" {% if pair.0.identificator %}required{% endif %}>
+                        {% elif pair.0.data_type == 'DATE' %}
+                            <input type="date" class="form-control{% if pair.0.identificator %} identificator-field{% endif %}" name="col_value_{{ pair.0.id }}[]" value="" {% if pair.0.identificator %}required{% endif %}>
+                        {% elif pair.0.data_type == 'ARRAY' %}
+                            <select multiple class="form-select select2-tags{% if pair.0.identificator %} identificator-field{% endif %}" name="col_value_{{ pair.0.id }}[]" {% if pair.0.identificator %}required{% endif %}>
+                                {% for opt in pair.1 %}
+                                    <option value="{{ opt }}">{{ opt }}</option>
+                                {% endfor %}
+                            </select>
                         {% endif %}
                     </div>
-                    {% else %}
-                    <div class="d-flex flex-row w-100 align-items-center object_param_item">
-                        <input id="col_id_{{ param.id }}" class="form-control invisible" type="text" value="{{ param.id }}" name="col_id[]">
-                        <label for="col_value_{{ param.id }}">{{ param.name }}</label>
-                        {% if param.data_type == 'TXT' %}
-                        <input id="col_value_{{ param.id }}" name="col_value_{{ param.id }}[]" class="form-control w-75" style="width: 75%">
-                        {% elif param.data_type == 'TXTS' %}
-                        <!-- <input id="col_value_{{ param.id }}" list="col_value_{{ param.id }}_list" name="col_value[]" class="form-control w-25" type="text">
-                        <datalist id="col_value_{{ param.id }}_list">
-                            {% for param_data in data %}
-                            <option>{{ param_data }}</option>
+                {% endfor %}
+            </div>
+        </div>
+    {% endfor %}
+                    
+    {% if child_objects_data %}
+        <hr class="mt-4">
+        <h4 class="mt-4">Связанные объекты</h4>
+        <ul class="nav nav-tabs" id="childObjTabs" role="tablist">
+            {% for child in child_objects_data %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if child.active %}active{% endif %}" id="tab-{{ child.object.id }}"
+                        data-bs-toggle="tab" data-bs-target="#content-{{ child.object.id }}" type="button"
+                        role="tab" aria-controls="content-{{ child.object.id }}" aria-selected="{% if child.active %}true{% else %}false{% endif %}">
+                        {{ child.object.name }}
+                    </button>
+                </li>
+            {% endfor %}
+        </ul>
+        <div class="tab-content" id="childObjTabContent">
+            {% for child in child_objects_data %}
+                <div class="tab-pane fade {% if child.active %}show active{% endif %}" id="content-{{ child.object.id }}"
+                     role="tabpanel" aria-labelledby="tab-{{ child.object.id }}">
+                    
+                    <div class="my-3">
+                        <label class="form-label">{{ child.object.name }} (идентификатор):</label>
+                        <select class="form-select child-link-select"
+                                name="child_link_{{ child.link_id }}"
+                                data-child-object-id="{{ child.object.id }}"
+                                data-link-id="{{ child.link_id }}"
+                                {% if child.link_type == 'multiple' %}multiple{% endif %}>
+                            <option value="">-- Не выбрано --</option>
+                            {% for id_to_connect, label in child.ident_list %}
+                                <option value="{{ id_to_connect }}">{{ label }}</option>
                             {% endfor %}
-                        </datalist> -->
-                        <select id="col_value_{{ param.id }}" name="col_value_{{ param.id }}[]" class="form-control w-75" style="width: 75%">
-                            <option value=""></option>
-                            {% for param_data in data %}<option>{{ param_data }}</option>{% endfor %}
                         </select>
-                        {% elif param.data_type == 'DATE' %}
-                        <input id="col_value_{{ param.id }}" class="form-control w-75" type="datetime-local" name="col_value_{{ param.id }}[]" style="width: 75%">
-                        {% elif param.data_type == 'ARRAY' %}
-                        <!-- <div id="col_value_{{ param.id }}" class="d-flex flex-column w-100 col_array_container">
-                            <div class="d-flex flex-row col_array_controlset_container">
-                                <input type="text">
-                            </div>
-                            <div class="d-flex flex-column col_array_values_container" data-separator="{{ param.array_separator }}">
-
-                            </div>
-                            <input name="col_value[]">
-                        </div> -->
-                        <!-- <input id="col_value_{{ param.id }}" class="form-control w-25 invisible" type=""> -->
-                        <select id="col_value_{{ param.id }}" class="form-control w-25" multiple style="width: 75%" name="col_value_{{ param.id }}[]">
-                            <option value=""></option>
-                            {% for param_data in data %}<option>{{ param_data }}</option>{% endfor %}
+                    </div>
+                    {% if child.link_type == 'multiple' %}
+                    <div class="my-3 child-preview-container" data-child-object-id="{{ child.object.id }}">
+                        <label class="form-label">Просмотреть выбранный элемент:</label>
+                        <select class="form-select child-preview-select" data-child-object-id="{{ child.object.id }}">
+                            <!-- Options will be populated dynamically based on selected identifiers -->
                         </select>
-                        {% elif param.data_type == 'INT' %}
-                        <input id="col_value_{{ param.id }}" class="form-control w-25" type="number" name="col_value_{{ param.id }}[]">
-                        {% endif %}
                     </div>
                     {% endif %}
-                {% endfor %}
-            </div>
-            <nav>
-                <div class="nav nav-tabs" id="nav-tab" role="tablist">
-                    {% for param_object, is_selected in parameters_objects %}
-                        <button class="nav-link {% if is_selected %}active{% endif %}" id="nav-{{ param_object.id }}-tab" data-bs-toggle="tab" data-bs-target="#nav-{{ param_object.id }}" type="button" role="tab" aria-controls="nav-{{ param_object.id }}" aria-selected="{% if is_selected %}true{% else %}false{% endif %}">{{ param_object.name }}</button>
-                    {% endfor %}
-                </div>
-            </nav>
-            <div class="tab-content" id="nav-tabContent">
-                {% for param_object, param_object_data, is_selected in parameters_objects_params_data %}
-                <div class="tab-pane fade show {% if is_selected %}active{% endif %}" id="nav-{{ param_object.id }}" role="tabpanel" aria-labelledby="nav-{{ param_object.id }}-tab">  
-                    {% for param, data in param_object_data %}
-                        {% if param.identificator %}
-                        <div class="d-flex flex-row w-100 align-items-center object_param_item identificator">
-                            
-                            <input id="col_id_{{ param.id }}" class="form-control invisible" type="text" value="{{ param.id }}" name="col_id[]">
-                            <div>
-                                <i class="fa-solid fa-star"></i>
-                                <label for="col_value_{{ param.id }}">{{ param.name }}</label>
-                            </div>
-                            <select id="col_value_{{ param.id }}" name="col_obj_param_value_{{ param.id }}[]" class="form-control w-75 identificator_object_param" style="width: 75%">
-                                <option value=""></option>
-                            </select>
-                        </div>
-                        {% else %}
-                        <div class="d-flex flex-row w-100 align-items-center object_param_item">
-                            <input id="col_id_{{ param.id }}" class="form-control invisible" type="text" value="{{ param.id }}" name="col_id[]">
-                            <label for="col_value_{{ param.id }}">{{ param.name }}</label>
-                            {% if param.data_type == 'TXT' %}
-                            <input id="col_value_{{ param.id }}" name="col_value_{{ param.id }}[]" class="form-control w-75" style="width: 75%" value="{{ value_texted }}">
-                            {% elif param.data_type == 'TXTS' %}
-                            <!-- <input id="col_value_{{ param.id }}" list="col_value_{{ param.id }}_list" name="col_value[]" class="form-control w-25" type="text">
-                            <datalist id="col_value_{{ param.id }}_list">
-                                {% for param_data in data %}
-                                <option>{{ param_data }}</option>
+                    
+                    {% for cat_name, params in child.group_data %}
+                        <div class="mt-3">
+                            <h6>{{ cat_name }}</h6>
+                            <div class="row">
+                                {% for pair in params %}
+                                    
+                                    <div class="col-md-4 mb-2">
+                                        <label class="form-label">{{ pair.0.name }}:</label>
+                                        <input type="text" class="form-control child-param-field"
+                                               data-child-object-id="{{ child.object.id }}"
+                                               data-param-id="{{ pair.0.id }}"
+                                               value="" disabled>
+                                    </div>
                                 {% endfor %}
-                            </datalist> -->
-                            <select id="col_value_{{ param.id }}" name="col_value_{{ param.id }}[]" class="form-control w-75" style="width: 75%">
-                                <option value=""></option>
-                                {% for id, param_data in data %}<option>{{ param_data }}</option>{% endfor %}
-                            </select>
-                            {% elif param.data_type == 'DATE' %}
-                            <input id="col_value_{{ param.id }}" class="form-control w-75" type="datetime-local" name="col_value_{{ param.id }}[]" style="width: 75%">
-                            {% elif param.data_type == 'ARRAY' %}
-                            <!-- <div id="col_value_{{ param.id }}" class="d-flex flex-column w-100 col_array_container">
-                                <div class="d-flex flex-row col_array_controlset_container">
-                                    <input type="text">
-                                </div>
-                                <div class="d-flex flex-column col_array_values_container" data-separator="{{ param.array_separator }}">
-
-                                </div>
-                                <input name="col_value[]">
-                            </div> -->
-                            <!-- <input id="col_value_{{ param.id }}" class="form-control w-25 invisible" type=""> -->
-                            <select id="col_value_{{ param.id }}" class="form-control w-25" multiple style="width: 75%" name="col_value_{{ param.id }}[]">
-                                <option value=""></option>
-                                {% for param_data in data %}<option>{{ param_data }}</option>{% endfor %}
-                            </select>
-                            {% elif param.data_type == 'INT' %}
-                            <input id="col_value_{{ param.id }}" class="form-control w-25" type="number" name="col_value_{{ param.id }}[]">
-                            {% endif %}
-                        </div>
-                        {% endif %}
-                    {% endfor %}
-                    </div>  
-                {% endfor %}
-            </div>
-        </div>
-        <button type="submit" class="btn btn-success w-50">Добавить</button>
-        
-    </form>
-    <datalist id="date_formats">
-        <option value="DD.MM.YYYY"></option>
-        <option value="MM/DD/YYYY"></option>    
-        <option value="DD MMMM YYYY года в HH часов MM минут"></option>
-    </datalist> 
-    <div class="modal fade" id="objectFindDataModal" tabindex="-1" aria-labelledby="objectFindDataModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl" id="modal_error">
-            <div class="modal-content">
-                <div class="modal-header">
-                <h5 class="modal-title" id="objectFindDataModalLabel">Поиск объектов</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
-                </div>
-                <div class="modal-body" id="modal_objectFindDataModal_body">
-                    <div class="header-bar mt-2">
-                        <h1 id="objectFindDataModalName">Объект</h1>
-                    </div>
-                    <div class="d-flex flex-row row mb-5">
-                        <span>Идентификатор:</span>
-                        <input id="filter-input" class="form-control" type="text" list="idents_list" oninput="onFilterInputInput(event)">
-                    </div>
-                    <datalist id="idents_list"></datalist>
-                    <div class="d-flex flex-row row">
-                        <div class="d-flex flex-column col">
-                            <div class="objectFindDataModalContainer row">
                             </div>
                         </div>
-                    </div>
+                    {% endfor %}
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-success" onclick="addObjects();">Добавить объекты</button>
-                </div>
-            </div>
+            {% endfor %}
         </div>
-    </div>
-</div>
+    {% endif %}
+    <button type="submit" class="btn btn-primary mt-4">Добавить</button>
+</form>
 
 {% endblock %}
 
 {% block script %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+// JavaScript to fetch child row data and populate the preview fields
+$(document).ready(function() {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-<script language="JavaScript">
-
-    function getObjectData(evt, object_id){
-        let input = evt.target.closest('input');
-        let form_data = new FormData();
-        let csrf_token = document.querySelector('meta[name="csrf_token"]').getAttribute('content')
-        fetch('/database/get_object/'+object_id + '/' , {
+    // Fetch and populate preview fields for a child object
+    function fetchChildData(childObjId, selectedId) {
+        // Clear existing preview fields for this child
+        document.querySelectorAll('.child-param-field[data-child-object-id="' + childObjId + '"]').forEach(function(input) {
+            input.value = '';
+        });
+        if (!selectedId) return;
+        const formData = new FormData();
+        formData.append('param_ident_id', selectedId);
+        fetch(`/database/get_data_from_object/${childObjId}/`, {
             method: 'POST',
             headers: {
-                'X-CSRFToken': csrf_token
+                'X-CSRFToken': csrfToken
             },
-            body: form_data
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log(data);
-            openFindDataModal(data, object_id)
-        })
-        .catch(error => console.error(error));
-    }
-
-    function openFindDataModal(data, obj_id){
-        let container = document.querySelector('.objectFindDataModalContainer')
-        let name = document.querySelector('#objectFindDataModalName')
-        let datalist = document.getElementById('idents_list')
-        name.innerHTML = data.object.name
-        container.innerHTML = ""
-        for(let ident of data.idents){
-            container.insertAdjacentHTML('beforeend', `
-                <div class="ident col" onclick="click_to_ident(event, '${obj_id}', '${ident.param_ident}', '${ident.id}')">
-                    <span>`+ident.param_ident+`<span>
-                </div>
-            `)
-            datalist.insertAdjacentHTML('beforeend', `
-                <option value="`+ident.param_ident+`"></option>
-            `)
-        }
-        $('#objectFindDataModal').modal('show');
-    }
-
-    function click_to_ident(evt, object_id, value, param_ident_id){
-        let object = document.querySelector('#object_'+object_id)
-        let input = object.querySelector('input.identificator')
-        let input_fast = document.querySelector('.obj_parameter_fast[data-idObj="'+object_id+'"]')
-        let input_id_to_connect = object.querySelector('input[name="param_ident_id"]')
-        input.value = value
-        input_id_to_connect.value = param_ident_id
-        console.log(input_fast)
-        console.log(input_fast.innerHTML)
-        if(input_fast !== null && input_fast !== undefined)
-            input_fast.querySelector('input').value = value
-        input.dispatchEvent(new Event('change'))
-        getDataFromObject(object_id, object.querySelector('form'))
-    }
-
-    function getDataFromObject(obj_id, form){
-        let csrf_token = document.querySelector('meta[name="csrf_token"]').getAttribute('content')
-        fetch('/database/get_data_from_object/'+obj_id+'/', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': csrf_token
-            },
-            body: new FormData(form),
-        })
-        .then(response => response.text())
-        .then(columns =>{
-            data = JSON.parse(columns)[0];
-            for(let [key, value] of Object.entries(data)){
-                let object_parameter = document.querySelector('.obj_parameter[data-idParam="'+key+'"]')
-                data_type = value['data_type']
-                data_value = value['value']
-                if(data_value == 'nan')
-                    data_value = ''
-                if(data_type == 'TXT' || data_type == 'TXTS' || data_type == 'DATE'){
-                    let inp = object_parameter.querySelector('input[name="'+key+'"]')
-                    inp.value = data_value
-                    inp.dispatchEvent(new Event('change'))
+            body: formData
+        }).then(function(response) {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        }).then(function(data) {
+            if (!Array.isArray(data) || data.length === 0) return;
+            const record = data[0];
+            Object.keys(record).forEach(function(key) {
+                const valueObj = record[key];
+                let value = '';
+                if (typeof valueObj === 'object' && valueObj !== null) {
+                    if (Array.isArray(valueObj.value)) value = valueObj.value.join(', ');
+                    else value = valueObj.value;
+                } else {
+                    value = valueObj;
                 }
-                else if(data_type == 'ARRAY'){
-                    let container = object_parameter.querySelector('.array_data_container')
-                    container.innerHTML = ''
-                    for(let i = 0; i < data_value.length; i++){
-                        container.insertAdjacentHTML('beforeend', `
-                            <div class="array_data">
-                                <span>
-                                    `+ data_value[i] +`    
-                                </span>
-                            </div>
-                        `)
-                    }
-                }
-                // else if(data_type == 'DATE'){
-                //     let inp = form.querySelector('input[name="'+key+'"]') 
-                //     inp.value = data_value;
-                //     inp.dispatchEvent(new Event('change'))
-                // }
-            }
-            $('#objectFindDataModal').modal('hide');
-            
-        })
-        .catch(error => console.error(error));
-    }
-
-    function onFilterInputInput(evt){
-        let filterInput = evt.target
-        let identElements = document.querySelectorAll('.ident');
-        const filterValue = filterInput.value.toLowerCase();
-        identElements.forEach((element) => {
-            const textContent = element.textContent.toLowerCase();
-            if (textContent.includes(filterValue)) {
-                element.style.display = 'block';
-            } else {
-                element.style.display = 'none';
-            }
+                const field = document.querySelector('.child-param-field[data-child-object-id="' + childObjId + '"][data-param-id="' + key + '"]');
+                if (field) field.value = value;
+            });
+        }).catch(function(error) {
+            console.error('Error fetching child data:', error);
         });
     }
-    function fill_select(select, data){
-        for (const d of data) {
-            let option = document.createElement('option');
-            option.value = d;
-            option.text = d;
-            select.appendChild(option);
-        }
-    }
 
-    function validate_name(input){
-        if(input.value.trim() == ""){
-            input.classList.add('is-invalid')
-            input.classList.remove('is-valid')
-            return false
-        }
-        else{
-            input.classList.add('is-valid')
-            input.classList.remove('is-invalid')
-            return true
-        }
-    }
-
-    function validate_select_drop(select){
-        if(document.querySelector('input[name="need_drop"]').checked && select.value == "-1" ){
-            select.classList.add('is-invalid')
-            select.classList.remove('is-valid')
-            return false
-        }
-        else{
-            select.classList.add('is-valid')
-            select.classList.remove('is-invalid')
-            return true
-        }
-    }
-
-    function validate_select_ident(select){
-        if(select.value == "-1" ){
-            select.classList.add('is-invalid')
-            select.classList.remove('is-valid')
-            return false
-        }
-        else{
-            select.classList.add('is-valid')
-            select.classList.remove('is-invalid')
-            return true
-        }
-    }
-
-    function validate_form(){
-        let form = document.querySelector('form')
-        let name = form.querySelector('input[name="name"]')
-        let file = form.querySelector('input[type="file"]')
-        let select2 = document.querySelector('select[name="ident_column"]');
-        return validate_name(name) 
-        && validate_select_ident(select2)
-    }
-
-    function param_type_changed(evt){
-        let param_type_select = evt.target.closest('.param_type_select')
-        let param_type = param_type_select.value
-        let object_param_item = evt.target.closest('.object_param_item')
-        if(param_type == "ARRAY"){
-            object_param_item.querySelector('.object_param_arr_delim_container').classList.remove('invisible')
-        }else if(param_type == "DATE"){
-            object_param_item.querySelector('.object_param_date_format_container').classList.remove('invisible')
-        }
-        else{
-            object_param_item.querySelector('.object_param_arr_delim_container').classList.add('invisible')
-            object_param_item.querySelector('.object_param_date_format_container').classList.add('invisible')
-            object_param_item.querySelector('.object_param_date_format_container input').value = ""
-        }
-    }
-
-    function CheckValid(form){
-        for(let inp_req of form.querySelectorAll('.identificator_param')){
-            if(inp_req.value.trim().length == 0){
-                return false
+    // Handle change on child link select (including Select2)
+    $(document).on('change', '.child-link-select', function() {
+        const $select = $(this);
+        const childObjId = $select.data('child-object-id');
+        const isMultiple = $select.prop('multiple');
+        const selectedValues = $select.val() || [];
+        if (isMultiple) {
+            // Update preview select options
+            const previewSelect = document.querySelector('.child-preview-select[data-child-object-id="' + childObjId + '"]');
+            if (!previewSelect) return;
+            // Clear existing options and add placeholder
+            previewSelect.innerHTML = '';
+            const placeholderOption = document.createElement('option');
+            placeholderOption.value = '';
+            placeholderOption.textContent = '-- Не выбрано --';
+            previewSelect.appendChild(placeholderOption);
+            // Add options for each selected value
+            selectedValues.forEach(function(val) {
+                let label = '';
+                const optElem = $select.find('option[value="' + val + '"]')[0];
+                if (optElem) {
+                    label = optElem.textContent;
+                } else {
+                    label = val;
+                }
+                const optionElem = document.createElement('option');
+                optionElem.value = val;
+                optionElem.textContent = label;
+                previewSelect.appendChild(optionElem);
+            });
+            // If any selected values, default to first and fetch data
+            if (selectedValues.length > 0) {
+                previewSelect.value = selectedValues[0];
+                fetchChildData(childObjId, selectedValues[0]);
+            } else {
+                fetchChildData(childObjId, null);
             }
-        }
-        return true
-    }
-
-    document.querySelector('button[type="submit"]').addEventListener('click', function(event) {
-        // Отправить запрос на сервер
-        event.preventDefault();
-        event.stopPropagation();
-        let form = document.querySelector('#form_add_data_to_object')
-        if(!CheckValid(form)){
-            alert("Не все обязательные поля заполнены")
-            return
-        }
-        fetch('/database/add_element_to_object/' + form.getAttribute('data-objectId') + '/', {
-            method: 'POST',
-            body: new FormData(form),
-        })
-        .then(response => response.text())
-        .then(message =>{
-            console.log(message);
-            location.href = "/database/get_object/" + form.getAttribute('data-objectId')
-            //location.href = "/database/add_element_to_object/" + form.getAttribute('data-objectId')
-        })
-        .catch(error => console.error(error));
-    });
-
-    $(document).ready(function() {
-        console.log('Готово!')
-        for(let data_type of document.querySelectorAll('.param_type_select'))
-            data_type.dispatchEvent(new Event('change'))
-        for(let select of document.querySelectorAll('#form_add_data_to_object select')){
-            console.log(select)
-            $(select).select2({
-                placeholder: "Выберите значение из списка или выберите новое",
-                allowClear: true,
-                tags: true,
-                dropdownCssClass : 'bigdrop',
-                width: 'resolve',
+            // Refresh Select2 if applied
+            if ($.fn.select2 && $(previewSelect).data('select2')) {
+                $(previewSelect).trigger('change.select2');
             }
-            );
-        }
-        for(let select of document.querySelectorAll('#form_add_data_to_object select[multiple]')){
-            console.log(select)
-            $(select).select2({
-                placeholder: "Выберите из списка несколько значений или добавьте новое",
-                allowClear: true,
-                tags: true,
-                dropdownCssClass : 'bigdrop',
-                width: 'resolve', 
-            }
-            );
+        } else {
+            const selectedId = Array.isArray(selectedValues) ? selectedValues[0] : selectedValues;
+            fetchChildData(childObjId, selectedId);
         }
     });
+    // Handle change on preview select for multi links
+    $(document).on('change', '.child-preview-select', function() {
+        const childObjId = $(this).data('child-object-id');
+        const selectedId = $(this).val();
+        fetchChildData(childObjId, selectedId);
+    });
+});
+// Initialise Select2 on all select elements for searchable dropdowns
+$(document).ready(function() {
+    // Apply Select2 only if the library is loaded
+    if ($.fn.select2) {
+        $('select.form-select').each(function() {
+            var placeholder = $(this).find('option[value=""]').text() || '';
+            var options = {
+                width: '100%',
+                placeholder: placeholder,
+                allowClear: true,
+                language: 'ru'
+            };
+            if ($(this).hasClass('select2-tags')) {
+                options.tags = true;
+            }
+            $(this).select2(options);
+        });
+        // Add submit handler to enforce identifier requirement and show user-friendly message
+        const form = document.getElementById('form_add_data_to_object');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                const identField = document.querySelector('.identificator-field');
+                if (identField) {
+                    let value;
+                    if (identField.tagName.toLowerCase() === 'select') {
+                        // Use jQuery val() to handle Select2 and multiple values
+                        if (typeof $ !== 'undefined') {
+                            value = $(identField).val();
+                        } else {
+                            if (identField.multiple) {
+                                value = Array.from(identField.options).filter(opt => opt.selected).map(opt => opt.value);
+                            } else {
+                                value = identField.value;
+                            }
+                        }
+                    } else {
+                        value = identField.value;
+                    }
+                    // Normalize value: treat empty string or empty array as missing
+                    const isEmpty = !value || (Array.isArray(value) && value.length === 0) || (typeof value === 'string' && value.trim() === '');
+                    if (isEmpty) {
+                        e.preventDefault();
+                        alert('Пожалуйста, заполните идентификатор (обязательное поле).');
+                        return false;
+                    }
+                }
+            });
+        }
+    }
+});
 </script>
-
 {% endblock %}
