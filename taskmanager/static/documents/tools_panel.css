@@ -1,0 +1,35 @@
+/* Styles for the documents tools panel */
+
+#documents-tools-panel {
+  border: 1px solid #ccc;
+  padding: 12px;
+  margin: 12px 0;
+  background-color: #f9f9f9;
+  font-family: sans-serif;
+}
+
+#documents-tools-panel h3 {
+  margin-top: 0;
+  font-size: 1.1em;
+}
+
+#documents-tools-panel .documents-tools-actions {
+  margin-bottom: 8px;
+}
+
+#documents-tools-panel button {
+  margin-right: 8px;
+  padding: 6px 12px;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+#documents-validation-result {
+  margin-top: 8px;
+  color: #b30000;
+}
+
+#documents-render-progress {
+  margin-top: 8px;
+  font-size: 0.9em;
+}

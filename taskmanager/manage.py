@@ -2,7 +2,7 @@
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
-import cx_Oracle
+# import cx_Oracle
 
 def main():
     """Run administrative tasks."""

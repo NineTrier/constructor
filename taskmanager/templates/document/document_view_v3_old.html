@@ -18,10 +18,6 @@
         <link rel="stylesheet" href="{% static 'css/fontawesome.css' %}">
         <link rel="stylesheet" href="{% static 'css/solid.css' %}">
         <link rel="stylesheet" href="{% static 'css/interFonts.css' %}">
-
-        <!-- Стили и JS панели инструментов -->
-        <link rel="stylesheet" href="{% static 'documents/tools_panel.css' %}">
-        <script src="{% static 'documents/tools_panel.js' %}"></script>
         
         <link rel="stylesheet" type="text/css" href="{% static 'css/main/index.css' %}">
         <link rel="stylesheet" type="text/css" href="{% static 'css/main/document_view_st.css' %}">
@@ -428,12 +424,12 @@
                             <span style="font-weight: bold;">{{ obj.object.name }}</span>
                             {% for parameter in obj.params %}
                                 {% if parameter.identificator %}
-                                    <div class="obj_parameter_fast row" data-idObj="{% if parameter.linked_object %}{{ parameter.linked_object.id }}{% else %}{{ obj.object.id }}{% endif %}" data-idParam="{{ parameter.id }}" data-paramName="{{ obj.object.name }}.{{ parameter.name }}">
+                                    <div class="obj_parameter_fast row" data-idObj="{{ obj.object.id }}" data-idParam="{{ parameter.id }}" data-paramName="{{ obj.object.name }}.{{ parameter.name }}">
                                         <div class="col-2">
                                             <i class="fa-solid fa-star"></i>
-                                            <span class="identificator obj_parameter_name">{{ parameter.name }}{% if parameter.linked_object %} <i class="fa-solid fa-link"></i>{% endif %}</span>
+                                            <span class="identificator obj_parameter_name">{{ parameter.name }}</span>
                                         </div>
-                                        <input type="text" class="form-control identificator col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.id}}" onclick="getObjectData(event, '{% if parameter.linked_object %}{{ parameter.linked_object.id }}{% else %}{{ obj.object.id }}{% endif %}')" onchange="onChangeVariableMean(event);">
+                                        <input type="text" class="form-control identificator col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.id}}" onclick="getObjectData(event, '{{ obj.object.id }}')" onchange="onChangeVariableMean(event);">
                                     </div>
                                 {% endif %}
                             {% endfor %}
@@ -470,25 +466,24 @@
                                                     <form id="object_form_{{  obj.object.id }}">
                                                         <input type="hidden" name="param_ident_id">
                                                     {% for parameter in obj.params %}
-                                                    <div class="obj_parameter row" data-idParam="{{ parameter.id }}" data-paramName="{{ obj.object.name }}.{{ parameter.name }}">
-                                                        {% if parameter.identificator %}
-                                                            <div class="col-4">
-                                                                <i class="fa-solid fa-star"></i>
-                                                                <span class="identificator obj_parameter_name">{% if parameter.linked_object %} <i class="fa-solid fa-link"></i>{% endif %}{{ parameter.name }}</span>
-                                                            </div>
-                                                            <input type="text" class="form-control identificator col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.id}}" {% if not parameter.linked_object %}onclick="getObjectData(event, '{{ obj.object.id }}')"{% endif %} onchange="onChangeVariableMean(event);" {% if parameter.linked_object %}data-linked="true"{% endif %}>
-                                                        {% else %}
-                                                            
-                                                            <span class="col-4 obj_parameter_name">{% if parameter.linked_object %} <i class="fa-solid fa-link"></i>{% endif %}{{ parameter.name }}</span>
-                                                            {% if parameter.data_type == 'TXT' or parameter.data_type == 'TXTS' %}
-                                                            <input type="text" class="form-control col obj_parameter_value {% if parameter.linked_object %}linked_parameter{% endif %}" data-id="{{ parameter.id }}" data-linked_object_id="{% if parameter.linked_object %}{{ parameter.linked_object.id }}{% endif %}" name="{{ parameter.id}}" onchange="onChangeVariableMean(event);{% if parameter.linked_object and not parameter.isChild %}linkedParentElementChanged(event){% endif %}" readonly>
-                                                            {% elif parameter.data_type == 'DATE' %}
-                                                            <input type="text" class="form-control col obj_parameter_value {% if parameter.linked_object %}linked_parameter{% endif %}" data-id="{{ parameter.id }}" data-linked_object_id="{% if parameter.linked_object %}{{ parameter.linked_object.id }}{% endif %}" name="{{ parameter.id}}" onchange="onChangeVariableMean(event);" readonly>
-                                                            {% elif parameter.data_type == 'ARRAY' %}
-                                                            <div class="col array_data_container obj_parameter_value {% if parameter.linked_object %}linked_parameter{% endif %}" data-linked_object_id="{% if parameter.linked_object %}{{ parameter.linked_object.id }}{% endif %}"></div>
+                                                        <div class="obj_parameter row" data-idParam="{{ parameter.id }}" data-paramName="{{ obj.object.name }}.{{ parameter.name }}">
+                                                            {% if parameter.identificator %}
+                                                                <div class="col-2">
+                                                                    <i class="fa-solid fa-star"></i>
+                                                                    <span class="identificator obj_parameter_name">{{ parameter.name }}</span>
+                                                                </div>
+                                                                <input type="text" class="form-control identificator col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.id}}" onclick="getObjectData(event, '{{ obj.object.id }}')" onchange="onChangeVariableMean(event);">
+                                                            {% else %}
+                                                                <span class="col-2 obj_parameter_name">{{ parameter.name }}</span>
+                                                                {% if parameter.data_type == 'TXT' or parameter.data_type == 'TXTS' %}
+                                                                <input type="text" class="form-control col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.id}}" onchange="onChangeVariableMean(event);" readonly>
+                                                                {% elif parameter.data_type == 'DATE' %}
+                                                                <input type="text" class="form-control col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.id}}" onchange="onChangeVariableMean(event);" readonly>
+                                                                {% elif parameter.data_type == 'ARRAY' %}
+                                                                <div class="col array_data_container obj_parameter_value"></div> 
+                                                                {% endif %}
                                                             {% endif %}
-                                                        {% endif %}
-                                                    </div>
+                                                        </div>
                                                     {% endfor %}
                                                     </form>
                                                 </div>
@@ -535,22 +530,6 @@
             <div class="overlay" id="overlay-modal"></div>
             
     </body>
-
-    {% include "documents/_tools_panel.html" %}
-
-    <script>
-        // Обязательные контекстные данные для панели:
-        window.DOCUMENT_PATTERN_ID = {{ pattern.id }};
-
-        // Если у вас уже есть выбранные записи в форме — заполните этот словарь.
-        // Ключ — имя Object (как в шаблоне), значение — record_id.
-        window.DOCUMENT_SELECTED_IDS = {{ selected_ids_json|default:"{}"|safe }};
-
-        // (Опционально) Если выбранные записи задаются input/select’ами на странице —
-        // можно собирать их динамически в tools_panel.js (см. раздел 4).
-        window.DOCUMENT_HOST_SELECTOR = '#document_main';
-    </script>
-
     <script lang="JavaScript">
             
             
@@ -1718,63 +1697,6 @@
                 const selection = document.getSelection();
                 const anchorOffset = selection.anchorOffset;
                 return anchorOffset;
-            }
-
-            function linkedParentElementChanged(evt){
-                let linked_param = evt.target.closest('.linked_parameter')
-                const obj_id = linked_param.getAttribute('data-linked_object_id')
-                console.log(obj_id, linked_param.value)
-                let form_data = new FormData();
-                form_data.append('param_ident_id', linked_param.value);
-                getLinkedObjectData(obj_id, form_data)
-            }
-
-            function getLinkedObjectData(obj_id, form_data){
-                let csrf_token = document.querySelector('meta[name="csrf_token"]').getAttribute('content')
-                fetch('/database/get_data_from_object/'+obj_id+'/', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrf_token
-                    },
-                    body: form_data,
-                })
-                .then(response => response.text())
-                .then(columns =>{
-                    data = JSON.parse(columns)[0];
-                    for(let [key, value] of Object.entries(data)){
-                        let object_parameter = document.querySelector('.obj_parameter[data-idParam="'+key+'"]')
-                        data_type = value['data_type']
-                        data_value = value['value']
-                        if(data_value == 'nan')
-                            data_value = ''
-                        if(data_type == 'TXT' || data_type == 'TXTS' || data_type == 'DATE'){
-                            let inp = object_parameter.querySelector('input[name="'+key+'"]')
-                            inp.value = data_value
-                            inp.dispatchEvent(new Event('change'))
-                        }
-                        else if(data_type == 'ARRAY'){
-                            let container = object_parameter.querySelector('.array_data_container')
-                            container.innerHTML = ''
-                            for(let i = 0; i < data_value.length; i++){
-                                container.insertAdjacentHTML('beforeend', `
-                                    <div class="array_data">
-                                        <span>
-                                            `+ data_value[i] +`    
-                                        </span>
-                                    </div>
-                                `)
-                            }
-                        }
-                        // else if(data_type == 'DATE'){
-                        //     let inp = form.querySelector('input[name="'+key+'"]') 
-                        //     inp.value = data_value;
-                        //     inp.dispatchEvent(new Event('change'))
-                        // }
-                    }
-                    $('#objectFindDataModal').modal('hide');
-                    
-                })
-                .catch(error => console.error(error));
             }
             
             function restoreCursorPosition(contentEditableElement, anchorOffset) {
@@ -4308,13 +4230,6 @@
             FillReceivers()
 
             onChangeVariableMean('');
-
-            // Trigger change for linked parameters that have values to populate nested params
-            $('.obj_parameter_value[data-linked="true"]').each(function(){
-                if($(this).val()){
-                    $(this).trigger('change');
-                }
-            });
             
             // if('{{ vks }}' == 'True')
                 //  AutoFillFromRequest("{{ data|escapejs }}")
@@ -4529,7 +4444,9 @@
                 () => {
                     filterManager.acceptAllFilters();
                 }, 5000
-            );      
+            );
+
+            
 
             setInterval(()=>{
                 setDateToday()

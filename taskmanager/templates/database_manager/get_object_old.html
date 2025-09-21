@@ -1,0 +1,459 @@
+{% extends  'base.html' %}
+
+{% block title %}
+Объект
+{% endblock %}
+
+{% block meta %}
+<meta name="object_id" content="{{ object.id }}">
+{% endblock %}
+
+{% block connection %}
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/database_manager/database_manager.css' %}">
+{% endblock %}
+{% block content %}
+
+<div class="modal fade" id="objectModal" tabindex="-1" aria-labelledby="objectModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="objectModalLabel">Элемент</h5>
+          <a type="button" class="btn btn-labeled" onclick="updateObjectElement(event)"><i class="fa-solid fa-pen"></i></a>
+          <a type="button" class="btn btn-labeled" onclick="deleteObjectElement(event)"><i class="fa-solid fa-trash" style="color: red"></i></a>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+            <form id="objectModalForm">
+                {% csrf_token %}
+                <div class="objectParametersContainer">
+                    <input type="hidden" name="param_ident_id">
+                    {% for parameter in parameters %}
+                    <div class="obj_parameter row" id="obj_parameter_{{ parameter.id }}">
+                        {% if parameter.identificator %}
+                            <div class="col-2">
+                                <i class="fa-solid fa-star"></i>
+                                <span class="identificator">{{ parameter.name }}</span>
+                            </div>
+                            <input type="text" class="form-control identificator col" data-id="{{ parameter.id }}" name="{{ parameter.id }}" onchange="get_data(event)">
+                        
+                        {% else %}
+                            <span class="col-2">{{ parameter.name }}</span>
+                            {% if parameter.data_type == 'TXT' or parameter.data_type == 'TXTS' or parameter.data_type == 'DATE' %}
+                            <input type="text" class="form-control col" data-id="{{ parameter.id }}" name="{{ parameter.id }}" readonly>
+                            {% elif parameter.data_type == 'ARRAY' %}
+                            <div class="col array_data_container"></div> 
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+          <!-- <button type="button" class="btn btn-primary">Save changes</button> -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="objectUpdateFileModal" tabindex="-1" aria-labelledby="objectUpdateFileModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="objectUpdateFileModalLabel">Обновить данные</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+            <form method="post" enctype="multipart/form-data" action="#" id="form_update_csv_object">
+                {% csrf_token %}
+                <span>CSV-файл:</span>
+                <input type="file" name="csv_file" class="form-control" accept=".csv" required>
+                <div class="fieldWrapper objectParametersContainer">
+                    {% for parameter in parameters %}
+                    <div class="obj_parameter row" id="obj_parameter_{{ parameter.id }}">
+                        {% if parameter.identificator %}
+                            <div class="col-2">
+                                <i class="fa-solid fa-star"></i>
+                                <span class="identificator">{{ parameter.name }}</span>
+                            </div>
+                        {% else %}
+                            <span class="col-2">{{ parameter.name }}</span>
+                        {% endif %}
+                        <select class="obj_parameter_select_col_csv form-select" name="csv_column_{{ parameter.id }}">
+                            <option value="-1">Выберите столбец, который будет заполнять указанную переменную</option>
+                        </select>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="fieldWrapper invisible" id="drop_column_block">
+                    <span>Фильтрация данных:</span>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" name="need_drop" id="check1">
+                        <label class="form-check-label" for="check1">Убрать строки, где значение не задано</label>
+                      </div>
+                    <select name="drop_column" class="form-select invisible">
+                        <option value="-1">Не заполнять</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-success w-50">Сохранить объект</button>
+            </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+          <!-- <button type="button" class="btn btn-primary">Save changes</button> -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="createDocumentsModal" tabindex="-1" aria-labelledby="createDocumentsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="createDocumentsModalLabel">Обновить данные</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="createDocumentsModal_body">
+            <form method="post" enctype="multipart/form-data" action="#" id="form_create_documents">
+                {% csrf_token %}
+                <span class="mt-5">Для каких объектов создать документы:</span>
+                <select name="object_idents[]" class="form-select " multiple>
+                </select>
+                <span class="mt-5">Документы:</span>
+                <select name="object_documents[]" class="form-select" multiple>
+                </select>
+                <button type="submit" class="btn btn-success w-50 mt-5" >Создать документы</button>
+            </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+          <!-- <button type="button" class="btn btn-primary">Save changes</button> -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+<div class="container">
+    <div class="header-bar mt-2">
+        <h1>Объект {{ object.name }}</h1>
+        <a type="button" class="btn btn-labeled" onclick="addElement(event)">
+            <i class="fa-solid fa-plus"></i>
+        </a>
+        <a type="button" class="btn btn-labeled" onclick="updateObject(event)">
+            <i class="fa-solid fa-pen"></i>
+        </a>
+        <a type="button" class="btn btn-labeled" onclick="updateCSV(event)">
+            <i class="fa-solid fa-rotate"></i>
+        </a>
+        <a type="button" class="btn btn-labeled" onclick="delete_object(event)">
+            <i class="fa-solid fa-trash" style="color: red"></i>
+        </a>
+        <a type="button" class="btn btn-labeled" onclick="fileChangerExcelDownload(event)">
+            <i class="fa-solid fa-file-excel"></i>
+        </a>
+        <a type="button" class="btn btn-labeled" onclick="openModalCreateDocuments(event)">
+            <i class="fa-solid fa-file-word"></i>
+        </a>
+    </div>
+    <div class="d-flex flex-row row">
+        <div class="d-flex flex-column col">
+            <div class="identsContainer row">
+                {% for ident in idents %}
+                <div class="ident col" onclick="click_to_ident(event, '{{ ident.id }}')">
+                    <span>{{ ident.param_ident }}<span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block script %}
+
+<script lang="JavaScript">
+    function objectClicked(evt){
+        location.href = '/database/object/' + evt.target.getAttribute('data-id')
+    }
+    function get_data(evt){
+        let csrf_token = document.querySelector('meta[name="csrf_token"]').getAttribute('content')
+        fetch('/database/get_data_from_object/'+document.querySelector('meta[name="object_id"]').getAttribute('content')+'/', {
+            method: 'POST',
+            headers: {
+                        'X-CSRFToken': csrf_token
+                    },
+            body: new FormData(document.querySelector('#objectModalForm')),
+        })
+        .then(response => response.text())
+        .then(columns =>{
+            data = JSON.parse(columns)[0];
+            for(let [key, value] of Object.entries(data)){
+                let object_parameter = document.querySelector('#obj_parameter_'+key)
+                data_type = value['data_type']
+                data_value = value['value']
+                if(data_value == 'nan')
+                    data_value = ''
+                if(data_type == 'TXT' || data_type == 'DATE' || data_type == 'TXTS')
+                    object_parameter.querySelector('input[data-id="'+key+'"]').value = data_value
+                if(data_type == 'ARRAY'){
+                    let container = object_parameter.querySelector('.array_data_container')
+                    container.innerHTML = ''
+                    for(let i = 0; i < data_value.length; i++){
+                        container.insertAdjacentHTML('beforeend', `
+                            <div class="array_data">
+                                <span>
+                                    `+ data_value[i] +`    
+                                </span>
+                            </div>
+                        `)
+                    }
+                }
+                
+            }
+            document.querySelector('#objectModalLabel').innerHTML = "Элемент " + document.querySelector('input.identificator').value
+            var modal = new bootstrap.Modal(document.getElementById('objectModal'))
+            modal.show()
+        })
+        .catch(error => console.error(error));
+    }
+
+    function delete_object(evt){
+        let csrf_token = document.querySelector('meta[name="csrf_token"]').getAttribute('content')
+        if(confirm('Вы действительно хотите удалить объект?')){
+            fetch('/database/delete_object/'+document.querySelector('meta[name="object_id"]').getAttribute('content')+'/', {
+                method: 'POST',
+                headers: {
+                        'X-CSRFToken': csrf_token
+                    },
+                body: new FormData(),
+            })
+            .then(response => response.text())
+            .then(data =>{
+                console.log(data);
+                location.href = "/database/object_manager" 
+            })
+            .catch(error => console.error(error));
+        }
+    }
+
+    function fileChangerExcelDownload(evt) {
+        const csrfToken = document.querySelector('meta[name="csrf_token"]').getAttribute('content');
+        const objectId = document.querySelector('meta[name="object_id"]').getAttribute('content');
+
+        fetch(`/database/file_changer/${objectId}/`, {
+            method: 'POST',
+            headers: {
+            'X-CSRFToken': csrfToken,
+            },
+            body: new FormData(),
+        })
+        .then(response => response.blob())
+        .then(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'file_changer.xlsx';
+            a.click();
+        })
+        .catch(error => console.error('Error:', error));
+    }
+    function click_to_ident(evt, param_ident_id){
+        evt.stopPropagation()
+        evt.preventDefault()
+        let element = evt.target.closest('.ident')
+        let input = document.querySelector('input.identificator')
+        let input_id_to_connect = document.querySelector('input[name="param_ident_id"]')
+        input_id_to_connect.value = param_ident_id
+        input.value = element.querySelector('span').textContent
+        input.dispatchEvent(new Event('change'));
+        
+    }
+
+    function fill_select(select, data, option_select_index=0){
+        for (const d of data) {
+            let option = document.createElement('option');
+            option.value = d;
+            option.text = d;
+            if(option_select_index == 0){
+                option.selected = true
+            }
+            select.appendChild(option);
+            option_select_index--;
+        }
+    }
+
+    function fill_select_from_dicts(select, data){
+        removeSelect2(select);
+        for(const dict of data){
+            for (const [key, value] of Object.entries(dict)) {
+                let option = document.createElement('option');
+                option.value = key;
+                option.text = value;
+                select.appendChild(option);
+            }
+        }
+    }
+
+    function fill_selects_from_columns(columns){
+        let select1 = document.querySelector('select[name="drop_column"]');
+        select1.innerHTML = '<option value="-1">Выберите столбец, по которому сбросить строки таблицы</option>';
+        fill_select(select1, columns.split(';'))
+        let i = 0;
+        for(let select of document.querySelectorAll('#form_update_csv_object select.obj_parameter_select_col_csv')){
+            select1.innerHTML = '<option value="-1">Не заполнять</option>';
+            fill_select(select, columns.split(';'), i)
+            i++;
+        }
+    }
+
+    document.querySelector('input[type="file"]').addEventListener('change', function() {
+        // Отправить запрос на сервер
+        fetch('/database/upload_csv_to_get_columns/', {
+            method: 'POST',
+            body: new FormData(document.querySelector('#form_update_csv_object')),
+        })
+        .then(response => response.text())
+        .then(columns =>{
+            console.log(columns);
+            fill_selects_from_columns(columns)
+            // fill_columns_list(columns)
+            // identificator_block.classList.remove('invisible');
+            drop_column_block.classList.remove('invisible');
+            // view_data_block.classList.remove('invisible');
+        })
+        .catch(error => console.error(error));
+    });
+
+    document.querySelector('#form_update_csv_object button[type="submit"]').addEventListener('click', function(event) {
+        // Отправить запрос на сервер
+        event.preventDefault();
+        // if(!validate_form()){
+        //     alert('Ошибка введённых данных')
+        //     return;
+        // }    
+        fetch('/database/update_csv/'+document.querySelector('meta[name="object_id"]').getAttribute('content')+'/', {
+            method: 'POST',
+            body: new FormData(document.querySelector('#form_update_csv_object')),
+        })
+        .then(response => response.text())
+        .then(message =>{
+            console.log(message);
+            location.reload()
+        })
+        .catch(error => console.error(error));
+    });
+
+    document.querySelector('#form_create_documents button[type="submit"]').addEventListener('click', function(event) {
+        // Отправить запрос на сервер
+        event.preventDefault();
+        // if(!validate_form()){
+        //     alert('Ошибка введённых данных')
+        //     return;
+        // }    
+        fetch('/document/createDocumentsMultiple', {
+            method: 'GET',
+            body: new FormData(document.querySelector('#form_create_documents')),
+        })
+        .then(response => response.text())
+        .then(message =>{
+            console.log(message);
+            // location.reload()
+        })
+        .catch(error => console.error(error));
+    });
+
+    document.querySelector('input[name="need_drop"]').addEventListener('change', function(evt) {
+        console.log(evt.target.checked);
+        let select =  drop_column_block.querySelector('select')
+        if(evt.target.checked)
+            select.classList.remove('invisible');
+        else
+            select.classList.add('invisible');
+    });
+
+    function removeSelect2(select1){
+        let select = $(select1);
+        try {
+            if (select.is('.select2-hidden-accessible')) {
+                select.select2('destroy');
+            }
+            select.empty();
+        } catch (error) {
+            select.empty();
+        }
+    }
+
+    function updateCSV(evt){
+        var modal = new bootstrap.Modal(document.getElementById('objectUpdateFileModal'))
+        modal.show()
+    }
+
+    function updateObjectElement(evt){
+        const objectId = document.querySelector('meta[name="object_id"]').getAttribute('content');
+        let element_id = document.querySelector('#objectModalForm input[name="param_ident_id"]').value
+        location.href = '/database/update_element_to_object/' + objectId + '/?id=' + element_id
+    }
+
+    function deleteObjectElement(evt){
+        if(!confirm('Вы точно хотите удалить этот элемент?'))
+            return
+        const objectId = document.querySelector('meta[name="object_id"]').getAttribute('content');
+        let element_id = document.querySelector('#objectModalForm input[name="param_ident_id"]').value
+        fetch('/database/delete_element_to_object/' + objectId + '/?id=' + element_id, {
+            method: 'POST',
+            body: new FormData(document.querySelector('#form_update_csv_object')),
+        })
+        .then(response => response.text())
+        .then(message =>{
+            console.log(message);
+            location.reload()
+        })
+        .catch(error => console.error(error));
+    }
+
+    function openModalCreateDocuments(evt){
+        const csrfToken = document.querySelector('meta[name="csrf_token"]').getAttribute('content');
+        const objectId = document.querySelector('meta[name="object_id"]').getAttribute('content');
+        let select_idents = document.querySelector('select[name="object_idents[]"]')
+        let select_documents = document.querySelector('select[name="object_documents[]"]')
+        fetch('/database/get_object/'+objectId + '/' , {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log(data);
+            fill_select(select_idents, data.idents)
+            fill_select_from_dicts(select_documents, data.documents)
+            $(select_idents).select2({
+                width: '100%', // ширина select2
+                dropdownParent: $('#createDocumentsModal'),
+                multiple: true,
+            });
+            $(select_documents).select2({
+                width: '100%', // ширина select2
+                dropdownParent: $('#createDocumentsModal'),
+                multiple: true,
+            });
+            var modal = new bootstrap.Modal(document.getElementById('createDocumentsModal'))
+            modal.show()
+        })
+        .catch(error => console.error(error));
+        
+    }
+
+    function updateObject(evt){
+        const objectId = document.querySelector('meta[name="object_id"]').getAttribute('content');
+        location.href = '/database/update_object/'+objectId + '/'
+    }
+    function addElement(evt){
+        const objectId = document.querySelector('meta[name="object_id"]').getAttribute('content');
+        location.href = '/database/add_element_to_object/'+objectId + '/'
+    }
+</script>
+{% endblock %}

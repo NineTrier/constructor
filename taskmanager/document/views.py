@@ -453,7 +453,26 @@ def ViewDocument(request):
         res = AddDocumentToUser(request, fileid)
         return redirect(f'/document/view?id={res["id"]}')
     parent_document = Document_ParentDocument.objects.filter(document=Doc.id)
-    objects = [{'object': obj.object, 'params':[parameter for parameter in sorted(Parameter.objects.filter(object=obj.object), key=lambda x: x.id)]} for obj in DocumentPattern_Objects.objects.filter(document=Doc.id)]
+    objects = []
+    for obj in DocumentPattern_Objects.objects.filter(document=Doc.id):
+        params = list(sorted(Parameter.objects.filter(object=obj.object), key=lambda x: x.id))
+        for param in params[:]:
+            if hasattr(param, 'linked_object') and param.linked_object:
+                print(type(params[params.index(param)]))
+                linked_params = Parameter.objects.filter(object=param.linked_object)
+                for lp in linked_params:
+                    class PseudoParam:
+                        def __init__(self, original, prefix, linked_obj, parent_id=None):
+                            self.id = original.id
+                            self.name = f"{prefix}.{original.name}"
+                            self.identificator = False
+                            self.data_type = original.data_type
+                            self.linked_object = linked_obj
+                            self.isChild = True
+                            self.parent_id = parent_id
+                    pseudo = PseudoParam(lp, param.name, param.linked_object, param.id)
+                    params.append(pseudo)
+        objects.append({'object': obj.object, 'params': params})
     print(objects)
     context = {
         'title': 'Просмотр документа',
@@ -465,6 +484,10 @@ def ViewDocument(request):
     }
     if request.user.is_authenticated:
         context['profile'] = Profile.objects.filter(user=request.user)[0]
+
+    # добавляем идентификатор шаблона и (опционально) выбранные записи для панели
+    context['pattern'] = Doc
+    context['selected_ids_json'] = json.dumps({})
     return render(request, 'document/document_view_v3.html', context)
 
 def CreateDocumentMultiple(request):
@@ -498,6 +521,8 @@ def ViewDocumentAndCreateDocument(request):
     }
     if request.user.is_authenticated:
         context['profile'] = Profile.objects.filter(user=request.user)[0]
+    context['pattern'] = Doc
+    context['selected_ids_json'] = json.dumps({})
     return render(request, 'document/document_view_v3.html', context)
 
 def SavedElementFromJSON(json_stroke):

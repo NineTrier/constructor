@@ -48,7 +48,6 @@ INSTALLED_APPS = [
     'document',
     'user_manager',
     'database_manager',
-    'dbformcreator',
     'corsheaders',
 ]
 
@@ -92,7 +91,7 @@ DATABASES = {
         'USER': 'admin',
         'PASSWORD': 'admin',
         'HOST': 'localhost',
-        'PORT': '5433',
+        'PORT': '5432',
     }
 }
 
@@ -134,14 +133,12 @@ STATIC_URL = '/static/'
 
 # remove STATIC_ROOT
 MEDIA_URL = 'media/'
-MEDIA_ROOT = 'C:\\media'
+MEDIA_ROOT = 'D:\\media'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-os.environ['path'] = 'C:/oracle/instantclient_21_6'
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = 524288000
 DATA_DOWNLOAD_MAX_MEMORY_SIZE = 524288000

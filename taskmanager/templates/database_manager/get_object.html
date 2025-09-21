@@ -1,62 +1,88 @@
-{% extends  'base.html' %}
+{% extends 'base.html' %}
+{% load static %}
 
 {% block title %}
-Объект
+Объект {{ object.name }}
 {% endblock %}
 
 {% block meta %}
 <meta name="object_id" content="{{ object.id }}">
+<meta name="csrf_token" content="{% csrf_token %}">
 {% endblock %}
 
 {% block connection %}
     {% load static %}
     <link rel="stylesheet" type="text/css" href="{% static 'css/database_manager/database_manager.css' %}">
 {% endblock %}
-{% block content %}
 
-<div class="modal fade" id="objectModal" tabindex="-1" aria-labelledby="objectModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="objectModalLabel">Элемент</h5>
-          <a type="button" class="btn btn-labeled" onclick="updateObjectElement(event)"><i class="fa-solid fa-pen"></i></a>
-          <a type="button" class="btn btn-labeled" onclick="deleteObjectElement(event)"><i class="fa-solid fa-trash" style="color: red"></i></a>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+{% block content %}
+<style>
+.page-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+</style>
+<div class="page-container">
+<h3>{{ object.name }}</h3>
+
+<div class="header-bar mt-2">
+    <a type="button" class="btn btn-labeled" onclick="addElement(event)">
+        <i class="fa-solid fa-plus"></i>
+    </a>
+    <a type="button" class="btn btn-labeled" onclick="updateObject(event)">
+        <i class="fa-solid fa-pen"></i>
+    </a>
+    <a type="button" class="btn btn-labeled" onclick="updateCSV(event)">
+        <i class="fa-solid fa-rotate"></i>
+    </a>
+    <a type="button" class="btn btn-labeled" onclick="delete_object(event)">
+        <i class="fa-solid fa-trash" style="color: red"></i>
+    </a>
+    <a type="button" class="btn btn-labeled" onclick="fileChangerExcelDownload(event)">
+        <i class="fa-solid fa-file-excel"></i>
+    </a>
+    <a type="button" class="btn btn-labeled" onclick="openModalCreateDocuments(event)">
+        <i class="fa-solid fa-file-word"></i>
+    </a>
+</div>
+
+<div class="d-flex flex-row row">
+    <div class="d-flex flex-column col">
+        <div class="identsContainer row">
+            {% for ident in idents %}
+            <div class="ident col" onclick="click_to_ident(event, '{{ ident.id }}')">
+                <span>{{ ident.param_ident }}</span>
+            </div>
+            {% endfor %}
         </div>
-        <div class="modal-body">
-            <form id="objectModalForm">
-                {% csrf_token %}
-                <div class="objectParametersContainer">
-                    <input type="hidden" name="param_ident_id">
-                    {% for parameter in parameters %}
-                    <div class="obj_parameter row" id="obj_parameter_{{ parameter.id }}">
-                        {% if parameter.identificator %}
-                            <div class="col-2">
-                                <i class="fa-solid fa-star"></i>
-                                <span class="identificator">{{ parameter.name }}</span>
-                            </div>
-                            <input type="text" class="form-control identificator col" data-id="{{ parameter.id }}" name="{{ parameter.id }}" onchange="get_data(event)">
-                        
-                        {% else %}
-                            <span class="col-2">{{ parameter.name }}</span>
-                            {% if parameter.data_type == 'TXT' or parameter.data_type == 'TXTS' or parameter.data_type == 'DATE' %}
-                            <input type="text" class="form-control col" data-id="{{ parameter.id }}" name="{{ parameter.id }}" readonly>
-                            {% elif parameter.data_type == 'ARRAY' %}
-                            <div class="col array_data_container"></div> 
-                            {% endif %}
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                </div>
-            </form>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
-          <!-- <button type="button" class="btn btn-primary">Save changes</button> -->
-        </div>
+    </div>
+</div>
+
+<!-- Embed child parameter metadata as JSON for use in the modal script.  The
+      child_params context variable maps child object IDs to a mapping of
+      parameter IDs to human‑readable names.  We use json_script to safely
+      serialise this dictionary into a script tag. -->
+{{ child_params|json_script:"child-params-data" }}
+
+<!-- Modal for viewing row details -->
+<div class="modal fade" id="viewRowModal" tabindex="-1" aria-labelledby="viewRowModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="viewRowModalLabel">Данные элемента</h5>
+        <a type="button" class="btn btn-labeled" onclick="updateObjectElement(event)"><i class="fa-solid fa-pen"></i></a>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="modalContent">Загрузка...</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
       </div>
     </div>
   </div>
+</div>
 
   <div class="modal fade" id="objectUpdateFileModal" tabindex="-1" aria-labelledby="objectUpdateFileModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
@@ -134,92 +160,75 @@
       </div>
     </div>
   </div>
-
-<div class="container">
-    <div class="header-bar mt-2">
-        <h1>Объект {{ object.name }}</h1>
-        <a type="button" class="btn btn-labeled" onclick="addElement(event)">
-            <i class="fa-solid fa-plus"></i>
-        </a>
-        <a type="button" class="btn btn-labeled" onclick="updateObject(event)">
-            <i class="fa-solid fa-pen"></i>
-        </a>
-        <a type="button" class="btn btn-labeled" onclick="updateCSV(event)">
-            <i class="fa-solid fa-rotate"></i>
-        </a>
-        <a type="button" class="btn btn-labeled" onclick="delete_object(event)">
-            <i class="fa-solid fa-trash" style="color: red"></i>
-        </a>
-        <a type="button" class="btn btn-labeled" onclick="fileChangerExcelDownload(event)">
-            <i class="fa-solid fa-file-excel"></i>
-        </a>
-        <a type="button" class="btn btn-labeled" onclick="openModalCreateDocuments(event)">
-            <i class="fa-solid fa-file-word"></i>
-        </a>
-    </div>
-    <div class="d-flex flex-row row">
-        <div class="d-flex flex-column col">
-            <div class="identsContainer row">
-                {% for ident in idents %}
-                <div class="ident col" onclick="click_to_ident(event, '{{ ident.id }}')">
-                    <span>{{ ident.param_ident }}<span>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-</div>
-
-{% endblock %}
+ </div>
+ 
+ {% endblock %}
 
 {% block script %}
+<script>
+// Prepare metadata for parameters: id -> {name, category}
+var parametersMeta = {
+{% for param in parameters %}
+    "{{ param.id }}": {
+        name: "{{ param.name|escapejs }}",
+        category: "{% if param.category %}{{ param.category.name|escapejs }}{% else %}Вне категории{% endif %}"
+    }{% if not forloop.last %},{% endif %}
+{% endfor %}
+};
 
-<script lang="JavaScript">
-    function objectClicked(evt){
-        location.href = '/database/object/' + evt.target.getAttribute('data-id')
-    }
-    function get_data(evt){
-        let csrf_token = document.querySelector('meta[name="csrf_token"]').getAttribute('content')
-        fetch('/database/get_data_from_object/'+document.querySelector('meta[name="object_id"]').getAttribute('content')+'/', {
-            method: 'POST',
-            headers: {
-                        'X-CSRFToken': csrf_token
-                    },
-            body: new FormData(document.querySelector('#objectModalForm')),
-        })
-        .then(response => response.text())
-        .then(columns =>{
-            data = JSON.parse(columns)[0];
-            for(let [key, value] of Object.entries(data)){
-                let object_parameter = document.querySelector('#obj_parameter_'+key)
-                data_type = value['data_type']
-                data_value = value['value']
-                if(data_value == 'nan')
-                    data_value = ''
-                if(data_type == 'TXT' || data_type == 'DATE' || data_type == 'TXTS')
-                    object_parameter.querySelector('input[data-id="'+key+'"]').value = data_value
-                if(data_type == 'ARRAY'){
-                    let container = object_parameter.querySelector('.array_data_container')
-                    container.innerHTML = ''
-                    for(let i = 0; i < data_value.length; i++){
-                        container.insertAdjacentHTML('beforeend', `
-                            <div class="array_data">
-                                <span>
-                                    `+ data_value[i] +`    
-                                </span>
-                            </div>
-                        `)
-                    }
-                }
-                
-            }
-            document.querySelector('#objectModalLabel').innerHTML = "Элемент " + document.querySelector('input.identificator').value
-            var modal = new bootstrap.Modal(document.getElementById('objectModal'))
-            modal.show()
-        })
-        .catch(error => console.error(error));
-    }
+// Parse the child parameter metadata from the script tag generated by
+// the json_script filter.  This gives us a mapping of child object
+// IDs to parameter ID → name mappings so that we can display
+// human‑readable labels for child record fields in the modal.
+var childParams = {};
+try {
+    childParams = JSON.parse(document.getElementById('child-params-data').textContent);
+} catch (e) {
+    console.error('Failed to parse child parameter metadata', e);
+    childParams = {};
+}
 
+function escapeHtml(text) {
+    if (text == null) return '';
+    var map = {
+        '&': '&amp;',
+        '<': '<',
+        '>': '>',
+        '"': '"',
+        "'": '&#039;'
+    };
+    return (text + '').replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+// Helper: group base record fields by category
+function groupRecordByCategory(record) {
+    var grouped = {};
+    for (var key in record) {
+        if (!record.hasOwnProperty(key)) continue;
+        if (key === 'id_to_connect') continue;
+        if (!parametersMeta[key]) continue;
+        var category = parametersMeta[key].category || 'Вне категории';
+        if (!grouped[category]) grouped[category] = [];
+        grouped[category].push({
+            name: parametersMeta[key].name,
+            value: record[key].value
+        });
+    }
+    // sort categories alphabetically, but ensure 'Вне категории' last
+    var orderedCategories = Object.keys(grouped).sort(function(a,b){
+        if (a === 'Вне категории') return 1;
+        if (b === 'Вне категории') return -1;
+        return a.localeCompare(b);
+    });
+    var result = [];
+    orderedCategories.forEach(function(cat) {
+        result.push({category: cat, items: grouped[cat]});
+    });
+    return result;
+}
+
+$(document).ready(function() {
+    // Management functions
     function delete_object(evt){
         let csrf_token = document.querySelector('meta[name="csrf_token"]').getAttribute('content')
         if(confirm('Вы действительно хотите удалить объект?')){
@@ -233,7 +242,7 @@
             .then(response => response.text())
             .then(data =>{
                 console.log(data);
-                location.href = "/database/object_manager" 
+                location.href = "/database/object_manager"
             })
             .catch(error => console.error(error));
         }
@@ -259,17 +268,6 @@
             a.click();
         })
         .catch(error => console.error('Error:', error));
-    }
-    function click_to_ident(evt, param_ident_id){
-        evt.stopPropagation()
-        evt.preventDefault()
-        let element = evt.target.closest('.ident')
-        let input = document.querySelector('input.identificator')
-        let input_id_to_connect = document.querySelector('input[name="param_ident_id"]')
-        input_id_to_connect.value = param_ident_id
-        input.value = element.querySelector('span').textContent
-        input.dispatchEvent(new Event('change'));
-        
     }
 
     function fill_select(select, data, option_select_index=0){
@@ -303,7 +301,7 @@
         fill_select(select1, columns.split(';'))
         let i = 0;
         for(let select of document.querySelectorAll('#form_update_csv_object select.obj_parameter_select_col_csv')){
-            select1.innerHTML = '<option value="-1">Не заполнять</option>';
+            select.innerHTML = '<option value="-1">Не заполнять</option>';
             fill_select(select, columns.split(';'), i)
             i++;
         }
@@ -319,21 +317,13 @@
         .then(columns =>{
             console.log(columns);
             fill_selects_from_columns(columns)
-            // fill_columns_list(columns)
-            // identificator_block.classList.remove('invisible');
             drop_column_block.classList.remove('invisible');
-            // view_data_block.classList.remove('invisible');
         })
         .catch(error => console.error(error));
     });
 
     document.querySelector('#form_update_csv_object button[type="submit"]').addEventListener('click', function(event) {
-        // Отправить запрос на сервер
         event.preventDefault();
-        // if(!validate_form()){
-        //     alert('Ошибка введённых данных')
-        //     return;
-        // }    
         fetch('/database/update_csv/'+document.querySelector('meta[name="object_id"]').getAttribute('content')+'/', {
             method: 'POST',
             body: new FormData(document.querySelector('#form_update_csv_object')),
@@ -347,12 +337,7 @@
     });
 
     document.querySelector('#form_create_documents button[type="submit"]').addEventListener('click', function(event) {
-        // Отправить запрос на сервер
         event.preventDefault();
-        // if(!validate_form()){
-        //     alert('Ошибка введённых данных')
-        //     return;
-        // }    
         fetch('/document/createDocumentsMultiple', {
             method: 'GET',
             body: new FormData(document.querySelector('#form_create_documents')),
@@ -360,13 +345,11 @@
         .then(response => response.text())
         .then(message =>{
             console.log(message);
-            // location.reload()
         })
         .catch(error => console.error(error));
     });
 
     document.querySelector('input[name="need_drop"]').addEventListener('change', function(evt) {
-        console.log(evt.target.checked);
         let select =  drop_column_block.querySelector('select')
         if(evt.target.checked)
             select.classList.remove('invisible');
@@ -391,29 +374,6 @@
         modal.show()
     }
 
-    function updateObjectElement(evt){
-        const objectId = document.querySelector('meta[name="object_id"]').getAttribute('content');
-        let element_id = document.querySelector('#objectModalForm input[name="param_ident_id"]').value
-        location.href = '/database/update_element_to_object/' + objectId + '/?id=' + element_id
-    }
-
-    function deleteObjectElement(evt){
-        if(!confirm('Вы точно хотите удалить этот элемент?'))
-            return
-        const objectId = document.querySelector('meta[name="object_id"]').getAttribute('content');
-        let element_id = document.querySelector('#objectModalForm input[name="param_ident_id"]').value
-        fetch('/database/delete_element_to_object/' + objectId + '/?id=' + element_id, {
-            method: 'POST',
-            body: new FormData(document.querySelector('#form_update_csv_object')),
-        })
-        .then(response => response.text())
-        .then(message =>{
-            console.log(message);
-            location.reload()
-        })
-        .catch(error => console.error(error));
-    }
-
     function openModalCreateDocuments(evt){
         const csrfToken = document.querySelector('meta[name="csrf_token"]').getAttribute('content');
         const objectId = document.querySelector('meta[name="object_id"]').getAttribute('content');
@@ -431,12 +391,12 @@
             fill_select(select_idents, data.idents)
             fill_select_from_dicts(select_documents, data.documents)
             $(select_idents).select2({
-                width: '100%', // ширина select2
+                width: '100%',
                 dropdownParent: $('#createDocumentsModal'),
                 multiple: true,
             });
             $(select_documents).select2({
-                width: '100%', // ширина select2
+                width: '100%',
                 dropdownParent: $('#createDocumentsModal'),
                 multiple: true,
             });
@@ -444,7 +404,11 @@
             modal.show()
         })
         .catch(error => console.error(error));
-        
+    }
+
+    function updateObjectElement(evt){
+        const objectId = document.querySelector('meta[name="object_id"]').getAttribute('content');
+        location.href = '/database/update_element_to_object/' + objectId + '/?id=' + window.currentIdentId
     }
 
     function updateObject(evt){
@@ -455,5 +419,149 @@
         const objectId = document.querySelector('meta[name="object_id"]').getAttribute('content');
         location.href = '/database/add_element_to_object/'+objectId + '/'
     }
+
+    function click_to_ident(evt, identId){
+        // Show modal and load data
+        window.currentIdentId = identId;
+        var modalEl = new bootstrap.Modal(document.getElementById('viewRowModal'), {backdrop: 'static'});
+        $('#modalContent').html('Загрузка...');
+        modalEl.show();
+        // Fetch base row data
+        var objId = {{ object.id }};
+        // Get CSRF token from cookie for AJAX requests
+        function getCookie(name) {
+            var cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i].trim();
+                    // Does this cookie string begin with the name we want?
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        var csrfToken = getCookie('csrftoken');
+        var parentReq = fetch(`/database/get_data_from_object/${objId}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: new URLSearchParams({ 'param_ident_id': identId })
+        }).then(function(resp) { return resp.ok ? resp.json() : Promise.reject(); });
+        var linksReq = fetch(`/database/get_row_links/${objId}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: new URLSearchParams({ 'parent_ident_id': identId })
+        }).then(function(resp) { return resp.ok ? resp.json() : Promise.reject(); });
+        Promise.all([parentReq, linksReq]).then(function(values) {
+            var baseData = values[0];
+            var linksData = values[1];
+            if (!Array.isArray(baseData) || baseData.length === 0) {
+                $('#modalContent').html('<p>Данные отсутствуют</p>');
+                return;
+            }
+            var record = baseData[0];
+            // Build HTML for base data
+            var html = '';
+            var grouped = groupRecordByCategory(record);
+            html += '<h5>Основные данные</h5>';
+            grouped.forEach(function(group) {
+                html += `<h6>${escapeHtml(group.category)}</h6><div class="row">`;
+                group.items.forEach(function(item) {
+                    // Use readonly input to display value with parameter name as label
+                    var val = item.value || '';
+                    var uniqueId = 'field-' + item.name.replace(/\s+/g, '-').toLowerCase();
+                    html += `<div class="col-md-4 mb-2">
+<div class="form-floating">
+<input type="text" class="form-control" id="${uniqueId}" placeholder="${escapeHtml(item.name)}" value="${escapeHtml(val)}" readonly>
+<label for="${uniqueId}">${escapeHtml(item.name)}</label>
+</div>
+</div>`;
+                });
+                html += '</div>';
+            });
+            // Process child links
+            if (linksData && Array.isArray(linksData.links) && linksData.links.length > 0) {
+                html += '<hr><h5>Связанные объекты</h5>';
+                var childPromises = [];
+                linksData.links.forEach(function(link) {
+                    var childObjId = link.child_object_id;
+                    var childObjName = link.child_object_name;
+                    var linkType = link.link_type;
+                    var childIds = link.child_ident_ids || [];
+                    // For each child ID fetch its row data
+                    var promises = childIds.map(function(childIdentId) {
+                        return fetch(`/database/get_data_from_object/${childObjId}/`, {
+                            method: 'POST',
+                            headers: { 'X-CSRFToken': csrfToken },
+                            body: new URLSearchParams({ 'param_ident_id': childIdentId })
+                        }).then(function(resp) { return resp.ok ? resp.json() : Promise.reject(); }).then(function(childData) {
+                            return { childData: childData, identId: childIdentId, childObjId: childObjId, childObjName: childObjName };
+                        });
+                    });
+                    childPromises.push(Promise.all(promises).then(function(results) {
+                        // Build section for this child object
+                        var secHtml = `<h6>${escapeHtml(childObjName)}</h6>`;
+                        if (results.length === 0) {
+                            secHtml += '<p>Нет выбранных элементов</p>';
+                            return secHtml;
+                        }
+                        results.forEach(function(item, index) {
+                            var childRecord = item.childData && Array.isArray(item.childData) ? item.childData[0] : {};
+                            secHtml += `<div class="mb-2"><strong>Элемент ${index + 1} (ID: ${item.identId})</strong></div>`;
+                            secHtml += '<div class="row">';
+                            for (var k in childRecord) {
+                                if (!childRecord.hasOwnProperty(k) || k === 'id_to_connect') continue;
+                                var valObj = childRecord[k];
+                                var val = '';
+                                if (typeof valObj === 'object' && valObj !== null) {
+                                    if (Array.isArray(valObj.value)) val = valObj.value.join(', ');
+                                    else val = valObj.value;
+                                } else {
+                                    val = valObj;
+                                }
+                                // Look up a human‑readable name for this parameter; fall back to the raw ID
+                                var paramName = (childParams[item.childObjId] && childParams[item.childObjId][k]) ? childParams[item.childObjId][k] : k;
+                                // Use a readonly input to display the value with the parameter name as label
+                                secHtml += `<div class="col-md-4 mb-2">
+<div class="form-floating">
+<input type="text" class="form-control" id="child-${k}-${item.identId}" placeholder="${escapeHtml(paramName)}" value="${escapeHtml(val || '')}" readonly>
+<label for="child-${k}-${item.identId}">${escapeHtml(paramName)}</label>
+</div>
+</div>`;
+                            }
+                            secHtml += '</div>';
+                        });
+                        return secHtml;
+                    }));
+                });
+                Promise.all(childPromises).then(function(childSections) {
+                    html += childSections.join('<hr>');
+                    $('#modalContent').html(html);
+                }).catch(function(err) {
+                    console.error(err);
+                    $('#modalContent').html(html + '<p>Ошибка при загрузке связанных данных</p>');
+                });
+            } else {
+                $('#modalContent').html(html);
+            }
+        }).catch(function(err) {
+            console.error(err);
+            $('#modalContent').html('<p>Ошибка при загрузке данных</p>');
+        });
+    }
+
+    // Attach to window for onclick
+    window.delete_object = delete_object;
+    window.fileChangerExcelDownload = fileChangerExcelDownload;
+    window.updateCSV = updateCSV;
+    window.openModalCreateDocuments = openModalCreateDocuments;
+    window.updateObjectElement = updateObjectElement;
+    window.updateObject = updateObject;
+    window.addElement = addElement;
+    window.click_to_ident = click_to_ident;
+});
 </script>
 {% endblock %}
