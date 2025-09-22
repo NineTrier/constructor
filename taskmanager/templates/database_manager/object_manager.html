@@ -33,7 +33,7 @@
 
 <script lang="JavaScript">
     function createNewObject(){
-        let name = prompt("Введите название объекта");
+        let name = "Новый объект";
         let form = new FormData();
         form.append("name", name)
         fetch('/database/create_new_object/', {
@@ -44,7 +44,7 @@
         .then(data =>{
             d = JSON.parse(data)
             location.href = `/database/update_object/${d.id}/`
-        })   
+        })
     }
 
     function objectClicked(evt){

@@ -5,23 +5,30 @@
 {% endblock %}
 
 {% block content %}
-<h3>Изменить объект</h3>
-<form method="post" enctype="multipart/form-data" id="update_object_form" data-objectId="{{ object.id }}">
-    {% csrf_token %}
-    <input type="hidden" name="changed" value="1">
-    <div class="mb-3">
-        <label for="object_name" class="form-label">Название объекта:</label>
-        <input type="text" name="name" id="object_name" class="form-control" value="{{ object.name }}" required>
-    </div>
-    <hr>
-    <h4>Параметры</h4>
-    <table class="table table-bordered table-sm" id="columns_table">
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">Изменить объект</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data" id="update_object_form" data-objectId="{{ object.id }}">
+                        {% csrf_token %}
+                        <input type="hidden" name="changed" value="1">
+                        <div class="mb-3">
+                            <label for="object_name" class="form-label">Название объекта:</label>
+                            <input type="text" name="name" id="object_name" class="form-control" value="{{ object.name }}" required>
+                        </div>
+                        <hr>
+                        <h5>Параметры</h5>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-sm table-hover table-striped" id="columns_table">
         <thead class="table-light">
             <tr>
-                <th>Переменная</th>
+                <th>Параметр</th>
+                <th>Идентификатор</th>
                 <th>Тип данных</th>
-                <th>Разделитель</th>
-                <th>Формат даты</th>
                 <th>Категория</th>
                 <th>Порядок размещения</th>
                 <th>Действия</th>
@@ -35,6 +42,9 @@
                     <input name="col[]" class="form-control param_name" type="text" value="{{ param.name }}">
                 </td>
                 <td>
+                    <input type="radio" name="identificator" value="{{ forloop.counter0 }}" {% if param.identificator %}checked{% endif %} class="form-check-input">
+                </td>
+                <td>
                     <select name="col_type[]" class="form-select param_type_select">
                         <option value="TXT" {% if param.data_type == 'TXT' %}selected{% endif %}>Текст</option>
                         <option value="TXTS" {% if param.data_type == 'TXTS' %}selected{% endif %}>Текст (автозаполнение одного значения)</option>
@@ -42,10 +52,9 @@
                         <option value="ARRAY" {% if param.data_type == 'ARRAY' %}selected{% endif %}>Список</option>
                         <option value="DATE" {% if param.data_type == 'DATE' %}selected{% endif %}>Дата</option>
                     </select>
-                </td>
-                <td>
-                    <div class="object_param_arr_delim_container {% if param.data_type != 'ARRAY' %}invisible{% endif %}">
-                        <select name="arr_delim[]" class="form-select arr_delim_select">
+                    <div class="object_param_arr_delim_container mt-1 {% if param.data_type != 'ARRAY' %}d-none{% endif %}">
+                        <label class="form-label small">Разделитель:</label>
+                        <select name="arr_delim[]" class="form-select form-select-sm">
                             <option value=" " {% if param.array_separator == ' ' %}selected{% endif %}>Пробел</option>
                             <option value="," {% if param.array_separator == ',' %}selected{% endif %}>Запятая</option>
                             <option value=";" {% if param.array_separator == ';' %}selected{% endif %}>Точка с запятой</option>
@@ -54,10 +63,9 @@
                             <option value="-" {% if param.array_separator == '-' %}selected{% endif %}>Тире</option>
                         </select>
                     </div>
-                </td>
-                <td>
-                    <div class="object_param_date_format_container {% if param.data_type != 'DATE' %}invisible{% endif %}">
-                        <input name="date_format[]" class="form-control" type="text" value="{{ param.date_format|default:'' }}">
+                    <div class="object_param_date_format_container mt-1 {% if param.data_type != 'DATE' %}d-none{% endif %}">
+                        <label class="form-label small">Формат даты:</label>
+                        <input name="date_format[]" class="form-control form-control-sm" list="date_formats" type="text" value="{{ param.date_format|default:'' }}">
                     </div>
                 </td>
                 <td>
@@ -71,58 +79,63 @@
                 </td>
             </tr>
             {% endfor %}
-        </tbody>
-    </table>
-    <button type="button" class="btn btn-secondary my-2" onclick="add_param_row()">Добавить переменную</button>
-    <hr>
-    <div class="mt-4">
-        <h5>Связанные объекты</h5>
-        {% if object_links %}
-            <ul class="list-unstyled">
-            {% for link in object_links %}
-                <li class="mb-2">
-                    {{ link.object.name }}
-                    <!-- Select to choose link type (single or multiple) -->
-                    <select name="link_type_{{ link.id }}" class="form-select d-inline w-auto ms-2 me-2">
-                        <option value="single" {% if link.link_type == 'single' %}selected{% endif %}>Один элемент</option>
-                        <option value="multiple" {% if link.link_type == 'multiple' %}selected{% endif %}>Несколько элементов</option>
-                    </select>
-                    <button type="button" class="btn btn-sm btn-outline-danger delete-link-btn" data-link-id="{{ link.id }}">Удалить</button>
-                </li>
-            {% endfor %}
-            </ul>
-        {% else %}
-            <p class="text-muted">Связей нет.</p>
-        {% endif %}
-        <div class="mb-2">
-            <label for="child_object_select" class="form-label">Добавить связь с объектами:</label>
-            <select id="child_object_select" class="form-select" multiple>
-                {% for o in objects %}
-                    {% if o.id != object.id and o not in parameters_objects %}
-                        <option value="{{ o.id }}">{{ o.name }}</option>
-                    {% endif %}
-                {% endfor %}
-            </select>
+                            </tbody>
+                        </table>
+                        </div>
+                        <button type="button" class="btn btn-secondary my-2" onclick="add_param_row()">Добавить параметр</button>
+                        <hr>
+                        <div class="mt-4">
+                            <h6>Связанные объекты</h6>
+                            {% if object_links %}
+                                <ul class="list-group mb-3">
+                                {% for link in object_links %}
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        {{ link.object.name }}
+                                        <div>
+                                            <select name="link_type_{{ link.id }}" class="form-select form-select-sm d-inline w-auto me-2">
+                                                <option value="single" {% if link.link_type == 'single' %}selected{% endif %}>Один элемент</option>
+                                                <option value="multiple" {% if link.link_type == 'multiple' %}selected{% endif %}>Несколько элементов</option>
+                                            </select>
+                                            <button type="button" class="btn btn-sm btn-outline-danger delete-link-btn" data-link-id="{{ link.id }}">Удалить</button>
+                                        </div>
+                                    </li>
+                                {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p class="text-muted">Связей нет.</p>
+                            {% endif %}
+                            <div class="mb-3">
+                                <label for="child_object_select" class="form-label">Добавить связь с объектами:</label>
+                                <select id="child_object_select" class="form-select" multiple>
+                                    {% for o in objects %}
+                                        {% if o.id != object.id and o not in parameters_objects %}
+                                            <option value="{{ o.id }}">{{ o.name }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <button type="button" class="btn btn-outline-primary" onclick="addObjectsLinks()">Добавить связь</button>
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-end">
+                            <button type="submit" class="btn btn-primary">Сохранить объект</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
-        <button type="button" class="btn btn-outline-primary" onclick="addObjectsLinks()">Добавить связь</button>
     </div>
-    <hr>
-    <div id="identificator_block" class="mb-3">
-        <label class="form-label">Идентификатор объекта:</label>
-        <select name="ident_column" class="form-select">
-            <option value="-1">Не выбрано</option>
-            {% for param in parameters %}
-                <option value="{{ param.id }}" {% if param.identificator %}selected{% endif %}>{{ param.name }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <button type="submit" class="btn btn-primary">Сохранить объект</button>
-</form>
+</div>
 <datalist id="category_names">
     {% for cat in categories %}
         <option value="{{ cat.name }}"></option>
     {% endfor %}
 </datalist>
+<datalist id="date_formats">
+    <option value="DD.MM.YYYY"></option>
+    <option value="MM/DD/YYYY"></option>    
+    <option value="DD MMMM YYYY года в HH часов MM минут"></option>
+</datalist> 
 {% endblock %}
 
 {% block script %}
@@ -160,24 +173,41 @@ document.addEventListener('input', function(e) {
 
 // Initial validation on load
 validateParamNames();
-// Toggle visibility of delimiter/date format based on selected type
+
+// Toggle visibility of delimiter/date format inside type column based on selected type
 document.addEventListener('change', function(e) {
     if(e.target.classList.contains('param_type_select')) {
-        const container = e.target.closest('.object_param_item');
+        const row = e.target.closest('.object_param_item');
         const val = e.target.value;
-        const arr = container.querySelector('.object_param_arr_delim_container');
-        const df = container.querySelector('.object_param_date_format_container');
+        const arrDiv = row.querySelector('.object_param_arr_delim_container');
+        const dfDiv = row.querySelector('.object_param_date_format_container');
         if(val === 'ARRAY') {
-            arr.classList.remove('invisible');
-            df.classList.add('invisible');
-            df.querySelector('input').value = '';
+            arrDiv.classList.remove('d-none');
+            dfDiv.classList.add('d-none');
+            dfDiv.querySelector('input').value = '';
         } else if(val === 'DATE') {
-            arr.classList.add('invisible');
-            df.classList.remove('invisible');
+            arrDiv.classList.add('d-none');
+            dfDiv.classList.remove('d-none');
         } else {
-            arr.classList.add('invisible');
-            df.classList.add('invisible');
-            df.querySelector('input').value = '';
+            arrDiv.classList.add('d-none');
+            dfDiv.classList.add('d-none');
+            dfDiv.querySelector('input').value = '';
+        }
+    }
+});
+
+// Dynamically add new categories to datalist
+document.addEventListener('input', function(e) {
+    if (e.target.name === 'col_category[]') {
+        const val = e.target.value.trim();
+        if (val) {
+            const datalist = document.getElementById('category_names');
+            const options = Array.from(datalist.options).map(o => o.value);
+            if (!options.includes(val)) {
+                const option = document.createElement('option');
+                option.value = val;
+                datalist.appendChild(option);
+            }
         }
     }
 });
@@ -207,14 +237,45 @@ document.addEventListener('click', function(e) {
     // Delete linked object
     if (e.target.classList.contains('delete-link-btn')) {
         const linkId = e.target.getAttribute('data-link-id');
+        const li = e.target.closest('.list-group-item');
+        const childName = li.textContent.trim().split('\n')[0].trim(); // Get child name
         if (linkId) {
             fetch(`/database/delete_object_link/${linkId}/`, {
                 method: 'POST',
                 headers: { 'X-CSRFToken': csrftoken }
             }).then(response => {
                 if (response.ok) {
-                    // Reload to reflect removal
-                    location.reload();
+                    // Remove the li element
+                    li.remove();
+                    // Remove associated parameter row
+                    const paramName = `Связь с ${childName}`;
+                    const paramRows = document.querySelectorAll('#columns_table tbody tr');
+                    paramRows.forEach(row => {
+                        const nameInput = row.querySelector('input[name="col[]"]');
+                        if (nameInput && nameInput.value === paramName) {
+                            row.remove();
+                            // Remove from existingNames
+                            if (existingNames) {
+                                const index = existingNames.indexOf(paramName);
+                                if (index > -1) existingNames.splice(index, 1);
+                            }
+                        }
+                    });
+                    // If no links left, show message
+                    const ul = document.querySelector('.list-group');
+                    if (ul && ul.children.length === 0) {
+                        ul.remove();
+                        const container = document.querySelector('.mt-4');
+                        const p = document.createElement('p');
+                        p.className = 'text-muted';
+                        p.textContent = 'Связей нет.';
+                        const refNode = container.querySelector('.mb-2');
+                        if (refNode) {
+                            container.insertBefore(p, refNode);
+                        } else {
+                            container.appendChild(p);
+                        }
+                    }
                 }
             });
         }
@@ -225,6 +286,64 @@ document.addEventListener('click', function(e) {
 const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 // Current object ID (parent object for linking)
 const objectId = {{ object.id }};
+// Existing parameter names for unique naming
+var existingNames = {{ param_names_json|safe }};
+
+// Function to add a parameter row dynamically
+function addParameterRow(param) {
+    const tbody = document.querySelector('#columns_table tbody');
+    if (!tbody) {
+        console.error('tbody not found');
+        return;
+    }
+    const tr = document.createElement('tr');
+    tr.className = 'object_param_item align-middle';
+    tr.innerHTML = `
+        <td>
+            <input type="hidden" name="col_ids[]" class="param_id" value="${param.id}">
+            <input name="col[]" class="form-control param_name" type="text" value="${param.name}">
+        </td>
+        <td>
+            <input type="radio" name="identificator" value="${tbody.rows.length}" class="form-check-input">
+        </td>
+        <td>
+            <select name="col_type[]" class="form-select param_type_select">
+                <option value="TXT" ${param.data_type === 'TXT' ? 'selected' : ''}>Текст</option>
+                <option value="TXTS" ${param.data_type === 'TXTS' ? 'selected' : ''}>Текст (автозаполнение одного значения)</option>
+                <option value="INT" ${param.data_type === 'INT' ? 'selected' : ''}>Число</option>
+                <option value="ARRAY" ${param.data_type === 'ARRAY' ? 'selected' : ''}>Список</option>
+                <option value="DATE" ${param.data_type === 'DATE' ? 'selected' : ''}>Дата</option>
+            </select>
+            <div class="object_param_arr_delim_container mt-1 ${param.data_type !== 'ARRAY' ? 'd-none' : ''}">
+                <label class="form-label small">Разделитель:</label>
+                <select name="arr_delim[]" class="form-select form-select-sm">
+                    <option value=" " selected>Пробел</option>
+                    <option value=",">Запятая</option>
+                    <option value=";">Точка с запятой</option>
+                    <option value=":">Двоеточие</option>
+                    <option value="|">Параграф</option>
+                    <option value="-">Тире</option>
+                </select>
+            </div>
+            <div class="object_param_date_format_container mt-1 ${param.data_type !== 'DATE' ? 'd-none' : ''}">
+                <label class="form-label small">Формат даты:</label>
+                <input name="date_format[]" class="form-control form-control-sm" type="text" value="">
+            </div>
+        </td>
+        <td>
+            <input name="col_category[]" class="form-control" type="text" list="category_names" value="">
+        </td>
+        <td>
+            <input name="col_order[]" class="form-control" type="number" value="0">
+        </td>
+        <td>
+            <button type="button" class="btn btn-sm btn-danger delete-param-btn">Удалить</button>
+        </td>
+    `;
+    tbody.appendChild(tr);
+    // Update existingNames
+    if (existingNames) existingNames.push(param.name);
+}
 
 // Send selected object links to the server. Posts to /database/add_objects_links/<objectId>/
 function addObjectsLinks() {
@@ -241,11 +360,44 @@ function addObjectsLinks() {
             'X-CSRFToken': csrftoken
         },
         body: formData,
-    }).then(response => {
-        if (response.ok) {
-            // Reload the page to show updated linked objects
-            location.reload();
+    }).then(response => response.json()).then(data => {
+        // Dynamically add new links
+        let ul = document.querySelector('.list-group');
+        if (!ul) {
+            const container = document.querySelector('.mt-4');
+            ul = document.createElement('ul');
+            ul.className = 'list-group mb-3';
+            const p = container.querySelector('.text-muted');
+            if (p) p.remove();
+            const refNode = container.querySelector('.mb-2');
+            if (refNode) {
+                container.insertBefore(ul, refNode);
+            } else {
+                container.appendChild(ul);
+            }
         }
+        data.links.forEach(link => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            li.innerHTML = `
+                ${link.child_name}
+                <div>
+                    <select name="link_type_${link.id}" class="form-select form-select-sm d-inline w-auto me-2">
+                        <option value="single" selected>Один элемент</option>
+                        <option value="multiple">Несколько элементов</option>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-outline-danger delete-link-btn" data-link-id="${link.id}">Удалить</button>
+                </div>
+            `;
+            ul.appendChild(li);
+
+            // Add parameter row if param exists
+            if (link.param) {
+                addParameterRow(link.param);
+            }
+        });
+        // Clear select
+        select.selectedIndex = -1;
     });
 }
 
@@ -254,10 +406,21 @@ function add_param_row() {
     const tbody = document.querySelector('#columns_table tbody');
     const tr = document.createElement('tr');
     tr.className = 'object_param_item align-middle new_param';
+    // Generate unique parameter name
+    let num = 1;
+    let name = `Параметр ${num}`;
+    while (existingNames && existingNames.includes(name)) {
+        num++;
+        name = `Параметр ${num}`;
+    }
+    if (existingNames) existingNames.push(name);
     tr.innerHTML = `
         <td>
             <input type="hidden" name="col_ids[]" class="param_id" value="-1">
-            <input name="col[]" class="form-control param_name" type="text" value="">
+            <input name="col[]" class="form-control param_name" type="text" value="${name}">
+        </td>
+        <td>
+            <input type="radio" name="identificator" value="temp" class="form-check-input">
         </td>
         <td>
             <select name="col_type[]" class="form-select param_type_select">
@@ -267,10 +430,9 @@ function add_param_row() {
                 <option value="ARRAY">Список</option>
                 <option value="DATE">Дата</option>
             </select>
-        </td>
-        <td>
-            <div class="object_param_arr_delim_container invisible">
-                <select name="arr_delim[]" class="form-select arr_delim_select">
+            <div class="object_param_arr_delim_container mt-1 d-none">
+                <label class="form-label small">Разделитель:</label>
+                <select name="arr_delim[]" class="form-select form-select-sm">
                     <option value=" ">Пробел</option>
                     <option value=",">Запятая</option>
                     <option value=";">Точка с запятой</option>
@@ -279,10 +441,9 @@ function add_param_row() {
                     <option value="-">Тире</option>
                 </select>
             </div>
-        </td>
-        <td>
-            <div class="object_param_date_format_container invisible">
-                <input name="date_format[]" class="form-control" type="text" value="">
+            <div class="object_param_date_format_container mt-1 d-none">
+                <label class="form-label small">Формат даты:</label>
+                <input name="date_format[]" class="form-control form-control-sm" list="date_formats" type="text" value="">
             </div>
         </td>
         <td>
@@ -296,6 +457,14 @@ function add_param_row() {
         </td>
     `;
     tbody.appendChild(tr);
+    // Set correct value for the new radio
+    const radios = document.querySelectorAll('input[name="identificator"]');
+    const newRadio = radios[radios.length - 1];
+    newRadio.value = radios.length - 1;
+    // If no identificator is selected, select the first one (new or existing)
+    if (document.querySelectorAll('input[name="identificator"]:checked').length === 0) {
+        newRadio.checked = true;
+    }
 }
 </script>
 {% endblock %}

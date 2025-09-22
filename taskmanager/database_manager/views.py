@@ -427,12 +427,13 @@ def update_object(request, pk):
             return HttpResponse(status=304)
         obj.name = request.POST['name']
         obj.save()
-        ident = request.POST.get('ident_column')
         col_ids = request.POST.getlist('col_ids[]')
         col_names = request.POST.getlist('col[]')
         col_types = request.POST.getlist('col_type[]')
         arr_delim = request.POST.getlist('arr_delim[]')
         date_format = request.POST.getlist('date_format[]')
+        identificator_index = request.POST.get('identificator')
+        identificator_index = int(identificator_index) if identificator_index is not None else -1
         # Categories and ordering from the form.  Each entry corresponds to a
         # parameter (existing or new).  The order in the list indicates the
         # parameter's position relative to others in the same category.
@@ -457,28 +458,24 @@ def update_object(request, pk):
             category = category_map.get(cat_name, None)
             order_val = col_order[i] if i < len(col_order) else '0'
             order = int(order_val) if order_val.isdigit() else 0
+            identificator = i == identificator_index
             if col_id == '-1':
                 parameter = Parameter(
                     object=obj,
                     name=col_names[i],
                     data_type=col_types[i],
                     array_separator=arr_delim[i],
-                    identificator=False,
+                    identificator=identificator,
                     date_format=date_format[i],
                     category=category,
                     order=order,
                 )
                 parameter.save()
-                # If no identifier is set yet, assign the first new parameter as identifier
-                if ident is None:
-                    parameter.identificator = True
-                    ident = str(parameter.id)
-                    parameter.save()
                 # Extend DataFrame with new column
                 data_obj[int(parameter.id)] = pd.NA
             else:
                 parameter = Parameter.objects.get(id=int(col_id))
-                parameter.identificator = (str(col_id) == str(ident))
+                parameter.identificator = identificator
                 parameter.name = col_names[i]
                 parameter.data_type = col_types[i]
                 parameter.array_separator = arr_delim[i]
@@ -508,6 +505,8 @@ def update_object(request, pk):
         'parameters_objects': [po.object for po in parameters_objects],
         # Pass full object link instances to allow deletion
         'object_links': parameters_objects,
+        'param_names': [p.name for p in Parameter.objects.filter(object=obj)],
+        'param_names_json': json.dumps([p.name for p in Parameter.objects.filter(object=obj)]),
     })
 
 
@@ -1014,6 +1013,7 @@ def add_objects_links(request, pk):
     # Accept legacy key name 'child_object_idents[]' for backwards compatibility
     if not child_ids:
         return HttpResponseForbidden("No child object identifiers provided.")
+    links = []
     for child_id_str in child_ids:
         try:
             child_id = int(child_id_str)
@@ -1026,17 +1026,30 @@ def add_objects_links(request, pk):
             continue
         # Use get_or_create to avoid duplicate links
         link, created = Object_ParentObject.objects.get_or_create(parent_object=parent_object, object=child_obj)
+        param = None
         if created:
             # Auto-create a parameter for the link
             data_type = 'ARRAY' if link.link_type == 'multiple' else 'TXTS'
-            Parameter.objects.create(
+            param = Parameter.objects.create(
                 object=parent_object,
                 name=f'Связь с {child_obj.name}',
                 data_type=data_type,
                 linked_object=child_obj,
                 order=0
             )
-    return HttpResponse('')
+        links.append({'link': link, 'param': param})
+    response_data = {'links': []}
+    for item in links:
+        link_data = {'id': item['link'].id, 'child_name': item['link'].object.name}
+        if item['param']:
+            link_data['param'] = {
+                'id': item['param'].id,
+                'name': item['param'].name,
+                'data_type': item['param'].data_type,
+                'linked_object_id': item['param'].linked_object.id
+            }
+        response_data['links'].append(link_data)
+    return HttpResponse(json.dumps(response_data))
 
 
 def add_objects_link(object_id, object_child_id):
@@ -1086,6 +1099,8 @@ def delete_object_link(request, pk):
     Expects a POST request. Returns a 204-like empty response on success.
     """
     link = get_object_or_404(Object_ParentObject, pk=pk)
+    # Delete associated parameter
+    Parameter.objects.filter(object=link.parent_object, linked_object=link.object).delete()
     # Delete any row-level links referencing this object link
     ObjectLink_identificators.objects.filter(object_link=link).delete()
     link.delete()
