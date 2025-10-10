@@ -53,7 +53,7 @@
                     {% elif param.data_type == 'INT' %}
                         <input type="number" class="form-control{% if param.identificator %} identificator-field{% endif %}" name="col_value_{{ param.id }}[]" value="{{ current_data }}" {% if param.identificator %}required{% endif %}>
                     {% elif param.data_type == 'DATE' %}
-                        <input type="date" class="form-control{% if param.identificator %} identificator-field{% endif %}" name="col_value_{{ param.id }}[]" value="{{ current_data }}" {% if param.identificator %}required{% endif %}>
+                        <input type="datetime-local" class="form-control{% if param.identificator %} identificator-field{% endif %}" name="col_value_{{ param.id }}[]" value="{{ current_data }}" {% if param.identificator %}required{% endif %}>
                     {% elif param.data_type == 'ARRAY' %}
                        <select multiple class="form-select select2-tags{% if param.identificator %} identificator-field{% endif %}" name="col_value_{{ param.id }}[]" {% if param.identificator %}required{% endif %} {% if param.linked_object %}data-linked-object-id="{{ param.linked_object.id }}"{% endif %}>
                            {% if param.linked_object %}

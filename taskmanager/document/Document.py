@@ -613,12 +613,66 @@ class Document:
     def from_json(self, json_stroke: dict):
         self.childs = []
         self.images = json_stroke['images']
+        self.cycles = json_stroke.get('cycles', {})
+        self.object_values = json_stroke.get('object_values', {})
         print(self.images)
         for elem in json_stroke['elements']:
             self.childs.append(ElementFactory().initialize_from_json(elem))
         sectPr = Properties(None)
         sectPr.from_json({i: i for i in json_stroke['sectPr'].split('|')})
         self.childs.append(sectPr)
+        self.expand_cycles()
+
+    def expand_cycles(self):
+        for para_id, cycle in self.cycles.items():
+            para = next((p for p in self.childs if isinstance(p, Paragraph) and p.id == para_id), None)
+            if not para:
+                continue
+            array_param_names = cycle.get('object_arrays', [cycle.get('object_array')])  # list of param names
+            if not array_param_names:
+                continue
+            # Get arrays
+            arrays = []
+            for param_name in array_param_names:
+                if param_name in self.object_values and isinstance(self.object_values[param_name], list):
+                    arrays.append(self.object_values[param_name])
+                else:
+                    arrays.append([])  # empty if not found
+            if not arrays or not any(arr for arr in arrays):
+                continue
+            # Iterate over min length
+            max_len = min(len(arr) for arr in arrays if arr)
+            if max_len == 0:
+                continue
+            # Hide original
+            para.hidden = True
+            # Insert copies
+            para_index = self.childs.index(para)
+            for i in range(max_len):
+                # Clone para
+                new_para = self.clone_paragraph(para)
+                new_para.id = f"{para.id}_cycle_{i}"
+                new_para.hidden = False
+                # Modify spans
+                for run in new_para.childs:
+                    if isinstance(run, Run):
+                        for text_elem in run.childs:
+                            if isinstance(text_elem, Text):
+                                data_invis = text_elem.attrib.get('data-invis', '')
+                                if '{:' in data_invis and ':}' in data_invis:
+                                    name = data_invis.strip()[2:-2]  # remove {: and :}
+                                    # Check if it's array param
+                                    for j, param_name in enumerate(array_param_names):
+                                        if name == param_name:
+                                            text_elem.textElem = str(arrays[j][i])
+                                            break
+                # Insert after original
+                self.childs.insert(para_index + 1 + i, new_para)
+
+    def clone_paragraph(self, para):
+        # Simple clone, assuming no deep nesting issues
+        import copy
+        return copy.deepcopy(para)
 
 
 

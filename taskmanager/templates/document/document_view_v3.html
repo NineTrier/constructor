@@ -1,4 +1,4 @@
-
+﻿
 <!doctype html>
 <html lang="en">
     <head>
@@ -18,11 +18,6 @@
         <link rel="stylesheet" href="{% static 'css/fontawesome.css' %}">
         <link rel="stylesheet" href="{% static 'css/solid.css' %}">
         <link rel="stylesheet" href="{% static 'css/interFonts.css' %}">
-
-        <!-- Стили и JS панели инструментов -->
-        <link rel="stylesheet" href="{% static 'documents/tools_panel.css' %}">
-        <script src="{% static 'documents/tools_panel.js' %}"></script>
-        
         <link rel="stylesheet" type="text/css" href="{% static 'css/main/index.css' %}">
         <link rel="stylesheet" type="text/css" href="{% static 'css/main/document_view_st.css' %}">
     </head>
@@ -65,21 +60,10 @@
                             </div>
                             <div id="save_complete">Сохранено</div>
                         </div>
-                        <div id="TopNavigator">
-                            <nav id="header_navigation">
-                                <a class="me-3 py-2 text-dark text-decoration-none" >Файл</a>
-                                <a class="me-3 py-2 text-dark text-decoration-none" >Редактировать</a>
-                                <a class="me-3 py-2 text-dark text-decoration-none" >Вставка</a>
-                                <a class="me-3 py-2 text-dark text-decoration-none" >Шаблоны</a>
-                            </nav>
-                        </div>
                     </div>
                     <div id="profile_menu">
                         {% if user.is_authenticated %}
                             <a href="/accounts/profile/{{ user.id }}" class="btn btn-labeled">{{ profile }}</a>
-                            <img id="img_profile" src="{% if profile.profile_pic %}{{ profile.profile_pic.url }}{% endif %}">
-                            <!-- <a href="/accounts/logout/" class="btn btn-labeled"><i class="fa-solid fa-right-from-bracket" style="color:red"></i></a>
-                            -->
                         {% else %}
                             <a href="/accounts/login/" class="btn btn-labeled"><i class="fa-solid fa-door-open"></i></a>
                         {% endif %}
@@ -340,12 +324,8 @@
                 <option value="{: Дата сегодня :}" class="option_variable_list"></option>
             </datalist>
             <div class="mainDocument">
-                <div id="leftMenu">
-                    <a class="btn btn-labeled" data-bs-toggle="modal" data-bs-target="#groupRadioModal" id="btnRadioGroup"><i class="fa-solid fa-list-ol fa-xl"></i></a>
-                    <a class="btn btn-labeled" id="btnDependence" onclick="goToDependence();"><i class="fa-solid fa-timeline fa-xl"></i></a>
-                    <a class="btn btn-labeled" id="btnAddImage" onclick="ButtonAddImage_Click();"><i class="fa-solid fa-image fa-xl"></i></a>
-                </div>
-                <div>
+                <div class="document-column">
+                    <div class="document-stage">
                     <div class="document" id="document_main" style="{{ sectPr.to_css }}">
                         {% if type == '1' %}
                             {% for el, key in document %}
@@ -399,12 +379,19 @@
                                 {% endif %}
                             {% endfor %}
                         {% endif %}
+                        <div id="line-container"></div>
                     </div>
                     <input type="hidden" id="sectPr" value="{{ sectPr.to_css }}"/>
+                    </div>
                 </div>
-                <div id="line-container"></div>
-                <div id="rightMenu1">
-                    <div class="form-check form-switch" id="tree_develop_container">
+                <div id="rightContainer">
+                    <div id="leftMenu">
+                        <a class="btn btn-labeled" data-bs-toggle="modal" data-bs-target="#groupRadioModal" id="btnRadioGroup"><i class="fa-solid fa-list-ol fa-xl"></i></a>
+                        <a class="btn btn-labeled" id="btnDependence" onclick="goToDependence();"><i class="fa-solid fa-timeline fa-xl"></i></a>
+                        <a class="btn btn-labeled" id="btnAddImage" onclick="ButtonAddImage_Click();"><i class="fa-solid fa-image fa-xl"></i></a>
+                    </div>
+                    <div id="rightMenu1">
+                        <div class="form-check form-switch" id="tree_develop_container">
                         <input type="checkbox" class="form-check-input" id="tree_develop" onchange="switchAdminMode(event.target.checked);">
                         <label class="form-check-label" for="tree_develop">Разработчик</label>
                     </div>
@@ -429,7 +416,7 @@
                             {% for parameter in obj.params %}
                                 {% if parameter.identificator %}
                                     <div class="obj_parameter_fast row" data-idObj="{% if parameter.linked_object %}{{ parameter.linked_object.id }}{% else %}{{ obj.object.id }}{% endif %}" data-idParam="{{ parameter.id }}" data-paramName="{{ obj.object.name }}.{{ parameter.name }}">
-                                        <div class="col-2">
+                                        <div class="col-4">
                                             <i class="fa-solid fa-star"></i>
                                             <span class="identificator obj_parameter_name">{{ parameter.name }}{% if parameter.linked_object %} <i class="fa-solid fa-link"></i>{% endif %}</span>
                                         </div>
@@ -452,7 +439,7 @@
                     </div>
                     
                     <div id="Variables" class="invisible">
-                        <div class="d-flex flex-row align-items-center"><i class="fa-solid fa-bolt fa-xl me-2"></i><h3>Переменные</h3></div>
+                        <div class="d-flex flex-row align-items-center"><i class="fa-solid fa-bolt me-2"></i><h3>Переменные</h3></div>
                         <div class="d-flex flex-column w-100">
                             <h4>Объекты</h4>
                             <a type="button" class="btn btn-success" onclick="ConnectNewObject(event)">Подключить объект</a>
@@ -528,6 +515,7 @@
                             </div>
                         </div>
                     </div>
+                    </div>
                 </div>
             
             </div>
@@ -536,24 +524,9 @@
             
     </body>
 
-    {% include "documents/_tools_panel.html" %}
-
-    <script>
-        // Обязательные контекстные данные для панели:
-        window.DOCUMENT_PATTERN_ID = {{ pattern.id }};
-
-        // Если у вас уже есть выбранные записи в форме — заполните этот словарь.
-        // Ключ — имя Object (как в шаблоне), значение — record_id.
-        window.DOCUMENT_SELECTED_IDS = {{ selected_ids_json|default:"{}"|safe }};
-
-        // (Опционально) Если выбранные записи задаются input/select’ами на странице —
-        // можно собирать их динамически в tools_panel.js (см. раздел 4).
-        window.DOCUMENT_HOST_SELECTOR = '#document_main';
-    </script>
-
     <script lang="JavaScript">
-            
-            
+            let activeDependenceElement = null;
+            let activeDependencePairs = [];
 
             // Класс Стек для Ctrl+Z
             function Stack() {
@@ -653,40 +626,110 @@
                 // for(let sender of document.querySelectorAll('.selected_event_caller')){
                 //     sender.classList.remove('selected_event_caller')
                 // }
+                const lineContainer = document.getElementById('line-container');
+                if(lineContainer){
+                    lineContainer.innerHTML = '';
+                    lineContainer.style.removeProperty('height');
+                    lineContainer.style.removeProperty('top');
+                    lineContainer.classList.remove('has-connections');
+                }
                 for(let receiver of document.querySelectorAll('.hovered_dependence')){
                     receiver.classList.remove('hovered_dependence')
                 }
                 for(let sender of document.querySelectorAll('.hovered_event_caller')){
                     sender.classList.remove('hovered_event_caller')
                 }
+                activeDependenceElement = null;
+                activeDependencePairs = [];
+            }
+
+            async function refreshDependenceDisplay(){
+                let activeFromSelect = document.getElementById('EventCallerID').value
+                if(!activeDependenceElement || activeDependenceElement.id !== activeFromSelect)
+                    activeDependenceElement = document.getElementById(activeFromSelect);
+                if(activeDependenceElement){
+                    await setActiveDependence(activeDependenceElement);
+                } else {
+                    await unsetActiveDependence();
+                }
+            }
+
+            function canDrawDependenceForElement(element){
+                if(!element)
+                    return false;
+                if(element.hasAttribute('hidden') && !element.classList.contains('docelementNotHidden'))
+                    return false;
+                return true;
+            }
+
+            function isForceShownHiddenElement(element){
+                return !!(element && element.hasAttribute('hidden') && element.classList.contains('docelementNotHidden'));
             }
 
             async function setActiveDependence(element){
-                await unsetActiveDependence()
-                // const pairs = [
-                    
-                // ];
+                 if(!canDrawDependenceForElement(element) && !isForceShownHiddenElement(element)){
+                     await unsetActiveDependence();
+                     return;
+                 }
+                 await unsetActiveDependence()
+                 const textContainer = document.getElementById('document_main');
+                 const lineContainer = document.getElementById('line-container');
+                 if(!textContainer || !lineContainer)
+                     return;
+                 const pairs = [];
+                 const elementForceShown = isForceShownHiddenElement(element);
+                 const elementDrawable = canDrawDependenceForElement(element) || elementForceShown;
                 for(let event of eventManager.findEventsByReceiver(element.id)){
                     let sender = event.sender
                     let sender_element = document.getElementById(sender)
                     if(sender_element === undefined || sender_element === null)
                         continue
+                    const senderForceShown = isForceShownHiddenElement(sender_element);
+                    if(!canDrawDependenceForElement(sender_element) && !senderForceShown)
+                        continue;
+                    if(!elementDrawable)
+                        continue;
                     sender_element.classList.add('hovered_event_caller')
-                    // pairs.push([element, sender_element])
+                    pairs.push({
+                        from: sender_element,
+                        to: element,
+                        direction: 'incoming',
+                        operation: event.operation || '',
+                        eventType: event.event && event.event.type ? event.event.type : '',
+                        forceShownHidden: senderForceShown || elementForceShown
+                    })
                 }
                 for(let event of eventManager.findEventsBySender(element.id)){
                     let receiver = event.event.receiver
                     let receiver_element = document.getElementById(receiver)
                     if(receiver_element === undefined || receiver_element === null)
                         continue
+                    const receiverForceShown = isForceShownHiddenElement(receiver_element);
+                    if(!canDrawDependenceForElement(receiver_element) && !receiverForceShown)
+                        continue;
+                    if(!elementDrawable)
+                        continue;
                     receiver_element.classList.add('hovered_dependence')
-                    // pairs.push([element, receiver_element])
+                    pairs.push({
+                        from: element,
+                        to: receiver_element,
+                        direction: 'outgoing',
+                        operation: event.operation || '',
+                        eventType: event.event && event.event.type ? event.event.type : '',
+                        forceShownHidden: receiverForceShown || elementForceShown
+                    })
                 }
-                // const textContainer = document.getElementById('document_main');
-               
-                // const lineContainer = document.getElementById('line-container');
-
-                // drawLines(textContainer, pairs, lineContainer);
+                activeDependenceElement = element;
+                activeDependencePairs = pairs;
+                lineContainer.classList.toggle('has-connections', pairs.length > 0);
+                if(!pairs.length){
+                    lineContainer.style.removeProperty('height');
+                    lineContainer.style.removeProperty('top');
+                    return;
+                }
+                lineContainer.innerHTML = '';
+                await new Promise(requestAnimationFrame);
+                drawDependenceLines(textContainer, pairs, lineContainer);
             }
 
             // Функция, которая выделяет элемент
@@ -698,7 +741,7 @@
                 if(param !== 0)
                     element.classList.add('selected');
                 let tree_elem = document.querySelector('.tree_element[data-idElement="'+ element.id +'"]');
-                tree_elem.classList.add('selectedTreeElement');
+                if(tree_elem) tree_elem.classList.add('selectedTreeElement');
                 let radioGroup = document.getElementById(document_main.querySelector('.selected').getAttribute('data-idRadioGroup'));
                 if(radioGroup){
                     radioGroup.classList.add('selectedRadioGroup');
@@ -707,7 +750,7 @@
                 setActiveDependence(element)
                     // Если это текстовый элемент то выделяем его и ставим коретку в конец
                 if(element.classList.contains('runs')){
-                    let tree_elem_container = tree_elem.parentElement.closest('.tree_element');
+                    let tree_elem_container = tree_elem ? tree_elem.parentElement.closest('.tree_element') : null;
                     if(element.classList.contains('variable_ref')){
                         let variable_par =  document.querySelector('.variable[data-idVar="'+element.getAttribute('data-idVar') + '"]')
                         let variable_par_container = variable_par.parentElement
@@ -723,9 +766,11 @@
                             scrollToElement(fixVariable.parentElement, fixVariable);
                         }
                     }
-                    scrollToElement(document.querySelector('#document_tree'), tree_elem_container);
-                    scrollToElement(document.querySelector('#document_main'), element.parentElement);
-                    tree_elem_container.classList.add('selectedTreeElement');
+                    if(tree_elem_container){
+                        scrollToElement(document.querySelector('#document_tree'), tree_elem_container);
+                        scrollToElement(document.querySelector('#document_main'), element.parentElement);
+                        tree_elem_container.classList.add('selectedTreeElement');
+                    }
                     element.classList.add('selectedRun');
                     element.parentElement.classList.add('selectedParagraph')
                     //ParagraphBottomContextMenu(element.parentElement);
@@ -738,12 +783,14 @@
                 else if(element.classList.contains('paragraph')){
                     var elements = element.querySelectorAll('.docelement')
                     setActiveElement(elements[elements.length-1], 0);
-                } 
+                }
                 else if(element.classList.contains('imageDocElement')){
-                    let tree_elem_container = tree_elem.parentElement.closest('.tree_element');
-                    scrollToElement(document.querySelector('#document_tree'), tree_elem_container);
-                    scrollToElement(document.querySelector('#document_main'), element.parentElement);
-                    tree_elem_container.classList.add('selectedTreeElement');
+                    let tree_elem_container = tree_elem ? tree_elem.parentElement.closest('.tree_element') : null;
+                    if(tree_elem_container){
+                        scrollToElement(document.querySelector('#document_tree'), tree_elem_container);
+                        scrollToElement(document.querySelector('#document_main'), element.parentElement);
+                        tree_elem_container.classList.add('selectedTreeElement');
+                    }
                     element.classList.add('selectedImg')
                     element.parentElement.classList.add('selectedParagraph')
                     //ParagraphBottomContextMenu(element.parentElement);
@@ -770,7 +817,7 @@
                 }
                 element.classList.add('selected');
                 let tree_elem = document.querySelector('.tree_element[data-idElement="'+ element.id +'"]');
-                tree_elem.classList.add('selectedTreeElement');
+                if(tree_elem) tree_elem.classList.add('selectedTreeElement');
                 let radioGroup = document.getElementById( document_main.querySelector('.selected').getAttribute('data-idRadioGroup'));
                 if(radioGroup){
                     let radioGroup = document.getElementById(document_main.querySelectorAll('.selected')[0].getAttribute('data-idRadioGroup'));
@@ -893,6 +940,7 @@
                         }
                     }
                 }
+                await refreshDependenceDisplay();
             }
 
             // Добавления контекстного меню внизу выделенного параграфа
@@ -2034,43 +2082,186 @@
                 });
             }
 
-            // function drawLines(container, pairs, lineContainer) {
-            //     // Get the coordinates of the elements in the pairs
-            //     const coords = pairs.map(([element1, element2]) => {
-            //         const rect1 = element1.getBoundingClientRect();
-            //         const rect2 = element2.getBoundingClientRect();
-            //         return {
-            //         x1: rect1.left + rect1.width / 2,
-            //         y1: rect1.top + rect1.height / 2,
-            //         x2: rect2.left + rect2.width / 2,
-            //         y2: rect2.top + rect2.height / 2
-            //         };
-            //     });
+            function resolveDependenceStyle(pair, baseColor){
+                const operation = (pair.operation || '').toLowerCase();
+                const type = (pair.eventType || '').toLowerCase();
+                const style = {
+                    color: baseColor,
+                    opacity: 0.9,
+                    dash: pair.direction === 'incoming' ? '7 6' : null,
+                    width: 2
+                };
+                if(operation === 'hide' || type === 'hidden'){
+                    style.dash = '4 4';
+                    style.opacity = 0.8;
+                }
+                else if(operation === 'unhide' || type === 'unhidden'){
+                    style.dash = null;
+                    style.opacity = 0.95;
+                }
+                else if(type === 'find'){
+                    style.dash = '2 6';
+                    style.opacity = 0.75;
+                }
+                else if(type === 'unfind'){
+                    style.dash = '1 9';
+                    style.opacity = 0.75;
+                }
+                if(pair.forceShownHidden){
+                    style.color = '#797979';
+                    style.opacity = Math.min(style.opacity, 0.85);
+                    if(!style.dash)
+                        style.dash = '3 3';
+                }
+                return style;
+            }
 
-            //     // Create an SVG element to draw the lines
-            //     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            //     svg.style.position = 'absolute';
-            //     svg.style.top = '0';
-            //     svg.style.left = '0';
-            //     svg.style.width = '100%';
-            //     svg.style.height = '100%';
+            function drawDependenceLines(textContainer, pairs, lineContainer){
+                if(!pairs.length){
+                    return;
+                }
+                const svgNS = 'http://www.w3.org/2000/svg';
+                const renderPairs = [...pairs].sort((a, b) => {
+                    const aRect = a.from.getBoundingClientRect();
+                    const bRect = b.from.getBoundingClientRect();
+                    const aCenter = aRect.top + aRect.height / 2;
+                    const bCenter = bRect.top + bRect.height / 2;
+                    return aCenter - bCenter;
+                });
+                const overlayWidth = lineContainer.clientWidth || lineContainer.getBoundingClientRect().width;
+                if(overlayWidth === 0){
+                    return;
+                }
+                const documentHeight = Math.max(textContainer.scrollHeight, textContainer.offsetHeight);
+                const textStyles = getComputedStyle(textContainer);
+                const paddingTop = parseFloat(textStyles.paddingTop) || 0;
+                const paddingBottom = parseFloat(textStyles.paddingBottom) || 0;
+                const drawableHeight = Math.max(documentHeight - paddingTop - paddingBottom, 0);
+                lineContainer.style.top = `${paddingTop}px`;
+                lineContainer.style.height = `${drawableHeight}px`;
+                const containerRect = lineContainer.getBoundingClientRect();
+                const svgHeight = drawableHeight;
 
-            //     // Draw the lines
-            //     coords.forEach((coord) => {
-            //         const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            //         line.setAttribute('d', `
-            //         M ${coord.x1} ${coord.y1}
-            //         L ${coord.x1} ${coord.y2}
-            //         L ${coord.x2} ${coord.y2}
-            //         `);
-            //         line.setAttribute('stroke', 'black');
-            //         line.setAttribute('stroke-width', '2');
-            //         svg.appendChild(line);
-            //     });
+                const svg = document.createElementNS(svgNS, 'svg');
+                svg.classList.add('dependence-svg');
+                svg.setAttribute('width', overlayWidth);
+                svg.setAttribute('height', svgHeight);
+                svg.setAttribute('viewBox', `0 0 ${overlayWidth} ${svgHeight}`);
+                svg.setAttribute('preserveAspectRatio', 'none');
+                svg.style.width = '100%';
+                svg.style.height = `${svgHeight}px`;
+                svg.style.overflow = 'visible';
 
-            //     // Add the SVG element to the line container
-            //     lineContainer.appendChild(svg);
-            // }
+                const defs = document.createElementNS(svgNS, 'defs');
+                defs.innerHTML = `
+                    <marker id="arrow-outgoing" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto" markerUnits="strokeWidth">
+                        <path d="M0,0 L4,2 L0,4 Z" class="arrow-outgoing"></path>
+                    </marker>
+                    <marker id="arrow-incoming" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto" markerUnits="strokeWidth">
+                        <path d="M0,0 L4,2 L0,4 Z" class="arrow-incoming"></path>
+                    </marker>
+                `;
+                svg.appendChild(defs);
+
+                const groups = { incoming: [], outgoing: [] };
+                for(const pair of renderPairs){
+                    if(pair.direction === 'incoming'){
+                        groups.incoming.push(pair);
+                    }
+                    else{
+                        groups.outgoing.push(pair);
+                    }
+                }
+                const pairMeta = new WeakMap();
+                Object.values(groups).forEach((group) => {
+                    const total = group.length;
+                    group.forEach((pair, index) => {
+                        pairMeta.set(pair, { index, total });
+                    });
+                });
+
+                const startStubX = 8;
+                const targetStubX = 8;
+                const laneSpacing = 12;
+                const maxHorizontalSpan = 72;
+                const baseColumnX = Math.min(startStubX + maxHorizontalSpan, overlayWidth - 20);
+
+                for(const pair of renderPairs){
+                    const fromRect = pair.from.getBoundingClientRect();
+                    const toRect = pair.to.getBoundingClientRect();
+                    const startX = startStubX;
+                    const endX = targetStubX;
+                    const startY = (fromRect.top + fromRect.height / 2) - containerRect.top;
+                    const endY = (toRect.top + toRect.height / 2) - containerRect.top;
+                    const meta = pairMeta.get(pair) || { index: 0, total: 1 };
+                    const spread = meta.total > 1 ? (meta.index / (meta.total - 1) - 0.5) : 0;
+                    const directionFactor = pair.direction === 'incoming' ? -1 : 1;
+                    const laneOffset = directionFactor * spread * laneSpacing;
+                    const columnX = Math.max(
+                        startStubX + 32,
+                        Math.min(baseColumnX + laneOffset, overlayWidth - 14)
+                    );
+                    const entryX = Math.max(
+                        startStubX + 10,
+                        Math.min(columnX - 8, startStubX + (columnX - startStubX) * 0.5)
+                    );
+                    const baseColor = pair.direction === 'incoming' ? '#f97316' : '#4f46e5';
+                    const markerId = pair.direction === 'incoming' ? 'arrow-incoming' : 'arrow-outgoing';
+                    const appearance = resolveDependenceStyle(pair, baseColor);
+
+                    const path = document.createElementNS(svgNS, 'path');
+                    path.setAttribute('d', `M ${startX} ${startY} L ${entryX} ${startY} L ${columnX} ${startY} L ${columnX} ${endY} L ${endX} ${endY}`);
+                    path.setAttribute('stroke', appearance.color);
+                    path.setAttribute('stroke-width', String(appearance.width));
+                    path.setAttribute('fill', 'none');
+                    path.setAttribute('opacity', String(appearance.opacity));
+                    path.setAttribute('marker-end', `url(#${markerId})`);
+                    path.setAttribute('stroke-linecap', 'round');
+                    path.setAttribute('stroke-linejoin', 'round');
+                    if(appearance.dash){
+                        path.setAttribute('stroke-dasharray', appearance.dash);
+                    }
+                    else{
+                        path.removeAttribute('stroke-dasharray');
+                    }
+                    svg.appendChild(path);
+
+                    const sourceDot = document.createElementNS(svgNS, 'circle');
+                    sourceDot.setAttribute('cx', startX);
+                    sourceDot.setAttribute('cy', startY);
+                    sourceDot.setAttribute('r', '2.4');
+                    sourceDot.setAttribute('fill', appearance.color);
+                    svg.appendChild(sourceDot);
+
+                    const markerPath = svg.querySelector(`${markerId === 'arrow-outgoing' ? '.arrow-outgoing' : '.arrow-incoming'}`);
+                    if(markerPath){
+                        markerPath.setAttribute('fill', appearance.color);
+                        markerPath.setAttribute('stroke', appearance.color);
+                    }
+                }
+
+                lineContainer.appendChild(svg);
+            }
+
+            window.addEventListener('resize', () => {
+                if(!activeDependenceElement || !activeDependencePairs.length){
+                    return;
+                }
+                const textContainer = document.getElementById('document_main');
+                const lineContainer = document.getElementById('line-container');
+                if(!textContainer || !lineContainer){
+                    return;
+                }
+                if(window.getComputedStyle(lineContainer).display === 'none'){
+                    return;
+                }
+                lineContainer.innerHTML = '';
+                lineContainer.style.removeProperty('height');
+                lineContainer.style.removeProperty('top');
+                requestAnimationFrame(() => {
+                    drawDependenceLines(textContainer, activeDependencePairs, lineContainer);
+                });
+            });
 
             function rgbToHex(rgb){
                 const hexColor = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
@@ -2658,6 +2849,7 @@
                 else{
                     eventManager.eventDispatch(elem.id, 'unhidden');
                 }
+                eventManager.eventDispatch(elem.id, 'visibility_changed')
             }
 
             async function TreeElementChange(tree_element){                
@@ -2892,7 +3084,7 @@
             }
 
             // Функция заполняет дерево
-            async function FillTree(parent, childs){
+            async function FillTree_Old(parent, childs){
                 for(let child of childs){
                     var element = document.querySelector('.tree_element[data-idElement="'+ child.id +'"]')
                     if(!element){
@@ -2951,6 +3143,122 @@
                     }
                 }
                 switchAdminMode(document.querySelector('#tree_develop').checked);
+            }
+
+
+
+            async function FillTree(parent, childs){
+
+                if (!parent || !childs) {
+
+                    return;
+
+                }
+
+                const parentContainer = parent && parent.nodeType ? parent : document.querySelector(parent);
+
+                if (!parentContainer) {
+
+                    return;
+
+                }
+
+                const iterableChilds = Array.from(childs).filter(Boolean);
+
+                // Clear existing tree elements to prevent duplicates
+
+                while (parentContainer.firstChild) {
+
+                    parentContainer.removeChild(parentContainer.firstChild);
+
+                }
+
+                // Rebuild the tree
+
+                for (const child of iterableChilds) {
+
+                    if (!child || !child.id) {
+
+                        continue;
+
+                    }
+
+                    const name = getTreeElementName(child);
+
+                    child.setAttribute('data-name', name);
+
+                    const treeElement = CreateTreeElement(child, name);
+
+                    const docElements = child.querySelectorAll('.docelement');
+
+                    if (docElements.length > 0) {
+
+                        const nestedList = document.createElement('ul');
+
+                        nestedList.classList.add('list-group-flush', 'collapse', 'show');
+
+                        treeElement.appendChild(nestedList);
+
+                        await FillTree(nestedList, docElements);
+
+                        const caret = treeElement.querySelector('.tree_element_caret');
+
+                        if (caret) {
+
+                            caret.style.display = '';
+
+                        }
+
+                    } else {
+
+                        const caret = treeElement.querySelector('.tree_element_caret');
+
+                        if (caret) {
+
+                            caret.style.display = 'none';
+
+                        }
+
+                    }
+
+                    CheckUserCanSeeFlags(treeElement);
+
+                    parentContainer.appendChild(treeElement);
+
+                }
+
+                switchAdminMode(document.querySelector('#tree_develop').checked);
+
+            }
+
+
+
+            function getTreeElementName(child){
+
+                const attrName = child.getAttribute('data-name');
+
+                if (attrName && attrName.trim() !== '' && attrName.trim() !== 'null') {
+
+                    return attrName.trim();
+
+                }
+
+                if (child.classList.contains('paragraph')) {
+
+                    return Array.from(child.querySelectorAll('.docelement'))
+
+                        .map(run => run.textContent.trim())
+
+                        .filter(Boolean)
+
+                        .join(' ')
+
+                        .trim();
+
+                }
+
+                return child.textContent.trim();
+
             }
 
             // Функция создаёт элемент в списке элементов для радиогрупп
@@ -3082,15 +3390,18 @@
                             setActiveElement(previousElement);
                         }
                     } catch (error) {
-                        
+
                     }// Если параграф пустой после удаления то удаляем его тоже а выделение перемещаем на предыдущий параграф
-                    
+
+                    // Обновляем линии зависимостей после удаления элемента
+                    await refreshDependenceDisplay();
+
                     return true
                 } catch (error) {
                     console.log(error)
                     return false
                 }
-                
+
             }
 
             // Функция для разделения текстового элемента на 3 части по выделению (слева от выделенного, выделенное, справа от выделенного)
@@ -3535,45 +3846,60 @@
                 let btn_add_invis = !is_new?'invisible':''
                 let btn_red_invis = is_new?'invisible':''
                 if(element.classList.contains('runs'))
-                    elem_type = "Текст"
+                    elem_type = "Фрагмент"
                 else if(element.classList.contains('paragraph'))
-                    elem_type = "Параграф"
+                    elem_type = "Абзац"
                 if(sender.classList.contains('runs'))
-                    send_type = "Текст"
+                    send_type = "Фрагмент"
                 else if(sender.classList.contains('paragraph'))
-                    send_type = "Параграф"
+                    send_type = "Абзац"
                 document.querySelector('#EventReceiversList').insertAdjacentHTML('beforeend',
                 `
-                <div class="EventReceiver row ms-3 me-3" data-idElement="`+ element.id +`" data-idSender="`+ sender.id +`" data-idDependence="`+id+`" onmouseover="mouseOverReceiverContainer(event);" onmouseout="mouseOutReceiverContainer(event);">
-                    <div class="d-flex flex-column col-10">
-                        <div class="EventReceiverIDContainer row mb-3">
-                            <span class="col">Отправитель: `+ send_type +` `+ sender.id +` `+ sender.getAttribute('data-name') +`</span>
+                <div class="EventReceiver row" data-idElement="`+ element.id +`" data-idSender="`+ sender.id +`" data-idDependence="`+id+`" onmouseover="mouseOverReceiverContainer(event);" onmouseout="mouseOutReceiverContainer(event);">
+                    <div class="sender-block col-5">
+                        <div class="element-header d-flex align-items-center mb-1">
+                            <span class="label me-2">Отправитель:</span>
+                            <span class="type badge bg-primary me-2">`+ send_type +`</span>
+                            <span class="id me-2">`+ sender.id +`</span>
                         </div>
-                        <div class="EventReceiverIDContainer row mb-3">
-                            <span class="col">Получатель: `+ elem_type +` `+ element.id +` `+ element.getAttribute('data-name') +`</span>
+                        <div class="element-name mb-2">
+                            <span class="name text-truncate d-block">`+ sender.getAttribute('data-name') +`</span>
                         </div>
-                        <div class="EventReceiverIfContainer row mb-3">
-                            <span class="col">Событие отправителя:</span>
-                            <select class="EventType form-select col" onchange="event_type_changed(event)">
+                        <div class="event-info d-flex align-items-center">
+                            <span class="me-2">Событие:</span>
+                            <select class="EventType form-select flex-grow-1" onchange="event_type_changed(event)" style="font-size: 0.7rem; padding: 2px 6px; height: 28px;">
                                 <option value="hidden">Спрятался</option>
                                 <option value="unhidden">Появился</option>
+                                <option value="visibility_changed">Изменение видимости</option>
                                 <option value="find">Текст содержит</option>
                                 <option value="unfind">Текст не содержит</option>
                             </select>
-                            <input type="text" class="form-control invisible EventTypeUslovie mt-2" value="`+usl+`">
+                            <input type="text" class="form-control EventTypeUslovie ms-2" value="`+usl+`" style="font-size: 0.7rem; padding: 2px 6px; height: 28px; width: 100px;">
                         </div>
-                        <div class="EventReceiverDoingContainer row mb-3">
-                            <span class="col">Действие:</span>
-                            <select class="EventReceiverDoing form-select col">
+                    </div>
+                    <div class="receiver-block col-5">
+                        <div class="element-header d-flex align-items-center mb-1">
+                            <span class="label me-2">Получатель:</span>
+                            <span class="type badge bg-success me-2">`+ elem_type +`</span>
+                            <span class="id me-2">`+ element.id +`</span>
+                        </div>
+                        <div class="element-name mb-2">
+                            <span class="name text-truncate d-block">`+ element.getAttribute('data-name') +`</span>
+                        </div>
+                        <div class="action-info d-flex align-items-center">
+                            <span class="me-2">Действие:</span>
+                            <select class="EventReceiverDoing form-select flex-grow-1" style="font-size: 0.7rem; padding: 2px 6px; height: 28px;">
                                 <option value="hide">Спрятать</option>
                                 <option value="unhide">Показать</option>
+                                <option value="toggle">Переключить</option>
+                                <option value="toggle_reverse">Обратное переключение</option>
                             </select>
                         </div>
                     </div>
-                    <div class="d-flex flex-column col-1">
-                        <a type="button" class="btn btn-labeled btnApproveReceiver `+ btn_add_invis +`" onclick="AddDependence(event);"><i class="fa-solid fa-check" style="color:green"></i></a>
-                        <a type="button" class="btn btn-labeled btnChangeReceiver `+ btn_red_invis +`" onclick="ChangeDependence(event);"><i class="fa-solid fa-pen"></i></a>
-                        <a type="button" class="btn btn-labeled btnDeleteReceiver" onclick="DeleteDependence(event);"><i class="fa-solid fa-trash" style="color:red"></i></a>
+                    <div class="actions col-2 d-flex flex-column gap-1 justify-content-center">
+                        <button type="button" class="btn btn-sm btn-success btnApproveReceiver `+ btn_add_invis +`" onclick="AddDependence(event);" style="padding: 2px 4px;"><i class="fa-solid fa-check fa-xs"></i></button>
+                        <button type="button" class="btn btn-sm btn-warning btnChangeReceiver `+ btn_red_invis +`" onclick="ChangeDependence(event);" style="padding: 2px 4px;"><i class="fa-solid fa-pen fa-xs"></i></button>
+                        <button type="button" class="btn btn-sm btn-danger btnDeleteReceiver" onclick="DeleteDependence(event);" style="padding: 2px 4px;"><i class="fa-solid fa-trash fa-xs"></i></button>
                     </div>
                 </div>
                 `)
@@ -3997,25 +4323,40 @@
                     return false;
                 }
 
-                switchOperation(operation, receiver){
+                async switchOperation(operation, receiver, sender){
+                    var receiver_element = document.querySelector('.tree_element[data-idElement="'+ receiver +'"] .hideCheckbox');
+                    var sender_element = document.querySelector('.tree_element[data-idElement="'+ sender +'"] .hideCheckbox');
                     switch (operation) {
                         case 'hide':
-                            var element = document.querySelector('.tree_element[data-idElement="'+ receiver +'"] .hideCheckbox');
-                            if(element.checked == true){
-                                element.checked = false;
-                                element.dispatchEvent(new Event('change'));
+                            if(receiver_element.checked == true){
+                                receiver_element.checked = false;
+                                receiver_element.dispatchEvent(new Event('change'));
                             }
                             break;
                         case 'unhide':
-                            var element = document.querySelector('.tree_element[data-idElement="'+ receiver +'"] .hideCheckbox');
-                            if(element.checked == false){
-                                element.checked = true;
-                                element.dispatchEvent(new Event('change'));
+                            if(receiver_element.checked == false){
+                                receiver_element.checked = true;
+                                receiver_element.dispatchEvent(new Event('change'));
+                            }
+                            break;
+                        case 'toggle':
+                            if(sender_element.checked == true){
+                                this.switchOperation('unhide', receiver, sender);
+                            }else{
+                                this.switchOperation('hide', receiver, sender);
+                            }
+                            break;
+                        case 'toggle_reverse':
+                            if(sender_element.checked == false){
+                                this.switchOperation('unhide', receiver, sender);
+                            }else{
+                                this.switchOperation('hide', receiver, sender);
                             }
                             break;
                         default:
                             break;
                     }
+                    await refreshDependenceDisplay();
                 }
 
                 async dispatchNotCalledEvent(){
@@ -4038,7 +4379,7 @@
                             switch (event.event.type) {
                                 case 'find':
                                     if(sender_text.includes(uslovie)){
-                                        this.switchOperation(operation, receiver)
+                                        this.switchOperation(operation, receiver, sender_element.id)
                                     }
                                     // else{
                                     //     this.switchOperation(this.reverseOperations[operation], receiver)
@@ -4046,7 +4387,7 @@
                                     break;
                                 case 'unfind':
                                     if(!sender_text.includes(uslovie)){
-                                        this.switchOperation(operation, receiver)
+                                        this.switchOperation(operation, receiver, sender_element.id)
                                     }
                                     // else{
                                     //     this.switchOperation(this.reverseOperations[operation], receiver)
@@ -4066,7 +4407,7 @@
                         try {
                             if(receiver.event.type !== event)
                                 continue
-                            this.switchOperation(receiver.operation, receiver.receiver)
+                            this.switchOperation(receiver.operation, receiver.receiver, sender)
                         } catch (error) {
                             console.log(error)
                             continue
@@ -4300,8 +4641,6 @@
             FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
 
             RadioGroupsFromJSON("{{ document_json|escapejs }}");
-
-            FillTree(document.querySelector('#document_tree'), document_main.querySelectorAll('.paragraph'));
 
             UpdateVariableList();
 
@@ -4541,7 +4880,16 @@
             //         FillReceivers(sender)
             //     }, 1000
             // );
+
+            // Обработчик для обновления стрелок зависимостей при изменении видимости элементов
+            document.addEventListener('change', async function(e){
+                if(e.target.classList.contains('hideCheckbox')){
+                    await refreshDependenceDisplay();
+                }
+            });
         });
     </script>
 </html>
+
+
 

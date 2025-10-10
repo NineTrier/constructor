@@ -43,7 +43,7 @@
                         {% elif pair.0.data_type == 'INT' %}
                             <input type="number" class="form-control{% if pair.0.identificator %} identificator-field{% endif %}" name="col_value_{{ pair.0.id }}[]" value="" {% if pair.0.identificator %}required{% endif %}>
                         {% elif pair.0.data_type == 'DATE' %}
-                            <input type="date" class="form-control{% if pair.0.identificator %} identificator-field{% endif %}" name="col_value_{{ pair.0.id }}[]" value="" {% if pair.0.identificator %}required{% endif %}>
+                            <input type="datetime-local" class="form-control{% if pair.0.identificator %} identificator-field{% endif %}" name="col_value_{{ pair.0.id }}[]" value="" {% if pair.0.identificator %}required{% endif %}>
                         {% elif pair.0.data_type == 'ARRAY' %}
                             <select multiple class="form-select select2-tags{% if pair.0.identificator %} identificator-field{% endif %}" name="col_value_{{ pair.0.id }}[]" {% if pair.0.identificator %}required{% endif %} {% if pair.0.linked_object %}data-linked-object-id="{{ pair.0.linked_object.id }}"{% endif %}>
                                 {% for opt in pair.1 %}

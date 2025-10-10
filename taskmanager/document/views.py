@@ -5,7 +5,7 @@ import re
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import CreateView
 from .models import DocumentsPattern, DocumentPattern_Objects,Fonts, SavedElements, VariableBlock, DocType, Document_ParentDocument, Document_VariableBlock
-from database_manager.models import Object, Parameter
+from database_manager.models import Object, Object_ParentObject, Parameter
 from .forms import DocumentForm
 from django.core.files.storage import FileSystemStorage
 import os
@@ -459,6 +459,8 @@ def ViewDocument(request):
         for param in params[:]:
             if hasattr(param, 'linked_object') and param.linked_object:
                 print(type(params[params.index(param)]))
+                link_type = Object_ParentObject.objects.filter(parent_object=param.object, object=param.linked_object)[0].link_type
+                print(param.name, link_type)
                 linked_params = Parameter.objects.filter(object=param.linked_object)
                 for lp in linked_params:
                     class PseudoParam:
@@ -466,7 +468,10 @@ def ViewDocument(request):
                             self.id = original.id
                             self.name = f"{prefix}.{original.name}"
                             self.identificator = False
-                            self.data_type = original.data_type
+                            if link_type == "single":
+                                self.data_type = original.data_type
+                            elif link_type == "multiple":
+                                self.data_type = "ARRAY"
                             self.linked_object = linked_obj
                             self.isChild = True
                             self.parent_id = parent_id
