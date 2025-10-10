@@ -690,17 +690,21 @@
                     if(!elementDrawable)
                         continue;
                     sender_element.classList.add('hovered_event_caller')
+                    const eventEntry = event.event || {};
+                    const payload = eventEntry.event || {};
+                    const operation = (eventEntry.operation || event.operation || '').toLowerCase();
+                    const eventType = (payload.type || eventEntry.type || event.type || '').toLowerCase();
                     pairs.push({
                         from: sender_element,
                         to: element,
                         direction: 'incoming',
-                        operation: event.operation || '',
-                        eventType: event.event && event.event.type ? event.event.type : '',
+                        operation: operation,
+                        eventType: eventType,
                         forceShownHidden: senderForceShown || elementForceShown
                     })
                 }
                 for(let event of eventManager.findEventsBySender(element.id)){
-                    let receiver = event.event.receiver
+                    let receiver = event.event && event.event.receiver ? event.event.receiver : event.receiver
                     let receiver_element = document.getElementById(receiver)
                     if(receiver_element === undefined || receiver_element === null)
                         continue
@@ -710,12 +714,16 @@
                     if(!elementDrawable)
                         continue;
                     receiver_element.classList.add('hovered_dependence')
+                    const eventEntry = event.event || {};
+                    const payload = eventEntry.event || {};
+                    const operation = (eventEntry.operation || event.operation || '').toLowerCase();
+                    const eventType = (payload.type || eventEntry.type || event.type || '').toLowerCase();
                     pairs.push({
                         from: element,
                         to: receiver_element,
                         direction: 'outgoing',
-                        operation: event.operation || '',
-                        eventType: event.event && event.event.type ? event.event.type : '',
+                        operation: operation,
+                        eventType: eventType,
                         forceShownHidden: receiverForceShown || elementForceShown
                     })
                 }
@@ -2083,14 +2091,53 @@
             }
 
             function resolveDependenceStyle(pair, baseColor){
-                const operation = (pair.operation || '').toLowerCase();
-                const type = (pair.eventType || '').toLowerCase();
+                const operation = (pair.operation || '').toLowerCase().trim();
+                const type = (pair.eventType || '').toLowerCase().trim();
+                const direction = pair.direction === 'incoming' ? 'incoming' : 'outgoing';
+
+                const eventColorMap = {
+                    'hidden': '#dc2626',
+                    'unhidden': '#16a34a',
+                    'find': '#0284c7',
+                    'unfind': '#f97316'
+                };
+                const eventLabelMap = {
+                    'hidden': 'Событие: скрытие',
+                    'unhidden': 'Событие: показ',
+                    'find': 'Событие: найдено',
+                    'unfind': 'Событие: поиск отменён'
+                };
+                const eventSymbolMap = {
+                    'hidden': 'marker-hide',
+                    'unhidden': 'marker-unhide',
+                    'find': 'marker-toggle',
+                    'unfind': 'marker-toggle-reverse'
+                };
+                const operationSymbolMap = {
+                    'hide': 'marker-hide',
+                    'unhide': 'marker-unhide',
+                    'toggle': 'marker-toggle',
+                    'toggle_reverse': 'marker-toggle-reverse'
+                };
+                const operationLabelMap = {
+                    'hide': 'Действие: скрыть',
+                    'unhide': 'Действие: показать',
+                    'toggle': 'Действие: переключить',
+                    'toggle_reverse': 'Действие: инвертировать'
+                };
+
                 const style = {
-                    color: baseColor,
+                    color: eventColorMap[type] || baseColor,
                     opacity: 0.9,
                     dash: pair.direction === 'incoming' ? '7 6' : null,
-                    width: 2
+                    width: 2,
+                    symbolType: operationSymbolMap[operation] || eventSymbolMap[type] || `arrow-${direction}`,
+                    tooltip: [
+                        eventLabelMap[type] || (type ? `Событие: ${type}` : ''),
+                        operationLabelMap[operation] || (operation ? `Действие: ${operation}` : '')
+                    ].filter(Boolean).join(' · ')
                 };
+
                 if(operation === 'hide' || type === 'hidden'){
                     style.dash = '4 4';
                     style.opacity = 0.8;
@@ -2107,6 +2154,7 @@
                     style.dash = '1 9';
                     style.opacity = 0.75;
                 }
+
                 if(pair.forceShownHidden){
                     style.color = '#797979';
                     style.opacity = Math.min(style.opacity, 0.85);
@@ -2152,16 +2200,65 @@
                 svg.style.height = `${svgHeight}px`;
                 svg.style.overflow = 'visible';
 
-                const defs = document.createElementNS(svgNS, 'defs');
-                defs.innerHTML = `
-                    <marker id="arrow-outgoing" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto" markerUnits="strokeWidth">
-                        <path d="M0,0 L4,2 L0,4 Z" class="arrow-outgoing"></path>
-                    </marker>
-                    <marker id="arrow-incoming" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto" markerUnits="strokeWidth">
-                        <path d="M0,0 L4,2 L0,4 Z" class="arrow-incoming"></path>
-                    </marker>
-                `;
-                svg.appendChild(defs);
+                function createSymbolElement(symbolType, color, direction){
+                    const group = document.createElementNS(svgNS, 'g');
+                    group.setAttribute('class', 'dependence-marker');
+                    group.setAttribute('pointer-events', 'none');
+                    const makeLine = (x1, y1, x2, y2, width = 1.6) => {
+                        const line = document.createElementNS(svgNS, 'line');
+                        line.setAttribute('x1', String(x1));
+                        line.setAttribute('y1', String(y1));
+                        line.setAttribute('x2', String(x2));
+                        line.setAttribute('y2', String(y2));
+                        line.setAttribute('stroke', color);
+                        line.setAttribute('stroke-width', String(width));
+                        line.setAttribute('stroke-linecap', 'round');
+                        return line;
+                    };
+                    const makePath = (d, fill = '#ffffff', strokeWidth = 1.6, stroke = color) => {
+                        const path = document.createElementNS(svgNS, 'path');
+                        path.setAttribute('d', d);
+                        path.setAttribute('fill', fill);
+                        path.setAttribute('stroke', stroke);
+                        path.setAttribute('stroke-width', String(strokeWidth));
+                        path.setAttribute('stroke-linejoin', 'round');
+                        return path;
+                    };
+                    switch(symbolType){
+                        case 'marker-hide':
+                            group.appendChild(makeLine(-3.5, -3.5, 3.5, 3.5));
+                            group.appendChild(makeLine(3.5, -3.5, -3.5, 3.5));
+                            break;
+                        case 'marker-unhide': {
+                            const circle = document.createElementNS(svgNS, 'circle');
+                            circle.setAttribute('cx', '0');
+                            circle.setAttribute('cy', '0');
+                            circle.setAttribute('r', '3.5');
+                            circle.setAttribute('fill', '#ffffff');
+                            circle.setAttribute('stroke', color);
+                            circle.setAttribute('stroke-width', '1.6');
+                            group.appendChild(circle);
+                            group.appendChild(makeLine(-2, 0, 2, 0));
+                            group.appendChild(makeLine(0, -2, 0, 2));
+                            break;
+                        }
+                        case 'marker-toggle':
+                            group.appendChild(makePath('M 0 -4 L 4 0 L 0 4 L -4 0 Z'));
+                            break;
+                        case 'marker-toggle-reverse':
+                            group.appendChild(makePath('M 0 -4 L 4 0 L 0 4 L -4 0 Z', color));
+                            group.appendChild(makePath('M 0 -2.5 L 2.5 0 L 0 2.5 L -2.5 0 Z', '#ffffff', 1.2, '#ffffff'));
+                            break;
+                        case 'arrow-incoming':
+                            group.appendChild(makePath('M 3.5 -4 L -3.5 0 L 3.5 4 Z', color, 1, color));
+                            break;
+                        case 'arrow-outgoing':
+                        default:
+                            group.appendChild(makePath('M -3.5 -4 L 3.5 0 L -3.5 4 Z', color, 1, color));
+                            break;
+                    }
+                    return group;
+                }
 
                 const groups = { incoming: [], outgoing: [] };
                 for(const pair of renderPairs){
@@ -2206,7 +2303,6 @@
                         Math.min(columnX - 8, startStubX + (columnX - startStubX) * 0.5)
                     );
                     const baseColor = pair.direction === 'incoming' ? '#f97316' : '#4f46e5';
-                    const markerId = pair.direction === 'incoming' ? 'arrow-incoming' : 'arrow-outgoing';
                     const appearance = resolveDependenceStyle(pair, baseColor);
 
                     const path = document.createElementNS(svgNS, 'path');
@@ -2215,7 +2311,6 @@
                     path.setAttribute('stroke-width', String(appearance.width));
                     path.setAttribute('fill', 'none');
                     path.setAttribute('opacity', String(appearance.opacity));
-                    path.setAttribute('marker-end', `url(#${markerId})`);
                     path.setAttribute('stroke-linecap', 'round');
                     path.setAttribute('stroke-linejoin', 'round');
                     if(appearance.dash){
@@ -2224,7 +2319,23 @@
                     else{
                         path.removeAttribute('stroke-dasharray');
                     }
+                    if(appearance.tooltip){
+                        const title = document.createElementNS(svgNS, 'title');
+                        title.textContent = appearance.tooltip;
+                        path.appendChild(title);
+                    }
                     svg.appendChild(path);
+
+                    const symbolElement = createSymbolElement(appearance.symbolType, appearance.color, pair.direction);
+                    if(symbolElement){
+                        symbolElement.setAttribute('transform', `translate(${endX}, ${endY})`);
+                        if(appearance.tooltip){
+                            const title = document.createElementNS(svgNS, 'title');
+                            title.textContent = appearance.tooltip;
+                            symbolElement.appendChild(title);
+                        }
+                        svg.appendChild(symbolElement);
+                    }
 
                     const sourceDot = document.createElementNS(svgNS, 'circle');
                     sourceDot.setAttribute('cx', startX);
@@ -2232,12 +2343,6 @@
                     sourceDot.setAttribute('r', '2.4');
                     sourceDot.setAttribute('fill', appearance.color);
                     svg.appendChild(sourceDot);
-
-                    const markerPath = svg.querySelector(`${markerId === 'arrow-outgoing' ? '.arrow-outgoing' : '.arrow-incoming'}`);
-                    if(markerPath){
-                        markerPath.setAttribute('fill', appearance.color);
-                        markerPath.setAttribute('stroke', appearance.color);
-                    }
                 }
 
                 lineContainer.appendChild(svg);
@@ -3741,6 +3846,7 @@
                     elem.setAttribute('disabled', true);
                 }
                 receiverContainer.setAttribute('data-idDependence', id)
+                refreshDependenceDisplay();
             }
 
             function DeleteDependence(evt){
@@ -3752,6 +3858,7 @@
                 let deleted = eventManager.deleteEventListener(id)
                 if(deleted)
                     receiverContainer.parentElement.removeChild(receiverContainer)
+                refreshDependenceDisplay();
             }
 
             function ChangeDependence(evt){
@@ -3761,6 +3868,7 @@
                 for(let elem of receiverContainer.querySelectorAll('select, input')){
                     elem.removeAttribute('disabled');
                 }
+                refreshDependenceDisplay();
             }
 
             function closeModal(evt){
