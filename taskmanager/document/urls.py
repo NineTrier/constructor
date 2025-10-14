@@ -21,6 +21,7 @@ urlpatterns = [
     path('save_doc_image', views.SaveImage), # сохранение картинки
     path('document_add', views.AddDocumentToUser), # копирование документа
     path('document_copy', views.CopyDocument), # копирование документа
+    path('toggle_organisation/', views.toggle_document_organisation, name='toggle_document_organisation'),
     path('doctype_add', views.CreateDocType), # добавление типа документа
     path('doctype_remove', views.DeleteDocType), # удаление типа документа
     path('acceptFilters', views.AcceptFilters),

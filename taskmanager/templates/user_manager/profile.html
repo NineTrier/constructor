@@ -1,64 +1,52 @@
-{% extends  'base.html' %}
+﻿{% extends 'base.html' %}
 
-{% block title %}
-{{ profile }}
-{% endblock %}
+{% block title %}Профиль{% endblock %}
 
 {% block connection %}
     {% load static %}
-    <link rel="stylesheet" type="text/css" href="{% static 'css/user_manager/profile.css' %}">
+    <link rel=\"stylesheet\" type=\"text/css\" href=\"{% static 'css/user_manager/profile.css' %}\">
 {% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="header-bar">
-        <h1>Профиль</h1>
-    </div>
-    <div class="d-flex flex-row">
-        <img id="profile_img" src="{% if profile.profile_pic %}{{ profile.profile_pic.url }}{% endif %}">
-        <div class="card-body" style="margin-left:50px">
-            <p><strong>Имя пользователя:</strong> {{ profile.user.username }}</p>
-            <p><strong>Фамилия:</strong> {{ profile.firstName }}</p>
-            <p><strong>Имя:</strong> {{ profile.lastName }}</p>
-            <p><strong>Отчество:</strong> {{ profile.middleName }}</p>
-            <p><strong>Организация:</strong> {{ profile.organisation.name }}</p>
-            {% if user.id == profile.user.id %}
-            <a class="btn btn-primary btn-lg" href="/accounts/change_profile/{{ profile.user.id }}/">Редактировать</a>
+<div class=\"container py-4\">
+    <div class=\"d-flex align-items-center mb-4\">
+        {% if profile.profile_pic %}
+            <img class=\"rounded-circle border\" src=\"{{ profile.profile_pic.url }}\" alt=\"Аватар\" width=\"96\" height=\"96\">
+        {% else %}
+            <div class=\"rounded-circle border bg-light d-flex align-items-center justify-content-center\" style=\"width:96px;height:96px;\">
+                <span class=\"fw-bold text-secondary\">{{ profile.abbr }}</span>
+            </div>
+        {% endif %}
+        <div class=\"ms-4\">
+            <h2 class=\"mb-1\">{{ profile }}</h2>
+            <p class=\"mb-0 text-muted\">@{{ profile.user.username }}</p>
+        </div>
+        <div class=\"ms-auto d-flex gap-2\">
+            {% if request.user == profile.user or perms.auth.change_user %}
+            <a class=\"btn btn-primary\" href=\"{% url 'user_manager:change_profile' profile.user.pk %}\">Редактировать профиль</a>
+            {% endif %}
+            {% if perms.auth.change_user %}
+            <a class=\"btn btn-outline-primary\" href=\"{% url 'user_manager:user_edit' profile.user.pk %}\">Редактировать учетную запись</a>
             {% endif %}
         </div>
-    </div> 
-    <!-- <button class="btn btn-primary" onclick="registerSw();">Включить уведомления</button> -->
+    </div>
+
+    <div class=\"card\">
+        <div class=\"card-body\">
+            <dl class=\"row mb-0\">
+                <dt class=\"col-sm-3\">Имя</dt>
+                <dd class=\"col-sm-9\">{{ profile.firstName|default:"—" }}</dd>
+
+                <dt class=\"col-sm-3\">Фамилия</dt>
+                <dd class=\"col-sm-9\">{{ profile.lastName|default:"—" }}</dd>
+
+                <dt class=\"col-sm-3\">Отчество</dt>
+                <dd class=\"col-sm-9\">{{ profile.middleName|default:"—" }}</dd>
+
+                <dt class=\"col-sm-3\">Организация</dt>
+                <dd class=\"col-sm-9\">{{ profile.organisation|default:"—" }}</dd>
+            </dl>
+        </div>
+    </div>
 </div>
-
-
-{% endblock %}
-
-{% block script %}
-<script src="{% static '/js/registerSw.js' %}"></script>
-<script language="JavaScript">
-
-    // function GetProfileImage(){
-    //     $.ajax({
-    //         type: "POST",
-    //         url: "/accounts/get_profile_image/",
-    //         data: JSON.stringify({'user': '{{ profile.user.id }}'}),
-    //         contentType: "application/json; charset=utf-8",
-    //         success: function(res, status, xhr){
-    //             console.log(xhr.status);
-    //             switch(xhr.status){
-    //                 case 200:
-    //                     profile_image_preview.src = xhr.getResponseHeader('file');
-    //                     break;
-    //                 case 304:
-    //                     profile_image_preview.src = '/media/noimage.jpeg';
-    //                     break;
-    //             }
-    //         }
-    //     });
-    // }
-
-    // GetProfileImage();
-
-</script>
-
 {% endblock %}

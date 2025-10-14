@@ -1,6 +1,7 @@
 import json
 import base64
 import re
+import json
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import CreateView
@@ -10,11 +11,13 @@ from .forms import DocumentForm
 from django.core.files.storage import FileSystemStorage
 import os
 from django.conf import settings
-from django.http import HttpRequest, HttpResponse, Http404, HttpResponseNotModified, HttpResponseForbidden
+from django.http import HttpRequest, HttpResponse, Http404, HttpResponseNotModified, HttpResponseForbidden, JsonResponse, HttpResponseBadRequest
 from docx import Document
 from .Document import Document
 
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
 from transliterate import translit
 from transliterate.decorators import transliterate_function
 from user_manager.models import Profile, user_directory_path
@@ -49,7 +52,7 @@ class DocumentCreate(CreateView):
     def get_context_data(self, **kwargs):
         context = super(DocumentCreate, self).get_context_data(**kwargs)
         if self.request.user.is_authenticated:
-            context['profile'] = Profile.objects.filter(user=self.request.user)[0]
+            context['profile'] = Profile.for_user(self.request.user)
         context['documents'] = DocumentsPattern.objects.all()
         context['title'] = "Загрузка документа"
         return context
@@ -59,7 +62,7 @@ class DocumentCreate(CreateView):
         document.name = request.POST['name']
         document.description = request.POST['description']
         document.type = DocType.objects.get(id=request.POST['type'])
-        document.owner = Profile.objects.filter(user=request.user)[0]
+        document.owner = Profile.for_user(request.user)
         file = request.FILES.get('file')
         fileDirect = int(DocumentsPattern.objects.latest('id').id)+1
         if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}"):
@@ -92,7 +95,7 @@ def create_New_Document(request):
         document.name = request.POST['name']
         document.description = request.POST['description']
         document.type = DocType.objects.get(id=request.POST['type'])
-        document.owner = Profile.objects.filter(user=request.user)[0]
+        document.owner = Profile.for_user(request.user)
         document.picture = f"noimage.jpeg"
         print(document)
         try:
@@ -117,7 +120,7 @@ def create_New_Document(request):
         'title': 'Создание документа'
     }
     if request.user.is_authenticated:
-        context['profile'] = Profile.objects.filter(user=request.user)[0]
+        context['profile'] = Profile.for_user(request.user)
     return render(request, 'document/new_document.html', context)
 
 @csrf_exempt
@@ -272,7 +275,7 @@ def CopyDocument(request, id=None):
         else:
             stroke = {'id': id}
         print(stroke)
-        profile = Profile.objects.filter(user=request.user)[0]
+        profile = Profile.for_user(request.user)
         documentToCopy = DocumentsPattern.objects.get(id=stroke['id'])
         objects = DocumentPattern_Objects.objects.filter(document=documentToCopy)
         variables = Document_VariableBlock.objects.filter(document=documentToCopy.id)
@@ -321,6 +324,29 @@ def CopyDocument(request, id=None):
         print(f"Не получилось {exc}")
         return HttpResponseNotModified()
 
+@login_required
+@require_POST
+def toggle_document_organisation(request):
+    """Toggle the organisation flag for a document."""
+    try:
+        try:
+            payload = json.loads(request.body.decode('utf-8'))
+        except (AttributeError, json.JSONDecodeError):
+            payload = request.POST
+        doc_id = payload.get('id')
+        if not doc_id:
+            return HttpResponseBadRequest("Document id is required.")
+        document = get_object_or_404(DocumentsPattern, pk=int(doc_id))
+        if document.owner.user != request.user and not request.user.has_perm('document.toggle_document_organisation'):
+            return HttpResponseForbidden()
+        document.documentOfOrganisation = not bool(document.documentOfOrganisation)
+        document.save(update_fields=['documentOfOrganisation', 'lastUpdate'])
+        return JsonResponse({'documentOfOrganisation': document.documentOfOrganisation})
+    except Exception as exc:
+        print(exc)
+        return HttpResponseNotModified()
+
+
 @csrf_exempt
 def AddDocumentToUser(request, id=None):
     """Обработчик запроса для копирования документа пользователю"""
@@ -331,7 +357,7 @@ def AddDocumentToUser(request, id=None):
             stroke = json.loads(request_data)
         else:
             stroke = {'id': id}
-        profile = Profile.objects.filter(user=request.user)[0]
+        profile = Profile.for_user(request.user)
         documentToCopy = DocumentsPattern.objects.get(id=stroke['id'])
         document_parentDocument = Document_ParentDocument.objects.filter(parent=documentToCopy).filter(userRequested=profile)
         objects = DocumentPattern_Objects.objects.filter(document=documentToCopy)
@@ -488,7 +514,7 @@ def ViewDocument(request):
         'objects': objects,
     }
     if request.user.is_authenticated:
-        context['profile'] = Profile.objects.filter(user=request.user)[0]
+        context['profile'] = Profile.for_user(request.user)
 
     # добавляем идентификатор шаблона и (опционально) выбранные записи для панели
     context['pattern'] = Doc
@@ -525,7 +551,7 @@ def ViewDocumentAndCreateDocument(request):
         'create_document': True,
     }
     if request.user.is_authenticated:
-        context['profile'] = Profile.objects.filter(user=request.user)[0]
+        context['profile'] = Profile.for_user(request.user)
     context['pattern'] = Doc
     context['selected_ids_json'] = json.dumps({})
     return render(request, 'document/document_view_v3.html', context)

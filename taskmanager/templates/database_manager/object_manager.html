@@ -1,54 +1,68 @@
-{% extends  'base.html' %}
+{% extends 'base.html' %}
 
-{% block title %}
-Работа с объектами
-{% endblock %}
+{% block title %}Объекты{% endblock %}
 
 {% block connection %}
     {% load static %}
     <link rel="stylesheet" type="text/css" href="{% static 'css/database_manager/database_manager.css' %}">
 {% endblock %}
+
 {% block content %}
-<div class="container">
-    <div class="header-bar mt-2">
-        <h1>Объекты</h1>
+<div class="container py-3">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h1 class="h3 mb-0">Объекты</h1>
+        <div class="btn-group">
+            {% if perms.database_manager.add_object and perms.database_manager.manage_object_structure %}
+            <button class="btn btn-primary" type="button" onclick="createNewObject();">Создать пустой объект</button>
+            <a class="btn btn-outline-primary" href="{% url 'upload_csv' %}">Импорт из CSV</a>
+            {% endif %}
+        </div>
     </div>
-    <a class="btn btn-primary" onclick="createNewObject();">Создать новый объект</a>
-    <a class="btn btn-primary" href="{% url 'upload_csv' %}">Загрузить из CSV-файла</a>
     <div id="bigDiv">
         <div class="objectsContainer row" onclick="objectClicked(event)">
-            <h4>Существующие объекты</h4>
+            <h4>Доступные объекты</h4>
             {% for obj in objects %}
             <div class="objectCon col" data-id="{{ obj.id }}">
                 <span>{{ obj.name }}</span>
             </div>
+            {% empty %}
+            <p class="text-muted">Объекты не найдены.</p>
             {% endfor %}
         </div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block script %}
-
-<script lang="JavaScript">
-    function createNewObject(){
-        let name = "Новый объект";
-        let form = new FormData();
-        form.append("name", name)
+<script>
+    function createNewObject() {
+        const form = new FormData();
+        form.append('name', 'Новый объект');
         fetch('/database/create_new_object/', {
             method: 'POST',
             body: form,
         })
-        .then(response => response.text())
-        .then(data =>{
-            d = JSON.parse(data)
-            location.href = `/database/update_object/${d.id}/`
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Ошибка создания объекта');
+            }
+            return response.json();
         })
+        .then(data => {
+            window.location.href = '/database/update_object/' + data.id + '/';
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Не удалось создать объект. Проверьте права доступа.');
+        });
     }
 
-    function objectClicked(evt){
-        location.href = '/database/get_object/' + evt.target.closest('.objectCon').getAttribute('data-id')
+    function objectClicked(evt) {
+        const target = evt.target.closest('.objectCon');
+        if (!target) {
+            return;
+        }
+        window.location.href = '/database/get_object/' + target.getAttribute('data-id') + '/';
     }
 </script>
 {% endblock %}

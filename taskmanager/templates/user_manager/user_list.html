@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block title %}Пользователи{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0">Пользователи</h1>
+        {% if perms.auth.add_user %}
+        <a class="btn btn-primary" href="{% url 'user_manager:user_create' %}">Создать пользователя</a>
+        {% endif %}
+    </div>
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>Логин</th>
+                        <th>ФИО</th>
+                        <th>Email</th>
+                        <th>Организация</th>
+                        <th>Роли</th>
+                        <th>Статус</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in users %}
+                    <tr>
+                        <td>{{ entry.user.username }}</td>
+                        <td>{{ entry.profile|default:"—" }}</td>
+                        <td>{{ entry.user.email|default:"—" }}</td>
+                        <td>{{ entry.profile.organisation|default:"—" }}</td>
+                        <td>
+                            {% if entry.roles %}
+                                {% for role in entry.roles %}
+                                    <span class="badge bg-secondary me-1">{{ role }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if entry.user.is_active %}
+                                <span class="badge bg-success">Активен</span>
+                            {% else %}
+                                <span class="badge bg-danger">Заблокирован</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-primary" href="{% url 'user_manager:user_edit' entry.user.pk %}">Редактировать</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">Пользователи не найдены.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

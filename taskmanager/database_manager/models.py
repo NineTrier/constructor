@@ -16,11 +16,19 @@ import dateutil.parser
 
 
 class Object(models.Model):
-    """Represents a user‑defined table stored as a pickled DataFrame."""
+    """Represents a user-defined table stored as a pickled DataFrame."""
 
     name = models.CharField(max_length=255)
     # FileField pointing at a pickled DataFrame in MEDIA_ROOT/dataframes/
     data = models.FileField(upload_to="dataframes/")
+
+    class Meta:
+        ordering = ["name"]
+        permissions = (
+            ("manage_object_structure", "Can manage object structure"),
+            ("manage_object_data", "Can manage object data"),
+            ("manage_object_links", "Can manage object links"),
+        )
 
     def to_dict(self) -> dict:
         """Return a minimal dictionary representation used by API responses."""

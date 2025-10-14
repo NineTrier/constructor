@@ -1,231 +1,216 @@
-from django.shortcuts import render
-from django.urls import reverse, reverse_lazy
+from typing import Any, Dict, Optional
 
-from .models import Profile, Organisation
-
-import json
-from django.views.generic.list import ListView
-from django.views.generic.edit import CreateView
-from django.shortcuts import get_object_or_404, redirect
-from django.contrib.auth import views, models, authenticate, login, logout
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
-from django.contrib.auth.models import User
-from .forms import UserLoginForm, ProfileForm
-from django.views.decorators.csrf import csrf_exempt
-from django.http import HttpResponse, Http404, HttpResponseNotModified
-from django.core.files.storage import FileSystemStorage
-from django.contrib import messages
-import csv
-import codecs
 from django.conf import settings
-import os
+from django.contrib import messages
+from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin, UserPassesTestMixin
+from django.contrib.auth.views import LoginView, LogoutView
+from django.core.exceptions import PermissionDenied
+from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, render
+from django.urls import reverse_lazy
+from django.views.decorators.http import require_GET, require_POST
+from django.views.generic import DetailView
+from django.views.generic.edit import FormView, UpdateView
+
+from .forms import ProfileForm, UserLoginForm, UserWithProfileCreationForm, UserWithProfileUpdateForm
+from .models import Organisation, Profile
+from .roles import ROLE_GROUP_PREFIX, get_role_definition
+
+User = get_user_model()
 
 
-def logout_view(request):
-    logout(request)
-    
-    return redirect('/')
+class ProfileContextMixin:
+    """
+    Подмешивает в контекст профиль текущего пользователя.
+    Это позволяет шаблонам, унаследованным от base.html, корректно
+    отображать имя и аватар пользователя в шапке.
+    """
+
+    def get_context_data(self, **kwargs: Any) -> Dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        if self.request.user.is_authenticated:
+            context["profile"] = Profile.for_user(self.request.user)
+        return context
 
 
-class Login(views.LoginView):
+class Login(ProfileContextMixin, LoginView):
     authentication_form = UserLoginForm
+    template_name = "user_manager/login.html"
 
-    template_name = 'user_manager/login.html'
-
-    def get_success_url(self):
-        user = models.User.objects.filter(username=self.get_form_kwargs()['data']['username'])[0]
-        return '/'
-    
-@csrf_exempt
-def login1(request):
-    try:
-        print(request.META['REMOTE_ADDR'])
-        if request.method == 'POST':
-            print(request.POST)
-            print(request.META['HTTP_HOST'])
-            print(request.META['REMOTE_ADDR'])
-            form = AuthenticationForm(request.POST)
-            username = request.POST['username']
-            password = request.POST['password']
-            user = authenticate(username=username,password=password)
-            print(user)
-            profile_of_user = Profile.objects.filter(user=user)
-            if not profile_of_user:
-                profile_of_user = Profile()
-                profile_of_user.user = user
-                profile_of_user.firstName = "Новый пользователь"
-                profile_of_user.lastName = ""
-                profile_of_user.middleName = ""
-                profile_of_user.organisation = Organisation.objects.get(id=1)
-                profile_of_user.save()
-            if user:
-                if user.is_active:
-                    login(request,user)
-                    print('Пользователь залогинен')
-                    return redirect('/')
-            else:
-                print('Неверный логин или пароль')
-                messages.error(request,'username or password not correct')
-                return redirect(reverse('login'))
-        else:
-            form = AuthenticationForm()
-        return render(request,'user_manager/login.html',{'form':form})
-    except Exception as exc:
-        print(exc)
-        return
+    def get_success_url(self) -> str:
+        redirect_to = self.get_redirect_url()
+        if redirect_to:
+            return redirect_to
+        return reverse_lazy("home")
 
 
-class SignUpView(CreateView):
-    form_class = UserCreationForm
-    success_url = reverse_lazy('login')
-    template_name = 'signup.html'
-
-class Logout(views.LogoutView):
-
-    def get_success_url(self):
-        return '/'
+class Logout(LogoutView):
+    next_page = reverse_lazy("home")
 
 
-class ShowProfilePageView(ListView):
-    model = Profile
-    template_name = 'user_manager/profile.html'
-    
+class UserCreateView(ProfileContextMixin, LoginRequiredMixin, PermissionRequiredMixin, FormView):
+    permission_required = "auth.add_user"
+    raise_exception = True
+    form_class = UserWithProfileCreationForm
+    template_name = "user_manager/user_create.html"
+    success_url = reverse_lazy("user_manager:user_create")
 
-    def get_context_data(self, *args, **kwargs):
-        context = super(ShowProfilePageView, self).get_context_data(*args, **kwargs)
-        user = models.User.objects.get(id=self.kwargs['pk'])
-        webpush_settings = getattr(settings, 'WEBPUSH_SETTINGS', {})
-        vapid_key = webpush_settings.get('VAPID_PUBLIC_KEY')
-        profile_of_user = Profile.objects.filter(user=user)
-        context['profile'] = profile_of_user[0]
-        context['organisation'] = Organisation.objects.all()
-        context['vapid_key'] = vapid_key
+    def form_valid(self, form: UserWithProfileCreationForm):
+        user = form.save()
+        messages.success(self.request, f"Учетная запись «{user.username}» создана.")
+        return super().form_valid(form)
+
+
+class ProfileDetailView(ProfileContextMixin, LoginRequiredMixin, DetailView):
+    template_name = "user_manager/profile.html"
+    context_object_name = "profile"
+
+    def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        self.target_user = get_object_or_404(User, pk=kwargs["pk"])
+        if request.user != self.target_user and not request.user.has_perm("auth.view_user"):
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_object(self, queryset=None):
+        return Profile.for_user(self.target_user)
+
+    def get_context_data(self, **kwargs: Any) -> Dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        webpush_settings = getattr(settings, "WEBPUSH_SETTINGS", {})
+        context["organisations"] = Organisation.objects.order_by("name")
+        context["vapid_key"] = webpush_settings.get("VAPID_PUBLIC_KEY")
         return context
 
-class CreateProfilePageView(CreateView):
-    model = Profile
 
+class ProfileUpdateView(ProfileContextMixin, LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    template_name = "user_manager/change_profile.html"
     form_class = ProfileForm
-    template_name = 'user_manager/change_profile.html'
+    context_object_name = "profile"
 
-    def get_context_data(self, *args, **kwargs):
-        context = super(CreateProfilePageView, self).get_context_data(*args, **kwargs)
-        user = models.User.objects.get(id=self.kwargs['pk'])
-        profile_of_user = Profile.objects.filter(user=user)
-        context['profile'] = profile_of_user[0]
-        return context
+    def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        self.target_user = get_object_or_404(User, pk=kwargs["pk"])
+        return super().dispatch(request, *args, **kwargs)
 
-    def post(self, request, *args, **kwargs):
-        print(request.POST)
-        user = models.User.objects.get(id=request.user.id)
-        profile = Profile.objects.filter(user=user)[0]
-        profile.firstName = request.POST['firstName']
-        profile.lastName = request.POST['lastName']
-        profile.middleName = request.POST['middleName']
-        if 'profile_pic' in request.FILES:
-            file = request.FILES['profile_pic']
-            fs = FileSystemStorage()
-            filename = fs.save(file.name, file)
-            file_url = fs.url(filename)
-            profile.profile_pic = file_url
-        profile.organisation = Organisation.objects.get(id=int(request.POST['organisation']))
-        profile.save()
-        response = redirect(f'/accounts/profile/{user.id}')
-        return response
+    def get_object(self, queryset=None):
+        return Profile.for_user(self.target_user)
 
-    success_url = reverse_lazy('/')
+    def test_func(self) -> bool:
+        target_user = getattr(self, "target_user", None)
+        if target_user is None:
+            return False
+        if self.request.user == target_user:
+            return True
+        return self.request.user.has_perm("auth.change_user")
 
+    def handle_no_permission(self):
+        if self.request.user.is_authenticated:
+            raise PermissionDenied
+        return super().handle_no_permission()
 
-@csrf_exempt
-def SetProfileImage(request):
-    try:
-        profile = Profile.objects.get(id=request.POST.get('profile'))
-        print(profile)
-        file = request.FILES.get('profile_pic')
-        print(file)
-        fs = FileSystemStorage()
-        filename = fs.save(file.name, file)
-        print(filename)
-        file_url = fs.url(filename)
-        print(file_url)
-        profile.profile_pic = file_url
-        profile.save()
-        response = HttpResponse()
-        response['file'] = profile.profile_pic
-        return response
-    except Exception as exc:
-        print(exc)
-        response = HttpResponseNotModified()
-        return response
-    
+    def form_valid(self, form: ProfileForm):
+        messages.success(self.request, "Профиль обновлен.")
+        return super().form_valid(form)
 
-@csrf_exempt
-def GetProfileImage(request):
-    try:
-        request_data = request.body
-        stroke = json.loads(request_data)
-        print(stroke)
-        user = models.User.objects.get(id=stroke['user'])
-        profile = Profile.objects.filter(user=user)[0]
-        if str(profile.profile_pic) == "":
-            response = HttpResponseNotModified()
-            return response
-        response = HttpResponse()
-        response['file'] = profile.profile_pic
-        return response
-    except Exception as exc:
-        print(exc)
-        response = HttpResponseNotModified()
-        return response
-    
-
-@csrf_exempt
-def GetProfiles(request):
-    try:
-        json_stroke = {}
-        profiles = []
-        for profile in Profile.objects.all():
-            profiles.append({'id': profile.id, 'profile': profile.__str__()})
-        json_stroke['profiles'] = profiles
-        response = HttpResponse()
-        response['profiles'] = json.dumps(json_stroke)
-        return response
-    except Exception as exc:
-        print(exc)
-        response = HttpResponseNotModified()
-        return response
+    def get_success_url(self) -> str:
+        return reverse_lazy("user_manager:profile", kwargs={"pk": self.target_user.pk})
 
 
-@csrf_exempt
-def GetDepartments(request):
-    try:
-        json_stroke = {}
-        departments = []
-        for department in Organisation.objects.all():
-            departments.append({'id': department.id, 'department': department.__str__()})
-        json_stroke['departments'] = departments
-        response = HttpResponse()
-        response['departments'] = json.dumps(json_stroke)
-        return response
-    except Exception as exc:
-        print(exc)
-        response = HttpResponseNotModified()
-        return response
+@login_required
+@require_POST
+def set_profile_image(request: HttpRequest) -> JsonResponse:
+    profile = Profile.for_user(request.user)
+    file = request.FILES.get("profile_pic")
+    if not file:
+        return JsonResponse({"error": "Не удалось определить файл"}, status=400)
+    profile.profile_pic = file
+    profile.save()
+    return JsonResponse({"file": profile.profile_pic.url})
 
 
-@csrf_exempt
-def UploadUsersFromActiveDirectory(request):
-    try:
-        request_data = request.body
-        stroke = json.loads(request_data)
-        print(stroke)
-        fs = FileSystemStorage()
-        csvReader = csv.reader(codecs.open(fs.location+'/'+stroke['path'].split('/')[-1], 'rU', 'utf-16'))
-        for row in csvReader:
-            print(row)
-        response = HttpResponse()
-        return response
-    except Exception as exc:
-        print(exc)
-        response = HttpResponseNotModified()
-        return response
+@login_required
+@require_GET
+def get_profile_image(request: HttpRequest) -> JsonResponse:
+    user_id = request.GET.get("user")
+    target_pk: Optional[int]
+    if user_id:
+        try:
+            target_pk = int(user_id)
+        except ValueError:
+            return JsonResponse({"error": "Некорректный идентификатор пользователя"}, status=400)
+    else:
+        target_pk = request.user.pk
+    user = get_object_or_404(User, pk=target_pk)
+    if request.user != user and not request.user.has_perm("auth.view_user"):
+        raise PermissionDenied
+    profile = Profile.for_user(user)
+    if profile.profile_pic:
+        return JsonResponse({"file": profile.profile_pic.url})
+    return JsonResponse({}, status=204)
+
+
+@login_required
+@require_GET
+def get_profiles(request: HttpRequest) -> JsonResponse:
+    profiles = [
+        {"id": profile.id, "profile": str(profile)}
+        for profile in Profile.objects.select_related("user").order_by("lastName", "firstName")
+    ]
+    return JsonResponse({"profiles": profiles})
+
+
+@login_required
+@require_GET
+def get_departments(request: HttpRequest) -> JsonResponse:
+    departments = [
+        {"id": organisation.id, "department": organisation.name or ""}
+        for organisation in Organisation.objects.order_by("name")
+    ]
+    return JsonResponse({"departments": departments})
+
+
+class UserUpdateView(ProfileContextMixin, LoginRequiredMixin, PermissionRequiredMixin, FormView):
+    permission_required = "auth.change_user"
+    raise_exception = True
+    form_class = UserWithProfileUpdateForm
+    template_name = "user_manager/user_edit.html"
+
+    def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        self.target_user = get_object_or_404(User, pk=kwargs["pk"])
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["instance"] = self.target_user
+        return kwargs
+
+    def form_valid(self, form: UserWithProfileUpdateForm):
+        user = form.save()
+        messages.success(self.request, f"Учетная запись «{user.username}» обновлена.")
+        return super().form_valid(form)
+
+    def get_success_url(self) -> str:
+        return reverse_lazy("user_manager:user_edit", kwargs={"pk": self.target_user.pk})
+
+
+@login_required
+@permission_required("auth.view_user", raise_exception=True)
+def user_list_view(request: HttpRequest) -> HttpResponse:
+    users_qs = User.objects.select_related("profile").order_by("username")
+    users_data = []
+    for user in users_qs:
+        profile = Profile.for_user(user)
+        role_labels = []
+        for group in user.groups.all():
+            if group.name.startswith(ROLE_GROUP_PREFIX):
+                code = group.name[len(ROLE_GROUP_PREFIX):]
+                definition = get_role_definition(code)
+                role_labels.append(definition.name if definition else code)
+        users_data.append({"user": user, "profile": profile, "roles": role_labels})
+    context = {
+        "users": users_data,
+    }
+    if request.user.is_authenticated:
+        context["profile"] = Profile.for_user(request.user)
+    return render(request, "user_manager/user_list.html", context)

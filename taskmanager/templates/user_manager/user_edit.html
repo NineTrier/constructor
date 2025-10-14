@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+
+{% block title %}Редактирование пользователя{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h1 class="mb-4">Редактирование пользователя</h1>
+    <form method="post" class="card shadow-sm">
+        {% csrf_token %}
+        <div class="card-body">
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {% for error in form.non_field_errors %}
+                    <div>{{ error }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <h2 class="h5 mb-3">Аккаунт</h2>
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+                    {{ form.username }}
+                    {% for error in form.username.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+                    {{ form.email }}
+                    {% for error in form.email.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="col-md-3 d-flex align-items-center">
+                    <div class="form-check mt-4">
+                        {{ form.is_active }}
+                        <label class="form-check-label" for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}</label>
+                    </div>
+                    {% for error in form.is_active.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <h2 class="h5 mb-3">Профиль</h2>
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label class="form-label" for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }}</label>
+                    {{ form.last_name }}
+                    {% for error in form.last_name.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }}</label>
+                    {{ form.first_name }}
+                    {% for error in form.first_name.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="{{ form.middle_name.id_for_label }}">{{ form.middle_name.label }}</label>
+                    {{ form.middle_name }}
+                    {% for error in form.middle_name.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="{{ form.organisation.id_for_label }}">{{ form.organisation.label }}</label>
+                    {{ form.organisation }}
+                    {% for error in form.organisation.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <h2 class="h5 mb-3">Роли и доступ</h2>
+            <div class="mb-4">
+                <p class="text-muted small mb-2">Отметьте роли и права, которые должны остаться у пользователя.</p>
+                <div class="d-flex flex-column gap-1">
+                    {% for checkbox in form.roles %}
+                    <div class="form-check">
+                        {{ checkbox.tag }}
+                        <label class="form-check-label" for="{{ checkbox.id_for_label }}">{{ checkbox.choice_label }}</label>
+                    </div>
+                    {% empty %}
+                    <span class="text-muted">Нет доступных ролей.</span>
+                    {% endfor %}
+                </div>
+                {% for error in form.roles.errors %}
+                    <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="card-footer d-flex justify-content-between align-items-center">
+            <a href="{% url 'user_manager:profile' form.instance.pk %}" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-arrow-left me-1"></i> К профилю
+            </a>
+            <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

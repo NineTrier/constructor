@@ -1,69 +1,64 @@
-{% extends  'base.html' %}
+{% extends 'base.html' %}
 
-{% block title %}
-{{ profile }}
-{% endblock %}
+{% block title %}Редактирование профиля{% endblock %}
 
 {% block connection %}
     {% load static %}
     <link rel="stylesheet" type="text/css" href="{% static 'css/user_manager/profile.css' %}">
 {% endblock %}
+
 {% block content %}
-<div class="container">
-    <div class="header-bar">
-        <h1>Профиль</h1>
-    </div>
-    <div>
-        <img id="profile_img" src="{% if profile.profile_pic %}{{ profile.profile_pic.url }}{% endif %}">
-        
-    </div>
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        <div class="fieldWrapper">
-            {{ form.profile_pic.errors }}
-            <label for="{{ form.profile_pic.id_for_label }}">Изображение профиля:</label>
-            {{ form.profile_pic }}
+<div class="container py-4">
+    <h1 class="mb-4">Редактирование профиля</h1>
+    <form method="post" enctype="multipart/form-data" class="card shadow-sm">
+        <div class="card-body">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-4 text-center mb-3">
+                    {% if form.instance.profile_pic %}
+                        <img class="rounded-circle border mb-3" src="{{ form.instance.profile_pic.url }}" alt="Аватар" width="128" height="128">
+                    {% else %}
+                        <div class="rounded-circle border bg-light d-flex align-items-center justify-content-center mb-3" style="width:128px;height:128px;">
+                            <span class="fw-bold text-secondary">{{ form.instance.abbr }}</span>
+                        </div>
+                    {% endif %}
+                    <label class="form-label" for="{{ form.profile_pic.id_for_label }}">Аватар</label>
+                    {{ form.profile_pic }}
+                </div>
+                <div class="col-md-8">
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.firstName.id_for_label }}">Имя</label>
+                        {{ form.firstName }}
+                        {{ form.firstName.errors }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.lastName.id_for_label }}">Фамилия</label>
+                        {{ form.lastName }}
+                        {{ form.lastName.errors }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.middleName.id_for_label }}">Отчество</label>
+                        {{ form.middleName }}
+                        {{ form.middleName.errors }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.organisation.id_for_label }}">Организация</label>
+                        {{ form.organisation }}
+                        {{ form.organisation.errors }}
+                    </div>
+                    <div class="form-check mb-3">
+                        {{ form.canAddOrganisationDocument }}
+                        <label class="form-check-label" for="{{ form.canAddOrganisationDocument.id_for_label }}">
+                            Разрешить создание документов организации
+                        </label>
+                        {{ form.canAddOrganisationDocument.errors }}
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="fieldWrapper">
-            {{ form.firstName.errors }}
-            <label for="{{ form.firstName.id_for_label }}">Фамилия:</label>
-            {{ form.firstName }}
+        <div class="card-footer text-end">
+            <button class="btn btn-primary" type="submit">Сохранить</button>
         </div>
-        <div class="fieldWrapper">
-            {{ form.lastName.errors }}
-            <label for="{{ form.lastName.id_for_label }}">Имя:</label>
-            {{ form.lastName }}
-        </div>
-        <div class="fieldWrapper">
-            {{ form.middleName.errors }}
-            <label for="{{ form.middleName.id_for_label }}">Отчество:</label>
-            {{ form.middleName }}
-        </div>
-        <div class="fieldWrapper">
-            {{ form.organisation.errors }}
-            <label for="{{ form.organisation.id_for_label }}">Организация:</label>
-            {{ form.organisation }}
-        </div>
-        <button class="btn btn-primary btn-lg" type="submit">Сохранить</button>
     </form>
 </div>
-
-{% endblock %}
-
-{% block script %}
-
-<script language="JavaScript">
-
-    function FillForm(str){
-        var str_splitted = str.split(';');
-        firstName.value = str_splitted[0];
-        lastName.value = str_splitted[1];
-        middleName.value = str_splitted[2];
-        id_organisation.querySelector('option[value="'+ str_splitted[3] +'"]').selected = true;
-    }
-    FillForm("{{ profile.firstName }};{{ profile.lastName }};{{ profile.middleName }};{{ profile.organisation.id }};")
-    
-    $('#id_organisation').selectize();
-</script>
-
 {% endblock %}

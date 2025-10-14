@@ -1,14 +1,14 @@
 {% load static %}
 <!doctype html>
-<html lang="en">
+<html lang="ru">
 <head>
     {% block meta %}{% endblock %}
     <meta charset="UTF-8">
-    <meta name="viewport"
-          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <meta name="csrf_token" content="{{ csrf_token }}">
     <title>{% block title %}{% endblock %}</title>
+
     <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'js/selectize.min.js' %}"></script>
     <link rel="stylesheet" href="{% static 'css/selectize.min.css' %}">
@@ -18,51 +18,94 @@
     <script src="{% static 'js/bootstrap.min.js' %}"></script>
     <link rel="stylesheet" href="{% static 'css/fontawesome.css' %}">
     <link rel="stylesheet" href="{% static 'css/solid.css' %}">
-
     <link rel="stylesheet" href="{% static 'css/dataTables.min.css' %}">
     <script src="{% static 'js/dataTables.min.js' %}"></script>
-
     <link rel="stylesheet" href="{% static 'css/interFonts.css' %}">
-    
-    
-    <link rel="stylesheet" type="text/css" href="{% static 'css/main/index.css' %}">
+    <link rel="stylesheet" href="{% static 'css/main/index.css' %}">
     {% block connection %}{% endblock %}
+    <script>
+        (function () {
+            const originalFetch = window.fetch.bind(window);
+            const safeMethods = /^(GET|HEAD|OPTIONS|TRACE)$/i;
+            const getToken = () => {
+                const meta = document.querySelector('meta[name="csrf_token"]');
+                return meta ? meta.getAttribute('content') : null;
+            };
+            window.fetch = function (input, init) {
+                const options = init || {};
+                const method = (options.method || 'GET').toUpperCase();
+                if (!safeMethods.test(method)) {
+                    const token = getToken();
+                    if (token) {
+                        let headers = options.headers;
+                        if (!(headers instanceof Headers)) {
+                            headers = new Headers(headers || {});
+                        } else {
+                            headers = new Headers(headers);
+                        }
+                        headers.set('X-CSRFToken', token);
+                        options.headers = headers;
+                        if (!options.credentials) {
+                            options.credentials = 'same-origin';
+                        }
+                    }
+                }
+                return originalFetch(input, options);
+            };
+        })();
+    </script>
 </head>
 <body>
-    <header>
-        <div id="header_menu">
-            <a href="/" class="d-flex align-items-center text-dark text-decoration-none">
-                <span class="fs-4 ms-3">Конструктор документов</span>
+    <header class="mb-3 border-bottom">
+        <div class="container d-flex flex-wrap align-items-center justify-content-between py-2">
+            <a href="{% url 'home' %}" class="d-flex align-items-center text-dark text-decoration-none">
+                <span class="fs-4 ms-2">Конструктор документов</span>
             </a>
-            <div id="right_menu_navigation">
-                <nav id="header_navigation">
-                    <a class="me-3 py-2 text-dark text-decoration-none" href="{% url 'home' %}">Главная</a>
-                    <!-- <a class="me-3 py-2 text-dark text-decoration-none" href="{% url 'about' %}">Справка</a> -->
+            <div class="d-flex align-items-center gap-3">
+                <nav class="d-flex align-items-center gap-3">
+                    <a class="text-dark text-decoration-none" href="{% url 'home' %}">Главная</a>
                     {% if user.is_authenticated %}
-                    <!-- <a class="me-3 py-2 text-dark text-decoration-none" href="{% url 'documents' %}">Загрузить новый документ</a> -->
-                    <a class="me-3 py-2 text-dark text-decoration-none" href="{% url 'newdocuments' %}">Создать шаблон</a>
-                    <!-- <a class="me-3 py-2 text-dark text-decoration-none" href="{% url 'documents' %}">Загрузить новый документ</a> -->
-                    <a class="me-3 py-2 text-dark text-decoration-none" href="{% url 'match_machine' %}">Мэчмашин</a>
-                    <a href="{% url 'object_manager' %}" class="btn btn-labeled">Объекты</a>
+                        <a class="text-dark text-decoration-none" href="{% url 'newdocuments' %}"><i class="fa-solid fa-file-circle-plus"></i></a>
+                        <a class="btn btn-sm btn-outline-secondary" href="{% url 'object_manager' %}">Объекты</a>
+                        {% if perms.auth.view_user %}
+                            <a class="btn btn-sm btn-outline-primary" href="{% url 'user_manager:user_list' %}">Пользователи</a>
+                        {% endif %}
+                        {% if perms.auth.add_user %}
+                            <a class="btn btn-sm btn-outline-primary" href="{% url 'user_manager:user_create' %}">Создать пользователя</a>
+                        {% endif %}
                     {% endif %}
                 </nav>
-                <div id="profile_menu">
+                <div>
                     {% if user.is_authenticated %}
-                        <!-- <img id="img_profile" src="{% if profile.profile_pic %}{{ profile.profile_pic.url }}{% endif %}"> -->
-                        <a href="/accounts/profile/{{ user.id }}" class="btn btn-labeled">{{ profile }}</a>
-                        <a href="/accounts/logout/" class="btn btn-labeled"><i class="fa-solid fa-right-from-bracket" style="color:red"></i></a>
-                        
+                        <a href="{% url 'user_manager:profile' user.id %}" class="btn btn-labeled">{{ profile }}</a>
+                        <form method="post" action="{% url 'user_manager:logout' %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-labeled" title="Выйти">
+                                <i class="fa-solid fa-right-from-bracket text-danger"></i>
+                            </button>
+                        </form>
                     {% else %}
-                        <a href="/accounts/login/" class="btn btn-labeled"><i class="fa-solid fa-door-open"></i></a>
+                        <a href="{% url 'user_manager:login' %}" class="btn btn-labeled"><i class="fa-solid fa-door-open"></i></a>
                     {% endif %}
                 </div>
             </div>
         </div>
     </header>
-    <div>
-        {% block content %}{% endblock %}
-    </div>
-    {% block script %}{% endblock %}
 
+    {% if messages %}
+    <div class="container mt-3">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} mb-2" role="alert">
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block script %}{% endblock %}
 </body>
 </html>

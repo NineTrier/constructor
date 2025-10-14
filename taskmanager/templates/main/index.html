@@ -12,6 +12,12 @@
 
 {% block content %}
 
+{% if perms.auth.view_user %}
+<div class="text-end mb-3">
+    <a class="btn btn-outline-primary" href="{% url 'user_manager:user_list' %}">Пользователи</a>
+</div>
+{% endif %}
+
 <div id="main">
     {% for typ, values in documents.items %}
     <div class="DocsBlockContainer">
@@ -24,15 +30,20 @@
                 <div class="DocBlockDocument" type="button" onclick="ClickOnDocument(event);" data-idDB="{{ key.id }}">
                     <span class="DocumentName" >{{ key.name }}</span>
                     <div class="DocumentAdvancedInform">
-                        
-                        {% if key.documentOfOrganisation %}
-                            <i class="fa-solid fa-building"></i>
-                        {% else %}
-                            <i class="fa-solid fa-user"></i>
-                        {% endif %}
+                        <i class="DocumentScopeIcon fa-solid {% if key.documentOfOrganisation %}fa-building{% else %}fa-user{% endif %}"
+                           data-org="{% if key.documentOfOrganisation %}true{% else %}false{% endif %}"></i>
                         <div class="vr"></div>
                         <div class="DocumentAdvancedInformButtons">
                             {% if user == key.owner.user %}
+                                {% if perms.document.toggle_document_organisation %}    
+                                <button type="button"
+                                        class="btn btn-labeled toggle-org-btn"
+                                        onclick="ToggleDocumentOrganisation(event);"
+                                        data-org="{% if key.documentOfOrganisation %}true{% else %}false{% endif %}"
+                                        title="{% if key.documentOfOrganisation %}Сделать личным{% else %}Сделать корпоративным{% endif %}">
+                                    <i class="fa-solid fa-arrows-rotate"></i>
+                                </button>
+                                {% endif %}
                                 <a onclick="ClickOnDocumentCopy(event);" class="btn btn-labeled"><i class="fas fa-copy"></i></a>
                                 <a onclick="ClickOnDocumentDelete(event);" type="button" class="btn btn-labeled doc_del_button"><i class="fas fa-trash" style="color:red;"></i></a>
                             {% else %}
@@ -220,6 +231,42 @@
                 }
             });
             
+        }
+
+        function ToggleDocumentOrganisation(evt){
+            evt.stopPropagation();
+            const button = evt.target.closest('.toggle-org-btn');
+            if (!button) {
+                return;
+            }
+            const card = button.closest('.DocBlockDocument');
+            const icon = card.querySelector('.DocumentScopeIcon');
+            const docId = card.getAttribute('data-iddb');
+            fetch('/document/toggle_organisation/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({id: docId})
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Response was not OK');
+                }
+                return response.json();
+            })
+            .then(data => {
+                const isOrg = !!data.documentOfOrganisation;
+                icon.dataset.org = isOrg ? 'true' : 'false';
+                icon.classList.toggle('fa-building', isOrg);
+                icon.classList.toggle('fa-user', !isOrg);
+                button.dataset.org = isOrg ? 'true' : 'false';
+                button.title = isOrg ? 'Сделать личным' : 'Сделать корпоративным';
+            })
+            .catch(error => {
+                console.error(error);
+                alert('Не удалось изменить тип документа. Попробуйте позже.');
+            });
         }
     </script>
 {% endblock %}

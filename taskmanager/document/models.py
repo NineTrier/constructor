@@ -18,6 +18,9 @@ class DocType(models.Model):
     class Meta:
         verbose_name = 'Тип документа'
         verbose_name_plural = 'Типы документов'
+        permissions = (
+            ('toggle_document_organisation', 'Can change organisation visibility of document'),
+        )
 
 
 # Класс документы для базы данных

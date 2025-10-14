@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.generic import CreateView
 from django.contrib.auth import views, models  # noqa: F401  # imported for side effects
+from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied
 from django.http import (
     HttpResponse,
@@ -13,7 +14,6 @@ from django.http import (
     HttpResponseBadRequest,
 )
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
 from django.urls import reverse_lazy
 from django.conf import settings
 from django.db import connection
@@ -66,82 +66,71 @@ editing objects, and managing rows.
 # Helper functions used by multiple views
 # -----------------------------------------------------------------------------
 
+@login_required
+@permission_required('database_manager.manage_object_structure', raise_exception=True)
+@require_http_methods(['POST'])
 def upload_csv_and_get_columns(request):
-    """
-    Read a CSV file sent via POST and return its column names joined by
-    semicolons. This is a lightweight helper used by the front‑end to
-    dynamically build forms when uploading new objects.
-    """
-    if request.method == 'POST':
-        csv_file = request.FILES['csv_file']
-        df = pd.read_csv(csv_file, converters={i: str for i in range(100)})
-        return HttpResponse(";".join(str(x) for x in df.columns.tolist()))
+    """Return semicolon-separated column names for the uploaded CSV file."""
+    csv_file = request.FILES['csv_file']
+    df = pd.read_csv(csv_file, converters={i: str for i in range(100)})
+    return HttpResponse(";".join(str(x) for x in df.columns.tolist()))
 
 
+@login_required
+@permission_required('database_manager.view_object', raise_exception=True)
+@require_http_methods(['POST'])
 def get_object_parameters(request, pk):
-    """
-    Return JSON with the parameters defined for the given object. Each
-    parameter entry includes its database ID, name and whether it is marked
-    as the identifier column.
-    """
+    """Return JSON metadata for the object's parameters."""
     obj = get_object_or_404(Object, pk=pk)
-    if request.method == 'POST':
-        parameters = sorted(Parameter.objects.filter(object=obj), key=lambda x: x.id)
-        result = []
-        for par in parameters:
-            result.append({'id': par.id, 'name': par.name, 'identificator': par.identificator})
-        return HttpResponse(json.dumps({'data': result}))
+    parameters = sorted(Parameter.objects.filter(object=obj), key=lambda x: x.id)
+    result = [{'id': par.id, 'name': par.name, 'identificator': par.identificator} for par in parameters]
+    return JsonResponse({'data': result})
 
 
 # New endpoint: return child links for a given parent object and row identifier
-@csrf_exempt
+@login_required
+@permission_required('database_manager.manage_object_links', raise_exception=True)
+@require_http_methods(['POST'])
 def get_row_links(request, pk):
-    """
-    Given a parent object ID (pk) and a parent row identifier (parent_ident_id) in
-    POST data, return a JSON structure describing the linked child rows. For each
-    Object_ParentObject record associated with the parent object, this returns
-    the child object ID, name, link type and a list of identifiers selected
-    for the given parent row.  If no links exist, returns an empty list.
-    """
+    """Return information about linked child rows for the selected identifier."""
     parent_obj = get_object_or_404(Object, pk=pk)
-    if request.method == 'POST':
-        parent_ident_id = request.POST.get('parent_ident_id')
-        if not parent_ident_id:
-            return HttpResponse(json.dumps({'links': []}))
-        links_data = []
-        for link in Object_ParentObject.objects.filter(parent_object=parent_obj):
-            child_obj = link.object
-            child_ids = list(
-                ObjectLink_identificators.objects.filter(
-                    object_link=link,
-                    parent_object_identificator=parent_ident_id
-                ).values_list('object_identificator', flat=True)
-            )
-            links_data.append({
-                'child_object_id': child_obj.id,
-                'child_object_name': child_obj.name,
-                'link_type': link.link_type,
-                'child_ident_ids': child_ids,
-                'link_id': link.id,
-            })
-        return HttpResponse(json.dumps({'links': links_data}))
-    return HttpResponse(status=405)
+    parent_ident_id = request.POST.get('parent_ident_id')
+    if not parent_ident_id:
+        return JsonResponse({'links': []})
+    links_data = []
+    for link in Object_ParentObject.objects.filter(parent_object=parent_obj):
+        child_obj = link.object
+        child_ids = list(
+            ObjectLink_identificators.objects.filter(
+                object_link=link,
+                parent_object_identificator=parent_ident_id
+            ).values_list('object_identificator', flat=True)
+        )
+        links_data.append({
+            'child_object_id': child_obj.id,
+            'child_object_name': child_obj.name,
+            'link_type': link.link_type,
+            'child_ident_ids': child_ids,
+            'link_id': link.id,
+        })
+    return JsonResponse({'links': links_data})
 
 
+@login_required
+@permission_required('database_manager.manage_object_structure', raise_exception=True)
+@require_http_methods(['POST'])
 def view_data(request):
-    """
-    Render a CSV preview using Pandas. If a drop_column is provided in the
-    POST body, rows with missing values in that column are filtered out.
-    """
-    if request.method == 'POST':
-        csv_file = request.FILES['csv_file']
-        df = pd.read_csv(csv_file, converters={i: str for i in range(100)})
-        drop_column = request.POST.get('drop_column', '-1')
-        if drop_column != '-1':
-            df = df.dropna(subset=[drop_column])
-        return HttpResponse(df.to_html())
+    """Return an HTML preview of the uploaded CSV file."""
+    csv_file = request.FILES['csv_file']
+    df = pd.read_csv(csv_file, converters={i: str for i in range(100)})
+    drop_column = request.POST.get('drop_column', '-1')
+    if drop_column != '-1':
+        df = df.dropna(subset=[drop_column])
+    return HttpResponse(df.to_html())
 
 
+@login_required
+@permission_required('database_manager.view_object', raise_exception=True)
 def object_manager(request):
     """
     Display a list of all objects. If a CSV is posted, behave like view_data
@@ -207,16 +196,19 @@ def _group_parameters_data(parameters_data):
     return grouped
 
 
+@login_required
+@permission_required('database_manager.manage_object_links', raise_exception=True)
+@require_http_methods(['POST'])
 def get_objects_to_connect(request):
-    """
-    Return JSON describing all available objects. This is used by front‑end
-    components when linking objects.
-    """
-    if request.method == 'POST':
-        return HttpResponse(json.dumps({'object': [{'id': x.id, 'name': x.name} for x in Object.objects.all()]}))
+    """Return a JSON list of objects that can be linked."""
+    payload = [{'id': obj.id, 'name': obj.name} for obj in Object.objects.all()]
+    return JsonResponse({'object': payload})
 
 
-@csrf_exempt
+@login_required
+@permission_required('database_manager.add_object', raise_exception=True)
+@permission_required('database_manager.manage_object_structure', raise_exception=True)
+@require_http_methods(['POST'])
 def create_new_object(request):
     """
     Create an empty object with the given name. A unique file is created on
@@ -238,9 +230,11 @@ def create_new_object(request):
     file_path = new_object.data.path
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     df.to_pickle(file_path)
-    return HttpResponse(json.dumps({'id': new_object.id}))
+    return JsonResponse({'id': new_object.id})
 
 
+@login_required
+@permission_required('database_manager.view_object', raise_exception=True)
 def get_object(request, pk):
     """
     Display data from an object as well as its identifier values and
@@ -289,6 +283,8 @@ def get_object(request, pk):
     return render(request, 'database_manager/get_object.html', context)
 
 
+@login_required
+@permission_required('database_manager.view_object', raise_exception=True)
 def post_data_from_object(request, pk):
     """
     Given an identifier (id_to_connect) return all values for that row.
@@ -353,6 +349,9 @@ def post_data_from_object(request, pk):
         return HttpResponse(json.dumps(safe_data))
 
 
+@login_required
+@permission_required('database_manager.add_object', raise_exception=True)
+@permission_required('database_manager.manage_object_structure', raise_exception=True)
 def upload_csv(request):
     """
     Handle the initial creation of an object from a CSV file. Creates a new
@@ -400,7 +399,8 @@ def upload_csv(request):
     return render(request, 'database_manager/upload_csv.html')
 
 
-@csrf_exempt
+@login_required
+@permission_required('database_manager.manage_object_structure', raise_exception=True)
 def delete_param(request, pk):
     """
     Delete a Parameter. Used when modifying an object's schema.
@@ -410,6 +410,8 @@ def delete_param(request, pk):
     return HttpResponse(status=200)
 
 
+@login_required
+@permission_required('database_manager.manage_object_structure', raise_exception=True)
 def update_object(request, pk):
     """
     Edit the metadata of an existing Object including its name, identifier and
@@ -575,6 +577,8 @@ def get_parameters_data_all(obj):
     return parameters_data
 
 
+@login_required
+@permission_required('database_manager.manage_object_data', raise_exception=True)
 def add_element_to_object(request, pk):
     """
     Add a new row to the object's DataFrame. Collects values for each
@@ -816,6 +820,8 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
     return parameters_data
 
 
+@login_required
+@permission_required('database_manager.manage_object_data', raise_exception=True)
 def update_element_to_object(request, pk):
     """
     Edit a specific row within an object's DataFrame. When the request is GET,
@@ -914,6 +920,8 @@ def update_element_to_object(request, pk):
     })
 
 
+@login_required
+@permission_required('database_manager.manage_object_data', raise_exception=True)
 def delete_element_to_object(request, pk):
     """
     Delete a specific row from an object's DataFrame. Expects the row identifier
@@ -930,6 +938,8 @@ def delete_element_to_object(request, pk):
         return HttpResponse()
 
 
+@login_required
+@permission_required('database_manager.manage_object_structure', raise_exception=True)
 def update_csv(request, pk):
     """
     Replace an object's DataFrame with data from a new CSV file. Maps CSV
@@ -963,6 +973,9 @@ def update_csv(request, pk):
     return render(request, 'database_manager/upload_csv.html')
 
 
+@login_required
+@permission_required('database_manager.delete_object', raise_exception=True)
+@permission_required('database_manager.manage_object_structure', raise_exception=True)
 def DeleteObject(request, pk):
     """
     Delete an entire object and any associated parameters and document links. Does
@@ -979,6 +992,8 @@ def DeleteObject(request, pk):
 
 
 @require_http_methods(['POST'])
+@login_required
+@permission_required('database_manager.view_object', raise_exception=True)
 def generate_excel_file(request, pk):
     """
     Generate an Excel file representing the object's identifier column and any
@@ -1002,6 +1017,8 @@ def generate_excel_file(request, pk):
 
 
 @require_http_methods(['POST'])
+@login_required
+@permission_required('database_manager.manage_object_links', raise_exception=True)
 def add_objects_links(request, pk):
     """
     Link the given object (`pk` refers to the parent) to one or more child
@@ -1069,6 +1086,8 @@ def add_objects_link(object_id, object_child_id):
 
 
 @require_http_methods(['POST'])
+@login_required
+@permission_required('database_manager.manage_object_links', raise_exception=True)
 def save_row_link(request, object_link_id):
     """
     Create or update a row‑level link between a parent object's row and a
@@ -1093,6 +1112,8 @@ def save_row_link(request, object_link_id):
 
 
 @require_http_methods(['POST'])
+@login_required
+@permission_required('database_manager.manage_object_links', raise_exception=True)
 def delete_object_link(request, pk):
     """
     Delete an Object_ParentObject link and any associated row-level links.
