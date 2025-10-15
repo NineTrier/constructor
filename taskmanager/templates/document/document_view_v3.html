@@ -455,6 +455,7 @@
                                         <div class="object" id="object_{{ obj.object.id }}">
                                             <div class="d-flex flex-row align-items-center object_header">
                                                 <span style="font-weight: bold;">{{ obj.object.name }}</span>
+                                                <a class="btn btn-labeled" onclick="updateObjectElement({{ obj.object.id }})"><i class="fa-solid fa-pen"></i></a>
                                                 <a class="btn btn-labeled" onclick="deleteObjectFromDocument({{ obj.object.id }})"><i class="fa-solid fa-trash" style="color: red;"></i></a>
                                             </div>
                                             <div class="object_body">
@@ -532,6 +533,44 @@
     <script lang="JavaScript">
             let activeDependenceElement = null;
             let activeDependencePairs = [];
+            let selectedIdent = {};
+
+            function setDependenceHoverState(dependenceId, isActive){
+                if(!dependenceId){
+                    return;
+                }
+                document.querySelectorAll(`[data-dependence-id="${dependenceId}"]`).forEach((node) => {
+                    node.classList.toggle('is-highlighted', isActive);
+                });
+                document.querySelectorAll(`.EventReceiver[data-idDependence="${dependenceId}"]`).forEach((node) => {
+                    node.classList.toggle('is-highlighted', isActive);
+                });
+            }
+
+            function registerDependenceHoverTarget(node, dependenceId, options = {}){
+                if(!node){
+                    return;
+                }
+                const { onEnter, onLeave } = options;
+                const handleEnter = () => {
+                    if(dependenceId){
+                        setDependenceHoverState(dependenceId, true);
+                    }
+                    if(typeof onEnter === 'function'){
+                        onEnter();
+                    }
+                };
+                const handleLeave = () => {
+                    if(dependenceId){
+                        setDependenceHoverState(dependenceId, false);
+                    }
+                    if(typeof onLeave === 'function'){
+                        onLeave();
+                    }
+                };
+                node.addEventListener('mouseenter', handleEnter);
+                node.addEventListener('mouseleave', handleLeave);
+            }
 
             // Класс Стек для Ctrl+Z
             function Stack() {
@@ -696,15 +735,17 @@
                         continue;
                     sender_element.classList.add('hovered_event_caller')
                     const eventEntry = event.event || {};
-                    const payload = eventEntry.event || {};
-                    const operation = (eventEntry.operation || event.operation || '').toLowerCase();
-                    const eventType = (payload.type || eventEntry.type || event.type || '').toLowerCase();
+                    const innerEvent = eventEntry.event || {};
+                    const operation = String(eventEntry.operation || event.operation || '').toLowerCase();
+                    const eventType = String(innerEvent.type || eventEntry.type || event.type || '').toLowerCase();
+                    const eventId = String(eventEntry.id || event.id || '');
                     pairs.push({
                         from: sender_element,
                         to: element,
                         direction: 'incoming',
                         operation: operation,
                         eventType: eventType,
+                        eventId: eventId,
                         forceShownHidden: senderForceShown || elementForceShown
                     })
                 }
@@ -720,15 +761,17 @@
                         continue;
                     receiver_element.classList.add('hovered_dependence')
                     const eventEntry = event.event || {};
-                    const payload = eventEntry.event || {};
-                    const operation = (eventEntry.operation || event.operation || '').toLowerCase();
-                    const eventType = (payload.type || eventEntry.type || event.type || '').toLowerCase();
+                    const innerEvent = eventEntry.event || {};
+                    const operation = String(eventEntry.operation || event.operation || '').toLowerCase();
+                    const eventType = String(innerEvent.type || eventEntry.type || event.type || '').toLowerCase();
+                    const eventId = String(eventEntry.id || event.id || '');
                     pairs.push({
                         from: element,
                         to: receiver_element,
                         direction: 'outgoing',
                         operation: operation,
                         eventType: eventType,
+                        eventId: eventId,
                         forceShownHidden: receiverForceShown || elementForceShown
                     })
                 }
@@ -2207,8 +2250,8 @@
 
                 function createSymbolElement(symbolType, color, direction){
                     const group = document.createElementNS(svgNS, 'g');
-                    group.setAttribute('class', 'dependence-marker');
-                    group.setAttribute('pointer-events', 'none');
+                    group.classList.add('dependence-marker', 'dependence-marker-symbol');
+                    group.setAttribute('pointer-events', 'visiblePainted');
                     const makeLine = (x1, y1, x2, y2, width = 1.6) => {
                         const line = document.createElementNS(svgNS, 'line');
                         line.setAttribute('x1', String(x1));
@@ -2308,8 +2351,15 @@
                         startStubX + 10,
                         Math.min(columnX - 8, startStubX + (columnX - startStubX) * 0.5)
                     );
+                    const rawEventId = pair.eventId;
+                    const eventId = rawEventId !== undefined && rawEventId !== null && rawEventId !== '' ? String(rawEventId) : '';
                     const baseColor = pair.direction === 'incoming' ? '#f97316' : '#4f46e5';
                     const appearance = resolveDependenceStyle(pair, baseColor);
+                    if(eventId){
+                        document.querySelectorAll(`.EventReceiver[data-idDependence="${eventId}"]`).forEach((card) => {
+                            card.style.setProperty('--dependence-accent', appearance.color);
+                        });
+                    }
 
                     const path = document.createElementNS(svgNS, 'path');
                     path.setAttribute('d', `M ${startX} ${startY} L ${entryX} ${startY} L ${columnX} ${startY} L ${columnX} ${endY} L ${endX} ${endY}`);
@@ -2330,15 +2380,22 @@
                         title.textContent = appearance.tooltip;
                         path.appendChild(title);
                     }
+                    path.classList.add('dependence-line');
+                    if(eventId){
+                        path.dataset.dependenceId = eventId;
+                        registerDependenceHoverTarget(path, eventId);
+                    }
                     svg.appendChild(path);
 
                     const symbolElement = createSymbolElement(appearance.symbolType, appearance.color, pair.direction);
                     if(symbolElement){
-                        if(symbolScale !== 1){
-                            symbolElement.setAttribute('transform', `translate(${endX}, ${endY}) scale(${symbolScale})`);
-                        }
-                        else{
-                            symbolElement.setAttribute('transform', `translate(${endX}, ${endY})`);
+                        const transform = symbolScale !== 1
+                            ? `translate(${endX}, ${endY}) scale(${symbolScale})`
+                            : `translate(${endX}, ${endY})`;
+                        symbolElement.setAttribute('transform', transform);
+                        if(eventId){
+                            symbolElement.dataset.dependenceId = eventId;
+                            registerDependenceHoverTarget(symbolElement, eventId);
                         }
                         if(appearance.tooltip){
                             const title = document.createElementNS(svgNS, 'title');
@@ -2353,6 +2410,12 @@
                     sourceDot.setAttribute('cy', startY);
                     sourceDot.setAttribute('r', '2.4');
                     sourceDot.setAttribute('fill', appearance.color);
+                    sourceDot.classList.add('dependence-source');
+                    sourceDot.setAttribute('pointer-events', 'visibleFill');
+                    if(eventId){
+                        sourceDot.dataset.dependenceId = eventId;
+                        registerDependenceHoverTarget(sourceDot, eventId);
+                    }
                     svg.appendChild(sourceDot);
                 }
 
@@ -3914,6 +3977,10 @@
                 if(sender === null || sender === undefined)
                     return;
                 sender.classList.add('hovered_event_caller');
+                const dependenceId = evt.target.closest('.EventReceiver').getAttribute('data-idDependence');
+                if(dependenceId){
+                    setDependenceHoverState(dependenceId, true);
+                }
             }
 
             function mouseOutReceiverContainer(evt){
@@ -3931,6 +3998,10 @@
                 if(sender === null || sender === undefined)
                     return;
                 sender.classList.remove('hovered_event_caller');
+                const dependenceId = evt.target.closest('.EventReceiver').getAttribute('data-idDependence');
+                if(dependenceId){
+                    setDependenceHoverState(dependenceId, false);
+                }
             }
 
             function event_type_changed(evt){
@@ -4203,12 +4274,17 @@
                 let input_id_to_connect = object.querySelector('input[name="param_ident_id"]')
                 input.value = value
                 input_id_to_connect.value = param_ident_id
-                console.log(input_fast)
-                console.log(input_fast.innerHTML)
                 if(input_fast !== null && input_fast !== undefined)
                     input_fast.querySelector('input').value = value
                 input.dispatchEvent(new Event('change'))
+                selectedIdent[object_id] = param_ident_id
                 getDataFromObject(object_id, object.querySelector('form'))
+            }
+
+            function updateObjectElement(object_id) {
+                let ident = selectedIdent[object_id]
+                if(ident == undefined) return
+                location.href = '/database/update_element_to_object/' + object_id + '/?id=' + ident
             }
 
             function openFindDataModal(data, obj_id){

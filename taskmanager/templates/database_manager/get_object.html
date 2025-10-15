@@ -458,11 +458,12 @@
         function click_to_ident(evt, identId) {
             // Show modal and load data
             window.currentIdentId = identId;
-            var modalEl = new bootstrap.Modal(document.getElementById('viewRowModal'), { backdrop: 'static' });
-            $('#modalContent').html('Загрузка...');
-            modalEl.show();
+            // var modalEl = new bootstrap.Modal(document.getElementById('viewRowModal'), { backdrop: 'static' });
+            // $('#modalContent').html('Загрузка...');
+            // modalEl.show();
             // Fetch base row data
             var objId = "{{ object.id }}";
+            updateObjectElement(evt);
         // Get CSRF token from cookie for AJAX requests
         function getCookie(name) {
             var cookieValue = null;

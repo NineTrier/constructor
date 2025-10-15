@@ -1061,14 +1061,21 @@ input[type="number"]::-webkit-inner-spin-button{
     margin-right: 5px;
 }
 
-#EventReceiversList{
+#DependencesList{
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+
+#EventReceiversList{
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
     max-height: 40vh;
     margin-top: 8px;
     overflow: auto;
-    padding-right: 4px;
+    padding: 0 4px 8px 0;
+    scrollbar-gutter: stable;
 }
 
 #img_profile{
@@ -1089,20 +1096,116 @@ input[type="number"]::-webkit-inner-spin-button{
 }
 
 .EventReceiver{
-    padding: 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 12px 12px 12px 20px;
     border: 1px solid #d1d5db;
-    border-radius: 6px;
+    border-radius: 8px;
     background-color: #f9fafb;
-    font-size: 0.8rem;
-    margin: 2px!important;
+    font-size: 0.82rem;
+    margin: 0!important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    position: relative;
 }
 
 .EventReceiver:hover{
     border-color: #9ca3af;
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.08);
+}
+
+.EventReceiver.is-highlighted{
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
+    background-color: #eef2ff;
+}
+
+.EventReceiver::before{
+    content: '';
+    position: absolute;
+    top: 10px;
+    bottom: 10px;
+    left: 8px;
+    width: 4px;
+    border-radius: 4px;
+    background-color: var(--dependence-accent, rgba(148, 163, 184, 0.4));
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.EventReceiver.is-highlighted::before{
+    background-color: var(--dependence-accent, #6366f1);
+    transform: scaleX(1.05);
+}
+
+.EventReceiver.row{
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.EventReceiver.row > .sender-block,
+.EventReceiver.row > .receiver-block,
+.EventReceiver.row > .actions{
+    padding: 0;
+    min-width: 0;
+}
+
+.EventReceiver.row > .actions{
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: stretch;
+    justify-content: center;
+}
+
+.EventReceiver select,
+.EventReceiver input{
+    min-width: 0;
+    width: 100%;
+}
+
+.EventReceiver .event-info,
+.EventReceiver .action-info{
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.EventReceiver .event-info select,
+.EventReceiver .action-info select{
+    flex: 1 1 150px;
+}
+
+.EventReceiver .event-info input,
+.EventReceiver .action-info input{
+    flex: 1 1 140px;
+}
+
+@media (max-width: 992px){
+    .EventReceiver{
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .EventReceiver.row > .actions{
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: 8px;
+    }
+    .EventReceiver .actions .btn{
+        width: auto;
+    }
+}
+
+@media (max-width: 576px){
+    .EventReceiver{
+        padding: 10px;
+    }
+    .EventReceiver .element-header{
+        flex-wrap: wrap;
+        row-gap: 4px;
+    }
 }
 
 .element-name .name {
-    max-width: 150px;
+    max-width: 100%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1298,6 +1401,41 @@ input[type="number"]::-webkit-inner-spin-button{
 
 .EventReceiverID{
     max-width: 200px;
+}
+
+.dependence-line{
+    pointer-events: stroke;
+    cursor: pointer;
+    transition: stroke-width 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
+}
+
+.dependence-line.is-highlighted{
+    stroke-width: 3;
+    opacity: 1;
+    filter: drop-shadow(0 0 4px rgba(79, 70, 229, 0.35));
+}
+
+.dependence-marker-symbol{
+    transition: transform 0.2s ease, filter 0.2s ease;
+    transform-origin: center;
+    transform-box: fill-box;
+    cursor: pointer;
+}
+
+.dependence-marker-symbol.is-highlighted{
+    filter: drop-shadow(0 0 4px rgba(15, 23, 42, 0.25));
+    transform: scale(1.05);
+}
+
+.dependence-source{
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: transform 0.2s ease;
+    cursor: pointer;
+}
+
+.dependence-source.is-highlighted{
+    transform: scale(1.35);
 }
 
 .imageDocElement{
