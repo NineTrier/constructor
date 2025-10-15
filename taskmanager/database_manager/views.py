@@ -553,10 +553,10 @@ def get_parameter_data(data_obj, parameter):
         raw_values_list = []
         for cell_value in column_series:
             cell_value_str = str(cell_value)
-            raw_values_list.extend(cell_value_str.split(parameter.array_separator))
+            raw_values_list.extend([val.strip() for val in cell_value_str.split(parameter.array_separator)])
     else:
         raw_values_list = column_series.tolist()
-    return get_unique_filtered_strings(raw_values_list)
+    return get_unique_filtered_strings(list(set(raw_values_list)))
 
 
 def get_parameters_data_all(obj):

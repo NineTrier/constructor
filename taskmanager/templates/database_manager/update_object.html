@@ -197,7 +197,7 @@ document.addEventListener('change', function(e) {
 });
 
 // Dynamically add new categories to datalist
-document.addEventListener('input', function(e) {
+document.addEventListener('change', function(e) {
     if (e.target.name === 'col_category[]') {
         const val = e.target.value.trim();
         if (val) {
