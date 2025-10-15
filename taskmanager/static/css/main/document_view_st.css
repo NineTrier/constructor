@@ -29,7 +29,7 @@ body{
 }
 
 #objectParametersFast{
-    padding: 5px;
+    padding: 0px 5px 0px 5px;
 }
 
 .variable{
@@ -50,7 +50,7 @@ body{
 #Variables{
     padding-left: 15px;
     padding-top: 15px;
-    max-height: 50vh;
+    max-height: 60vh;
     overflow-y: scroll;
 }
 
@@ -130,13 +130,13 @@ span{
 }
 
 #filters_menu .vr{
-    margin-right: 10px;
-    margin-left: 10px;
+    margin-right: 5px;
+    margin-left: 5px;
 }
 
 #menu .vr{
-    margin-right: 10px;
-    margin-left: 10px;
+    margin-right: 5px;
+    margin-left: 5px;
 }
 
 
@@ -520,13 +520,10 @@ td.paragraph{
 }
 
 #leftMenu{
-    width: 100%;
     display: flex;
     flex-direction: row;
     align-items: center;
     gap: 8px;
-    padding: 10px 20px;
-    border-bottom: 1px solid #e2e8f0;
 }
 
 
@@ -761,7 +758,7 @@ input[type="number"]::-webkit-inner-spin-button{
 
 #document_tree{
     overflow-y: auto;
-    max-height: 40vh;
+    max-height: 60vh;
     max-width: 100%;
     background-color: white;
     padding: 8px 4px;
@@ -775,22 +772,10 @@ input[type="number"]::-webkit-inner-spin-button{
 }
 
 
-#tree_develop{
-    margin-left: 15px;
-}
-
-#tree_develop + label{
-    margin-left: 5px;
-}
-
 #tree_develop_container{
-    padding: 10px;
-    padding-bottom: 25px;
     display: flex;
     flex-direction: row;
     align-items: center;
-    border-bottom: 1px solid #D9D9D9;
-    margin-bottom: 15px;
 }
 
 .variable_ref{
@@ -798,7 +783,7 @@ input[type="number"]::-webkit-inner-spin-button{
 }
 
 #fixedVariables{
-    max-height: 20vh;
+    max-height: 12vh;
     overflow-y: auto;
     margin-bottom: 5px;
 }
@@ -809,7 +794,7 @@ input[type="number"]::-webkit-inner-spin-button{
 }
 
 .smaller{
-    max-height: 30vh!important;
+    max-height: 38vh!important;
 }
 
 #variable_fixed{
@@ -899,7 +884,6 @@ input[type="number"]::-webkit-inner-spin-button{
     border-radius: 16px;
     padding: 20px;
     box-shadow: 0 16px 30px rgba(15, 23, 42, 0.08);
-    overflow-y: auto;
     scrollbar-gutter: stable;
     font-size: 0.95rem;
     line-height: 1.35;
@@ -1026,7 +1010,7 @@ input[type="number"]::-webkit-inner-spin-button{
     display: flex;
     flex-direction: row;
     justify-content: center;
-    padding: 15px;
+    padding: 5px;
     cursor: pointer;
 }
 
@@ -1051,7 +1035,10 @@ input[type="number"]::-webkit-inner-spin-button{
     justify-content: space-between;
     border-bottom: 1px solid black;
     padding: 10px;
+    
+    
 }
+
 
 .selectedTreeElement{
     border: 2px solid #a5bcfc;

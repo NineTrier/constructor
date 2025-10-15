@@ -72,6 +72,11 @@
              
                 <div id="menu">
                     <div id="instruments_menu">
+                        <div class="form-check form-switch me-2" id="tree_develop_container">
+                            <input type="checkbox" class="form-check-input" id="tree_develop" onchange="switchAdminMode(event.target.checked);">
+                            <label class="form-check-label ms-2" for="tree_develop">Разработчик</label>
+                        </div>
+                        <div class="vr"></div>
                         <a type="submit" class="btn btn-labeled" id="updateButton"><i class="fa-solid fa-floppy-disk"></i></a>
                         <a onclick="UpdateFile(true);" target="_blank" class="btn btn-labeled" id="uploadButton"><i class="fa-solid fa-download"></i></a>
                     </div>
@@ -168,7 +173,14 @@
                         </ul>
                     </div>
                 </div>
+                
                 <div id="filters_menu">
+                    <div id="leftMenu">
+                        <a class="btn btn-labeled" data-bs-toggle="modal" data-bs-target="#groupRadioModal" id="btnRadioGroup"><i class="fa-solid fa-list-ol fa-xl"></i></a>
+                        <a class="btn btn-labeled" id="btnDependence" onclick="goToDependence();"><i class="fa-solid fa-timeline fa-xl"></i></a>
+                        <a class="btn btn-labeled" id="btnAddImage" onclick="ButtonAddImage_Click();"><i class="fa-solid fa-image fa-xl"></i></a>
+                    </div>
+                    <div class="vr"></div>
                     <span style="margin-right: 10px;font-weight: bold;">Фильтры:</span>
                     <span class="me-2">Падеж:</span>
                   <div class="btn-group btn-group-toggle" data-toggle="buttons">
@@ -385,20 +397,13 @@
                     </div>
                 </div>
                 <div id="rightContainer">
-                    <div id="leftMenu">
-                        <a class="btn btn-labeled" data-bs-toggle="modal" data-bs-target="#groupRadioModal" id="btnRadioGroup"><i class="fa-solid fa-list-ol fa-xl"></i></a>
-                        <a class="btn btn-labeled" id="btnDependence" onclick="goToDependence();"><i class="fa-solid fa-timeline fa-xl"></i></a>
-                        <a class="btn btn-labeled" id="btnAddImage" onclick="ButtonAddImage_Click();"><i class="fa-solid fa-image fa-xl"></i></a>
-                    </div>
+                    
                     <div id="rightMenu1">
-                        <div class="form-check form-switch" id="tree_develop_container">
-                        <input type="checkbox" class="form-check-input" id="tree_develop" onchange="switchAdminMode(event.target.checked);">
-                        <label class="form-check-label" for="tree_develop">Разработчик</label>
-                    </div>
+                        
                     <div id="rightMenuTopContext" class="invisible">
                         <div class="optionContainer" onclick="OptionContainerIsClicked(event)">
                             <input type="radio" class="btn-check optionInput" name="rightOption" id="optionTreeElement" data-optioned="tree_document" onchange="optionClicked(event);" autocomplete="off" checked/>
-                            <label type="button" class="optionLabel" for="optionTreeElement">Дерево элементов</label>
+                            <label type="button" class="optionLabel" for="optionTreeElement">Дерево</label>
                         </div>
                         <div class="optionContainer" onclick="OptionContainerIsClicked(event)">
                             <input type="radio" class="btn-check optionInput" name="rightOption" id="optionVariables" data-optioned="Variables" onchange="optionClicked(event);" autocomplete="off"/>
@@ -2282,6 +2287,7 @@
                 const laneSpacing = 12;
                 const maxHorizontalSpan = 72;
                 const baseColumnX = Math.min(startStubX + maxHorizontalSpan, overlayWidth - 20);
+                const symbolScale = 2;
 
                 for(const pair of renderPairs){
                     const fromRect = pair.from.getBoundingClientRect();
@@ -2328,7 +2334,12 @@
 
                     const symbolElement = createSymbolElement(appearance.symbolType, appearance.color, pair.direction);
                     if(symbolElement){
-                        symbolElement.setAttribute('transform', `translate(${endX}, ${endY})`);
+                        if(symbolScale !== 1){
+                            symbolElement.setAttribute('transform', `translate(${endX}, ${endY}) scale(${symbolScale})`);
+                        }
+                        else{
+                            symbolElement.setAttribute('transform', `translate(${endX}, ${endY})`);
+                        }
                         if(appearance.tooltip){
                             const title = document.createElementNS(svgNS, 'title');
                             title.textContent = appearance.tooltip;

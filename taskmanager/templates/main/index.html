@@ -12,12 +12,6 @@
 
 {% block content %}
 
-{% if perms.auth.view_user %}
-<div class="text-end mb-3">
-    <a class="btn btn-outline-primary" href="{% url 'user_manager:user_list' %}">Пользователи</a>
-</div>
-{% endif %}
-
 <div id="main">
     {% for typ, values in documents.items %}
     <div class="DocsBlockContainer">
