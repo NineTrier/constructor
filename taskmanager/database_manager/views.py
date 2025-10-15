@@ -810,11 +810,11 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
             if parameter.data_type == 'ARRAY':
                 arrays_data = parameter.array_separator.join(param_data)
                 unique_param_data = set(filter(lambda x: str(x).strip(), arrays_data.split(parameter.array_separator)))
-                arrays_data_list = [value for value in unique_param_data if value not in ['None', 'nan', None, '<NA>'] and value]
+                arrays_data_list = list(set([value.strip() for value in unique_param_data if value not in ['None', 'nan', None, '<NA>'] and value]))
                 arrays_data_indexed = [(i, data) for i, data in enumerate(arrays_data_list)]
                 parameters_data.append((parameter, arrays_data_indexed, find_in_params_data(arrays_data_indexed, current_data, parameter), current_data))
             else:
-                filtered_param_data = [value for value in param_data if value not in ['None', 'nan', None, '<NA>'] and value]
+                filtered_param_data = list(set([value.strip() for value in param_data if value not in ['None', 'nan', None, '<NA>'] and value]))
                 param_data_indexed = [(i, data) for i, data in enumerate(filtered_param_data)]
                 parameters_data.append((parameter, param_data_indexed, find_in_params_data(param_data_indexed, current_data, parameter), current_data))
     return parameters_data
