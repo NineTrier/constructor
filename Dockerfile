@@ -1,4 +1,4 @@
-FROM python:3.8-slim
+﻿FROM python:3.8-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -41,6 +41,8 @@ RUN apt-get update \
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir "pip<24.1" && \
     pip install --no-cache-dir --default-timeout=120 --retries 10 -r /tmp/requirements.txt
+
+RUN sed -i 's/\r$//' /app/docker/entrypoint.sh && chmod +x /app/docker/entrypoint.sh
 
 COPY . /app
 
