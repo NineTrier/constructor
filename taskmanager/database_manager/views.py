@@ -220,7 +220,7 @@ def create_new_object(request):
     file_id = uuid.uuid4().hex
     # Configure the file name within the media root.  Assigning to
     # ``data.name`` ensures the FileField stores the relative path correctly.
-    relative_path = os.path.join('dataframes', f'{file_id}.pkl')
+    relative_path = '/'.join(['dataframes', f'{file_id}.pkl'])
     new_object.data.name = relative_path
     new_object.save()
     # Initialise an empty DataFrame with only the id_to_connect column
@@ -370,7 +370,7 @@ def upload_csv(request):
         file_id = uuid.uuid4().hex
         file_path = os.path.join(settings.MEDIA_ROOT, 'dataframes', f'{file_id}.pkl')
         # Create Object and save
-        obj = Object(name=request.POST['name'], data=os.path.join('dataframes', f'{file_id}.pkl'))
+        obj = Object(name=request.POST['name'], data='/'.join(['dataframes', f'{file_id}.pkl']))
         obj.save()
         # Determine which column is the identifier
         ident = request.POST.get('ident_column', df.columns[0])
