@@ -1,6 +1,7 @@
 #!/bin/sh
 set -e
 
+# Directories and optional overrides.
 MEDIA_ROOT=${DJANGO_MEDIA_ROOT:-/app/media}
 DB_HOST=${DJANGO_DB_HOST:-}
 DB_PORT=${DJANGO_DB_PORT:-}
@@ -9,6 +10,7 @@ AUTO_IMPORT=${DJANGO_AUTO_IMPORT_DUMP:-1}
 FIXTURE_PATH=${DJANGO_FIXTURE_PATH:-/app/backup.json}
 PREPARED_FIXTURE=${DJANGO_PREPARED_FIXTURE_PATH:-/app/backup_prepared.json}
 
+# Wait for the database if host/port provided.
 if [ -n "$DB_HOST" ] && [ -n "$DB_PORT" ]; then
   echo "Waiting for database at ${DB_HOST}:${DB_PORT}..."
   until nc -z "$DB_HOST" "$DB_PORT"; do
@@ -16,11 +18,13 @@ if [ -n "$DB_HOST" ] && [ -n "$DB_PORT" ]; then
   done
 fi
 
+# Ensure media directory exists and seed blank.docx if present.
 mkdir -p "$MEDIA_ROOT"
 if [ -f "/app/blank.docx" ] && [ ! -f "${MEDIA_ROOT}/blank.docx" ]; then
   cp "/app/blank.docx" "${MEDIA_ROOT}/blank.docx"
 fi
 
+# Move to project root so manage.py commands work.
 if [ -d "$PROJECT_ROOT" ]; then
   cd "$PROJECT_ROOT"
 else
@@ -28,8 +32,10 @@ else
   cd /app
 fi
 
+# Apply migrations.
 python manage.py migrate --noinput
 
+# Optionally load fixture data if database is empty.
 if [ "$AUTO_IMPORT" = "1" ]; then
   if [ -f "$FIXTURE_PATH" ]; then
     echo "Preparing data fixture from ${FIXTURE_PATH}..."
@@ -62,7 +68,19 @@ prepared_path.write_text(json.dumps(filtered, ensure_ascii=False), encoding="utf
 print(f"Fixture prepared with {len(filtered)} objects (removed {len(data) - len(filtered)}).")
 PY
 
-    if python manage.py shell -c "from django.contrib.auth import get_user_model; import sys; sys.exit(0 if not get_user_model().objects.exists() else 1)"; then
+    # Import only if there are no users yet (assumes empty DB).
+    if python <<'PY'
+import os
+import sys
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "taskmanager.settings")
+import django
+django.setup()
+from django.contrib.auth import get_user_model
+
+sys.exit(0 if not get_user_model().objects.exists() else 1)
+PY
+    then
       echo "Database appears empty; importing fixture ${PREPARED_FIXTURE}..."
       if python manage.py loaddata "$PREPARED_FIXTURE"; then
         echo "Fixture import completed."
@@ -79,8 +97,13 @@ else
   echo "Automatic fixture import disabled (DJANGO_AUTO_IMPORT_DUMP=${AUTO_IMPORT})."
 fi
 
-python manage.py shell <<'PY'
+# Ensure superuser exists.
+python <<'PY'
 import os
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "taskmanager.settings")
+import django
+django.setup()
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -95,6 +118,7 @@ else:
     print(f"Superuser '{username}' already exists.")
 PY
 
+# Collect static files (idempotent).
 python manage.py collectstatic --noinput
 
 cd /app

@@ -44,7 +44,16 @@ RUN pip install --no-cache-dir "pip<24.1" && \
 
 COPY . /app
 
-RUN sed -i 's/\r$//' /app/docker/entrypoint.sh && chmod +x /app/docker/entrypoint.sh
+RUN python - <<'PY'
+from pathlib import Path
+path = Path("/app/docker/entrypoint.sh")
+data = path.read_bytes()
+if data.startswith(b"\xef\xbb\xbf"):
+    data = data[3:]
+data = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+path.write_bytes(data)
+path.chmod(0o755)
+PY
 
 RUN mkdir -p /app/staticfiles /app/media
 
