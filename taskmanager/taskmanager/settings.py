@@ -25,15 +25,23 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-gts#l3w%h$rmgpe48ymx9&%+mjwet(bqnu1$)k$gk6)k!twaht'
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    'django-insecure-gts#l3w%h$rmgpe48ymx9&%+mjwet(bqnu1$)k$gk6)k!twaht'
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in ("1", "true", "yes")
 
-ALLOWED_HOSTS = ["*"]
+allowed_hosts_raw = os.getenv("DJANGO_ALLOWED_HOSTS", "")
+ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_raw.split(",") if host.strip()]
+if not ALLOWED_HOSTS and DEBUG:
+    ALLOWED_HOSTS = ["*"]
 
-CSRF_TRUSTED_ORIGINS = ['http://localhost:8080', 'https://портал4аас.рф']
-
+csrf_origins_raw = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "")
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip() for origin in csrf_origins_raw.split(",") if origin.strip()
+]
 # Application definition
 
 INSTALLED_APPS = [
@@ -87,12 +95,12 @@ WSGI_APPLICATION = 'taskmanager.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'Constructor',
-        'USER': 'admin',
-        'PASSWORD': 'admin',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'ENGINE': os.getenv('DJANGO_DB_ENGINE', 'django.db.backends.postgresql'),
+        'NAME': os.getenv('DJANGO_DB_NAME', 'constructor'),
+        'USER': os.getenv('DJANGO_DB_USER', 'constructor'),
+        'PASSWORD': os.getenv('DJANGO_DB_PASSWORD', 'constructor'),
+        'HOST': os.getenv('DJANGO_DB_HOST', 'localhost'),
+        'PORT': os.getenv('DJANGO_DB_PORT', '5432'),
     }
 }
 
@@ -124,17 +132,14 @@ SECURE_CROSS_ORIGIN_OPENER_POLICY=None
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
-STATICFILES_DIRS = (
-    os.path.join(BASE_DIR, "static"),
-)
-
 STATIC_URL = '/static/'
+STATIC_ROOT = os.getenv('DJANGO_STATIC_ROOT', os.path.join(BASE_DIR, 'staticfiles'))
 
-    # STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+static_dir = os.path.join(BASE_DIR, "static")
+STATICFILES_DIRS = (static_dir,) if os.path.isdir(static_dir) else ()
 
-# remove STATIC_ROOT
-MEDIA_URL = 'media/'
-MEDIA_ROOT = 'D:\\media'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.getenv('DJANGO_MEDIA_ROOT', os.path.join(BASE_DIR, 'media'))
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
@@ -163,12 +168,16 @@ CORS_EXPOSE_HEADERS = [
     "result",
 ]
 
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+if os.getenv("DJANGO_SECURE_PROXY_SSL_HEADER", "").lower() in ("1", "true", "yes"):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
 
 # session expire at browser close
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 # wsgi scheme
-os.environ['wsgi.url_scheme'] = 'https'
+if os.getenv("DJANGO_FORCE_SECURE_SCHEME", "").lower() in ("1", "true", "yes"):
+    os.environ['wsgi.url_scheme'] = 'https'
+
