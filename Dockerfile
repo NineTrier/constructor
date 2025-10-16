@@ -42,9 +42,9 @@ COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir "pip<24.1" && \
     pip install --no-cache-dir --default-timeout=120 --retries 10 -r /tmp/requirements.txt
 
-RUN sed -i 's/\r$//' /app/docker/entrypoint.sh && chmod +x /app/docker/entrypoint.sh
-
 COPY . /app
+
+RUN sed -i 's/\r$//' /app/docker/entrypoint.sh && chmod +x /app/docker/entrypoint.sh
 
 RUN mkdir -p /app/staticfiles /app/media
 
