@@ -44,12 +44,14 @@ RUN pip install --no-cache-dir "pip<24.1" && \
 
 COPY . /app
 
-RUN mkdir -p /app/staticfiles /app/media && \
-    chmod +x docker/entrypoint.sh
+RUN mkdir -p /app/staticfiles /app/media
 
 ENV DJANGO_SETTINGS_MODULE=taskmanager.settings \
     DJANGO_FIXTURE_PATH=/app/backup.json \
-    DJANGO_AUTO_IMPORT_DUMP=1
+    DJANGO_AUTO_IMPORT_DUMP=1 \
+    DJANGO_SUPERUSER_USERNAME=admin \
+    DJANGO_SUPERUSER_PASSWORD=admin \
+    DJANGO_SUPERUSER_EMAIL=admin@example.com
 
-ENTRYPOINT ["./docker/entrypoint.sh"]
+ENTRYPOINT ["/app/docker/entrypoint.sh"]
 CMD ["gunicorn", "--config", "docker/gunicorn.conf.py", "taskmanager.wsgi:application"]
