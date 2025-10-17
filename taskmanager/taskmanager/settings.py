@@ -171,8 +171,8 @@ CORS_EXPOSE_HEADERS = [
 if os.getenv("DJANGO_SECURE_PROXY_SSL_HEADER", "").lower() in ("1", "true", "yes"):
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-SESSION_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = os.getenv('DJANGO_SESSION_COOKIE_SECURE', str(not DEBUG)).lower() in ('1','true','yes')
+CSRF_COOKIE_SECURE = os.getenv('DJANGO_CSRF_COOKIE_SECURE', str(not DEBUG)).lower() in ('1','true','yes')
 
 # session expire at browser close
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True

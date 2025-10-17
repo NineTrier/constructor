@@ -21,6 +21,7 @@ from django.contrib.auth.decorators import login_required
 from transliterate import translit
 from transliterate.decorators import transliterate_function
 from user_manager.models import Profile, user_directory_path
+from pathlib import Path, PurePosixPath
 
 import pymorphy3
 from pymorphy3.shapes import restore_capitalization
@@ -40,6 +41,22 @@ matchers ={
 }
 
 morph = pymorphy3.MorphAnalyzer()
+
+
+# Helpers for filesystem operations ----------------------------------------
+def _user_media_dir(user_id, *parts):
+    """Ensure MEDIA_ROOT/documents/user_<id>/... exists and return Path."""
+    base = Path(settings.MEDIA_ROOT) / "documents" / f"user_{user_id}"
+    if parts:
+        base = base.joinpath(*[str(part) for part in parts])
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def _user_media_rel(user_id, *parts):
+    """Return POSIX relative path under user documents folder."""
+    return PurePosixPath("documents").joinpath(f"user_{user_id}", *[str(part) for part in parts])
+
 
 # Класс, который помогает создавать новый записи в базу данных Documents
 # и открывает страницу с добавлением новых документов
@@ -64,15 +81,16 @@ class DocumentCreate(CreateView):
         document.type = DocType.objects.get(id=request.POST['type'])
         document.owner = Profile.for_user(request.user)
         file = request.FILES.get('file')
-        fileDirect = int(DocumentsPattern.objects.latest('id').id)+1
-        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}"):
-            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}")
-        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}"):
-            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}")
-        fs = FileSystemStorage(location=f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}")
-        fs.save(translit_russian(file.name), file)
-        file_url = f"documents\\user_{request.user.id}\\{fileDirect}\\{translit_russian(file.name)}"
-        document.file = file_url
+        try:
+            latest_document = DocumentsPattern.objects.latest('id')
+            next_id = latest_document.id + 1
+        except DocumentsPattern.DoesNotExist:
+            next_id = 1
+        user_dir = _user_media_dir(request.user.id, next_id)
+        safe_name = translit_russian(file.name)
+        fs = FileSystemStorage(location=str(user_dir))
+        fs.save(safe_name, file)
+        document.file = _user_media_rel(request.user.id, next_id, safe_name).as_posix()
         document.save()
         response = redirect(f"/document/view?id={document.id}&type=1")
         return response
@@ -99,19 +117,17 @@ def create_New_Document(request):
         document.picture = f"noimage.jpeg"
         print(document)
         try:
-            fileDirect = int(DocumentsPattern.objects.latest('id').id)+1
-        except Exception as exc:
-            print(exc)
-            fileDirect = 0
-        print(fileDirect)
-        os.makedirs(os.path.dirname(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}"), exist_ok=True)
-        os.makedirs(os.path.dirname(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}"), exist_ok=True)
+            latest_document = DocumentsPattern.objects.latest('id')
+            next_id = latest_document.id + 1
+        except DocumentsPattern.DoesNotExist:
+            next_id = 1
+        target_dir = _user_media_dir(request.user.id, next_id)
         file_name = f"{translit_russian(document.name)}{translit_russian(document.owner.__str__())}"[:50]
-        file_url = f"documents\\user_{request.user.id}\\{fileDirect}\\{file_name}.docx"
-        document.file = file_url
-        doc_file = Document(f"{settings.MEDIA_ROOT}\\blank.docx")
-        os.makedirs(os.path.dirname(f"{settings.MEDIA_ROOT}\\{file_url}"), exist_ok=True)
-        doc_file.save(f"{settings.MEDIA_ROOT}\\{file_url}")
+        destination_path = target_dir / f"{file_name}.docx"
+        document.file = _user_media_rel(request.user.id, next_id, f"{file_name}.docx").as_posix()
+        blank_template = Path(settings.BASE_DIR).parent / 'blank.docx'
+        doc_file = Document(str(blank_template))
+        doc_file.save(str(destination_path))
         document.save()
         return redirect(f"/document/view?id={document.id}&type=1")
     form = DocumentForm()
@@ -133,13 +149,11 @@ def SaveCover(request):
         img = str(img).replace('data:image/png;base64,', '')
         img = str(img).replace(' ', '+')
         dat = base64.decodebytes(img.encode('utf-8'))
-        fileDirect = document.id
-        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}"):
-            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}")
-        with open(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}\\{translit_russian(document.name)}Cover.png", 'wb') as file:
-            file.write(dat)
-        file_url = f"documents\\user_{request.user.id}\\{fileDirect}\\{translit_russian(document.name)}Cover.png"
-        document.picture = file_url
+        target_dir = _user_media_dir(request.user.id, document.id)
+        file_name = f"{translit_russian(document.name)}Cover.png"
+        file_path = target_dir / file_name
+        file_path.write_bytes(dat)
+        document.picture = _user_media_rel(request.user.id, document.id, file_name).as_posix()
         document.save() 
         return HttpResponse()
     except Exception as exc:
@@ -153,16 +167,16 @@ def SaveImage(request):
         id = request.POST['id']
         document = DocumentsPattern.objects.get(id=id)
         img = request.FILES['img']
-        fileDirect = document.id
-        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}"):
-            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}")
-        file_url = f"documents\\user_{request.user.id}\\{fileDirect}\\{request.POST['idImage']}.png"
-        if os.path.isfile(f"{settings.MEDIA_ROOT}\\{file_url}"):
-            os.remove(f"{settings.MEDIA_ROOT}\\{file_url}")
+        target_dir = _user_media_dir(request.user.id, document.id)
+        image_name = f"{request.POST['idImage']}.png"
+        file_path = target_dir / image_name
+        if file_path.exists():
+            file_path.unlink()
+        storage_path = _user_media_rel(request.user.id, document.id, image_name).as_posix()
         fs = FileSystemStorage()
-        filename = fs.save(file_url, img)
+        fs.save(storage_path, img)
         response = HttpResponse()
-        response['img'] = f"{settings.MEDIA_URL}{file_url}"
+        response['img'] = f"{settings.MEDIA_URL}{storage_path}"
         return response
     except Exception as exc:
         print(exc)
@@ -286,16 +300,15 @@ def CopyDocument(request, id=None):
         document.description = documentToCopy.description
         document.picture = f"noimage.jpeg"
         document.json = documentToCopy.json
-        fileDirect = int(DocumentsPattern.objects.latest('id').id)+1
-        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}"):
-            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}")
-        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}"):
-            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}")
+        latest_document = DocumentsPattern.objects.order_by('-id').first()
+        next_id = (latest_document.id if latest_document else 0) + 1
+        target_dir = _user_media_dir(request.user.id, next_id)
         file_name = f"{translit_russian(document.name)}{translit_russian(document.owner.__str__())}.docx"
-        file_url = f"documents\\user_{request.user.id}\\{fileDirect}\\{file_name}"
-        doc_file = Document(documentToCopy.file)
-        doc_file.save(f"{settings.MEDIA_ROOT}/{file_url}")
-        document.file = file_url
+        destination_path = target_dir / file_name
+        source_path = getattr(documentToCopy.file, "path", None)
+        doc_file = Document(source_path)
+        doc_file.save(str(destination_path))
+        document.file = _user_media_rel(request.user.id, next_id, file_name).as_posix()
         document.documentOfOrganisation = False
         if document.save():
             print('Документ добавлен')
@@ -378,41 +391,36 @@ def AddDocumentToUser(request, id=None):
         document.description = documentToCopy.description
         document.picture = f"noimage.jpeg"
         document.json = documentToCopy.json
-        fileDirect = int(DocumentsPattern.objects.latest('id').id)+1
-        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}"):
-            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}")
-        if not os.path.isdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}"):
-            os.mkdir(f"{settings.MEDIA_ROOT}\\documents\\user_{request.user.id}\\{fileDirect}")
+        latest_document = DocumentsPattern.objects.order_by('-id').first()
+        next_id = (latest_document.id if latest_document else 0) + 1
+        target_dir = _user_media_dir(request.user.id, next_id)
         file_name = f"{translit_russian(document.name)}{translit_russian(document.owner.__str__())}.docx"
-        file_url = f"documents\\user_{request.user.id}\\{fileDirect}\\{file_name}"
-        doc_file = Document(documentToCopy.file)
-        doc_file.save(f"{settings.MEDIA_ROOT}/{file_url}")
-        document.file = file_url
+        destination_path = target_dir / file_name
+        source_path = getattr(documentToCopy.file, "path", None)
+        doc_file = Document(source_path)
+        doc_file.save(str(destination_path))
+        document.file = _user_media_rel(request.user.id, next_id, file_name).as_posix()
         document.documentOfOrganisation = False
-        if document.save():
-            print('Документ добавлен')
-            response['id'] = document.id
-            document_parentDocument.save()
-            for document_variable in variables:
-                print(document_variable)
-                new_document_variable = Document_VariableBlock.objects.filter(document=document, variable=document_variable.variable).first()
-                if not new_document_variable:
-                    new_document_variable = Document_VariableBlock()
+        document.save()
+        response['id'] = document.id
+        document_parentDocument.save()
+        for document_variable in variables:
+            print(document_variable)
+            new_document_variable = Document_VariableBlock.objects.filter(document=document, variable=document_variable.variable).first()
+            if not new_document_variable:
                 new_document_variable = Document_VariableBlock()
-                new_document_variable.variable = document_variable.variable
-                new_document_variable.document = document
-                new_document_variable.save()
-            for document_object in objects:
-                new_document_object = DocumentPattern_Objects.objects.filter(object=document_object.object, document=document).first()
-                if not new_document_object:
-                    new_document_object = DocumentPattern_Objects()
-                new_document_object.document = document
-                new_document_object.object = document_object.object
-                new_document_object.save()
-            return response
-        else:
-            print('документ не сохранен')
-            return HttpResponseNotModified()
+            new_document_variable = Document_VariableBlock()
+            new_document_variable.variable = document_variable.variable
+            new_document_variable.document = document
+            new_document_variable.save()
+        for document_object in objects:
+            new_document_object = DocumentPattern_Objects.objects.filter(object=document_object.object, document=document).first()
+            if not new_document_object:
+                new_document_object = DocumentPattern_Objects()
+            new_document_object.document = document
+            new_document_object.object = document_object.object
+            new_document_object.save()
+        return response
     except Exception as exc:
         print(f"Не получилось {exc}")
         return HttpResponseNotModified()
@@ -451,8 +459,12 @@ def DeleteDocument(request):
     for child in childs:
         child.delete()
     try:
-        os.remove(f"{settings.MEDIA_ROOT}/{document.file}")
-        os.remove(f"{settings.MEDIA_ROOT}/{document.picture}")
+        file_path = Path(settings.MEDIA_ROOT) / str(document.file)
+        if file_path.exists():
+            file_path.unlink()
+        picture_path = Path(settings.MEDIA_ROOT) / str(document.picture)
+        if picture_path.exists():
+            picture_path.unlink()
         document.delete()
         return response
     except Exception as exc:
