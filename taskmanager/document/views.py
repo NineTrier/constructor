@@ -99,12 +99,23 @@ def _copy_document_for_user(request, document_id):
         file_name = f"{translit_russian(document.name)}{translit_russian(document.owner.__str__())}.docx"
         destination_path = target_dir / file_name
 
-        source_path = getattr(document_to_copy.file, "path", None)
+        source_candidates = []
+        try:
+            source_candidates.append(Path(document_to_copy.file.path))
+        except (ValueError, AttributeError):
+            pass
+        relative_raw = str(document_to_copy.file)
+        if relative_raw:
+            relative_normalized = relative_raw.replace('\\', '/')
+            source_candidates.append(Path(settings.MEDIA_ROOT) / relative_normalized)
+            source_candidates.append(Path(settings.BASE_DIR) / relative_normalized)
+
+        source_path = next((p for p in source_candidates if p and p.is_file()), None)
         if not source_path:
-            source_path = Path(settings.MEDIA_ROOT) / str(document_to_copy.file)
-        source_path = Path(source_path)
-        if not source_path.is_file():
-            raise FileNotFoundError(f"Source document file not found: {source_path}")
+            raise FileNotFoundError(
+                f"Source document file not found. Tried paths: "
+                f"{', '.join(str(p) for p in source_candidates if p)}"
+            )
 
         document_api = Document(str(source_path))
         document_api.save(str(destination_path))
