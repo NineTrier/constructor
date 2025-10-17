@@ -23,6 +23,9 @@ from transliterate.decorators import transliterate_function
 from user_manager.models import Profile, user_directory_path
 from pathlib import Path, PurePosixPath
 
+import logging
+logger = logging.getLogger(__name__)
+
 import pymorphy3
 from pymorphy3.shapes import restore_capitalization
 
@@ -56,6 +59,83 @@ def _user_media_dir(user_id, *parts):
 def _user_media_rel(user_id, *parts):
     """Return POSIX relative path under user documents folder."""
     return PurePosixPath("documents").joinpath(f"user_{user_id}", *[str(part) for part in parts])
+
+
+def _copy_document_for_user(request, document_id):
+    """
+    Internal helper that clones a document template for the current user.
+
+    Returns tuple: (success: bool, document instance or None, error message or None)
+    """
+    try:
+        profile = Profile.for_user(request.user)
+
+        document_to_copy = DocumentsPattern.objects.get(id=document_id)
+        document_parent_qs = Document_ParentDocument.objects.filter(parent=document_to_copy, userRequested=profile)
+        objects = DocumentPattern_Objects.objects.filter(document=document_to_copy)
+        variables = Document_VariableBlock.objects.filter(document=document_to_copy.id)
+
+        if document_parent_qs:
+            document = DocumentsPattern.objects.get(id=document_parent_qs[0].document.id)
+            document_parent = document_parent_qs[0]
+        else:
+            document = DocumentsPattern()
+            document_parent = Document_ParentDocument()
+            document_parent.document = document
+            document_parent.parent = document_to_copy
+            document_parent.userRequested = profile
+            document_parent.parentDocumentChanged = False
+
+        document.name = document_to_copy.name[:40]
+        document.owner = profile
+        document.type = document_to_copy.type
+        document.description = document_to_copy.description
+        document.picture = "noimage.jpeg"
+        document.json = document_to_copy.json
+
+        latest_document = DocumentsPattern.objects.order_by('-id').first()
+        next_id = (latest_document.id if latest_document else 0) + 1
+        target_dir = _user_media_dir(request.user.id, next_id)
+        file_name = f"{translit_russian(document.name)}{translit_russian(document.owner.__str__())}.docx"
+        destination_path = target_dir / file_name
+
+        source_path = getattr(document_to_copy.file, "path", None)
+        if not source_path:
+            source_path = Path(settings.MEDIA_ROOT) / str(document_to_copy.file)
+        source_path = Path(source_path)
+        if not source_path.is_file():
+            raise FileNotFoundError(f"Source document file not found: {source_path}")
+
+        document_api = Document(str(source_path))
+        document_api.save(str(destination_path))
+        document.file = _user_media_rel(request.user.id, next_id, file_name).as_posix()
+        document.documentOfOrganisation = False
+        document.save()
+        document_parent.save()
+
+        for document_variable in variables:
+            new_document_variable = Document_VariableBlock.objects.filter(
+                document=document,
+                variable=document_variable.variable
+            ).first() or Document_VariableBlock()
+            new_document_variable.variable = document_variable.variable
+            new_document_variable.document = document
+            new_document_variable.save()
+
+        for document_object in objects:
+            new_document_object = DocumentPattern_Objects.objects.filter(
+                object=document_object.object,
+                document=document
+            ).first() or DocumentPattern_Objects()
+            new_document_object.document = document
+            new_document_object.object = document_object.object
+            new_document_object.save()
+
+        return True, document, None
+
+    except Exception as exc:
+        logger.exception("Failed to copy document %s for user %s", document_id, request.user)
+        return False, None, str(exc)
 
 
 # Класс, который помогает создавать новый записи в базу данных Documents
@@ -348,7 +428,9 @@ def toggle_document_organisation(request):
             payload = request.POST
         doc_id = payload.get('id')
         if not doc_id:
-            return HttpResponseBadRequest("Document id is required.")
+            message = "Document id is required."
+            logger.warning("toggle_document_organisation rejected: %s (user=%s)", message, request.user)
+            return HttpResponseBadRequest(message)
         document = get_object_or_404(DocumentsPattern, pk=int(doc_id))
         if document.owner.user != request.user and not request.user.has_perm('document.toggle_document_organisation'):
             return HttpResponseForbidden()
@@ -360,72 +442,39 @@ def toggle_document_organisation(request):
         return HttpResponseNotModified()
 
 
+
 @csrf_exempt
 def AddDocumentToUser(request, id=None):
-    """Обработчик запроса для копирования документа пользователю"""
-    try:
-        response = HttpResponse()
-        request_data = request.body
-        if id == None:
-            stroke = json.loads(request_data)
-        else:
-            stroke = {'id': id}
-        profile = Profile.for_user(request.user)
-        documentToCopy = DocumentsPattern.objects.get(id=stroke['id'])
-        document_parentDocument = Document_ParentDocument.objects.filter(parent=documentToCopy).filter(userRequested=profile)
-        objects = DocumentPattern_Objects.objects.filter(document=documentToCopy)
-        variables = Document_VariableBlock.objects.filter(document=documentToCopy.id)
-        if document_parentDocument:
-            document = DocumentsPattern.objects.get(id=document_parentDocument[0].document.id)
-            document_parentDocument = document_parentDocument[0]
-        else:
-            document = DocumentsPattern()
-            document_parentDocument = Document_ParentDocument()
-            document_parentDocument.document = document
-            document_parentDocument.parent = documentToCopy
-            document_parentDocument.userRequested = profile
-            document_parentDocument.parentDocumentChanged = False
-        document.name = documentToCopy.name[:40]
-        document.owner = profile
-        document.type = documentToCopy.type
-        document.description = documentToCopy.description
-        document.picture = f"noimage.jpeg"
-        document.json = documentToCopy.json
-        latest_document = DocumentsPattern.objects.order_by('-id').first()
-        next_id = (latest_document.id if latest_document else 0) + 1
-        target_dir = _user_media_dir(request.user.id, next_id)
-        file_name = f"{translit_russian(document.name)}{translit_russian(document.owner.__str__())}.docx"
-        destination_path = target_dir / file_name
-        source_path = getattr(documentToCopy.file, "path", None)
-        doc_file = Document(source_path)
-        doc_file.save(str(destination_path))
-        document.file = _user_media_rel(request.user.id, next_id, file_name).as_posix()
-        document.documentOfOrganisation = False
-        document.save()
-        response['id'] = document.id
-        document_parentDocument.save()
-        for document_variable in variables:
-            print(document_variable)
-            new_document_variable = Document_VariableBlock.objects.filter(document=document, variable=document_variable.variable).first()
-            if not new_document_variable:
-                new_document_variable = Document_VariableBlock()
-            new_document_variable = Document_VariableBlock()
-            new_document_variable.variable = document_variable.variable
-            new_document_variable.document = document
-            new_document_variable.save()
-        for document_object in objects:
-            new_document_object = DocumentPattern_Objects.objects.filter(object=document_object.object, document=document).first()
-            if not new_document_object:
-                new_document_object = DocumentPattern_Objects()
-            new_document_object.document = document
-            new_document_object.object = document_object.object
-            new_document_object.save()
-        return response
-    except Exception as exc:
-        print(f"Не получилось {exc}")
-        return HttpResponseNotModified()
-    
+    """Копирование документа для пользователя (API/внутреннее использование)."""
+    if id is not None:
+        document_id = id
+    else:
+        try:
+            if request.body:
+                try:
+                    payload = json.loads(request.body.decode('utf-8'))
+                except json.JSONDecodeError:
+                    payload = request.POST
+            else:
+                payload = request.POST
+            document_id = payload.get('id')
+        except Exception as exc:
+            message = f"Некорректные данные запроса: {exc}"
+            logger.error(message)
+            return JsonResponse({'success': False, 'error': message}, status=400)
 
+    if document_id is None:
+        message = "Не указан идентификатор документа."
+        logger.error(message)
+        return JsonResponse({'success': False, 'error': message}, status=400)
+
+    success, document, error = _copy_document_for_user(request, document_id)
+    if success:
+        return JsonResponse({'success': True, 'id': document.id})
+
+    message = f"Не удалось добавить документ пользователю: {error}"
+    logger.error(message)
+    return JsonResponse({'success': False, 'error': message}, status=400)
 
 @csrf_exempt
 def SaveSavedElement(request):
@@ -488,8 +537,12 @@ def ViewDocument(request):
     file_path = Doc.file
     file_path = os.path.join(settings.MEDIA_ROOT, str(file_path))
     if request.user != Doc.owner.user:
-        res = AddDocumentToUser(request, fileid)
-        return redirect(f'/document/view?id={res["id"]}')
+        success, cloned_doc, error = _copy_document_for_user(request, fileid)
+        if not success:
+            message = f"Не удалось добавить документ пользователю: {error}"
+            logger.warning(message)
+            return HttpResponseBadRequest(message)
+        return redirect(f'/document/view?id={cloned_doc.id}')
     parent_document = Document_ParentDocument.objects.filter(document=Doc.id)
     objects = []
     for obj in DocumentPattern_Objects.objects.filter(document=Doc.id):
@@ -548,8 +601,12 @@ def ViewDocumentAndCreateDocument(request):
     file_path = Doc.file
     file_path = os.path.join(settings.MEDIA_ROOT, str(file_path))
     if request.user != Doc.owner.user:
-        res = AddDocumentToUser(request, fileid)
-        return redirect(f'/document/view?id={res["id"]}')
+        success, cloned_doc, error = _copy_document_for_user(request, fileid)
+        if not success:
+            message = f"Не удалось добавить документ пользователю: {error}"
+            logger.warning(message)
+            return HttpResponseBadRequest(message)
+        return redirect(f'/document/view?id={cloned_doc.id}')
     parent_document = Document_ParentDocument.objects.filter(document=Doc.id)
     objects = [{'object': obj.object, 'params':[parameter for parameter in Parameter.objects.filter(object=obj.object)]} for obj in DocumentPattern_Objects.objects.filter(document=Doc.id)]
     print(objects)

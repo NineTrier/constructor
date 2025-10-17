@@ -1,3 +1,5 @@
+import logging
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.generic import CreateView
 from django.contrib.auth import views, models  # noqa: F401  # imported for side effects
@@ -18,6 +20,8 @@ from django.urls import reverse_lazy
 from django.conf import settings
 from django.db import connection
 from django.db.models import Q, Max
+
+logger = logging.getLogger(__name__)
 
 from .models import Object, Parameter, Object_ParentObject, ObjectLink_identificators, ParameterCategory
 from document.models import DocumentPattern_Objects
@@ -1101,7 +1105,9 @@ def save_row_link(request, object_link_id):
     parent_ident_id = request.POST.get('parent_ident_id')
     child_ident_id = request.POST.get('child_ident_id')
     if not parent_ident_id or not child_ident_id:
-        return HttpResponseBadRequest("Both parent_ident_id and child_ident_id must be provided.")
+        message = "Both parent_ident_id and child_ident_id must be provided."
+        logger.warning("Row link save rejected: %s (object_link_id=%s, user=%s)", message, object_link_id, request.user)
+        return HttpResponseBadRequest(message)
     # Update or create the row mapping
     ObjectLink_identificators.objects.update_or_create(
         object_link=object_link,
