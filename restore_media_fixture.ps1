@@ -85,8 +85,12 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Log "Docker is available." 'Green'
 
-Write-Log "Ensuring containers are running..." 'Cyan'
-& docker compose --project-directory $projectDirFull up -d | Out-Null
+# Quick connectivity check
+Write-Log "Checking web container status..." 'Cyan'
+& docker compose --project-directory $projectDirFull ps web | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    throw "Web container is not running. Start the stack before restoring media/fixture."
+}
 
 if ($mediaArchive -and -not $SkipMedia.IsPresent) {
     $mediaMountArg = ('{0}:/backup' -f $backupDir)
