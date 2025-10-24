@@ -193,7 +193,11 @@ class UserWithProfileUpdateForm(forms.ModelForm):
         self.fields["first_name"].initial = user.first_name
         self.fields["last_name"].initial = user.last_name
         self.fields["email"].initial = user.email
-        self.fields["roles"].initial = [group.name.removeprefix(ROLE_GROUP_PREFIX) for group in user.groups.all() if group.name.startswith(ROLE_GROUP_PREFIX)]
+        self.fields["roles"].initial = [
+            group.name[len(ROLE_GROUP_PREFIX):]
+            for group in user.groups.all()
+            if group.name.startswith(ROLE_GROUP_PREFIX)
+        ]
         self.fields["is_active"].initial = user.is_active
 
     def save(self, commit: bool = True) -> User:

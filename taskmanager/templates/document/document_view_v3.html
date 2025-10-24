@@ -3400,9 +3400,17 @@
 
                     }
 
+                    parentContainer.appendChild(treeElement);
+
                     CheckUserCanSeeFlags(treeElement);
 
-                    parentContainer.appendChild(treeElement);
+                    const radioGroupId = child.getAttribute('data-idRadioGroup');
+                    if (radioGroupId && radioGroupId !== 'radioGroup-1') {
+                        const radioGroupElement = document.getElementById(radioGroupId);
+                        if (radioGroupElement) {
+                            setRadio(child, radioGroupElement);
+                        }
+                    }
 
                 }
 

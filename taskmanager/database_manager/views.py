@@ -478,7 +478,7 @@ def update_object(request, pk):
                 )
                 parameter.save()
                 # Extend DataFrame with new column
-                data_obj[int(parameter.id)] = pd.NA
+                data_obj[str(parameter.id)] = pd.NA
             else:
                 parameter = Parameter.objects.get(id=int(col_id))
                 parameter.identificator = identificator
@@ -542,17 +542,22 @@ def get_parameter_data(data_obj, parameter):
                 child_df = pickle.load(f)
             ident_param = Parameter.objects.filter(object=parameter.linked_object, identificator=True).first()
             if ident_param:
-                ident_list = [(row['id_to_connect'], str(row[int(ident_param.id)]).strip()) for _, row in child_df.iterrows() if str(row[int(ident_param.id)]).strip()]
-                return ident_list
-            else:
-                return []
+                ident_column_key = _resolve_dataframe_column(child_df, ident_param.id)
+                if ident_column_key is not None:
+                    ident_list = [
+                        (row['id_to_connect'], str(row[ident_column_key]).strip())
+                        for _, row in child_df.iterrows()
+                        if str(row[ident_column_key]).strip()
+                    ]
+                    return ident_list
+            return []
         except Exception:
             return []
-    col_id = int(parameter.id)
-    if col_id not in data_obj.columns:
-        data_obj[col_id] = pd.NA
+    column_key = _resolve_dataframe_column(data_obj, parameter.id)
+    if column_key is None:
+        data_obj[str(parameter.id)] = pd.NA
         return None
-    column_series = data_obj[col_id].dropna()
+    column_series = data_obj[column_key].dropna()
     if parameter.data_type == 'ARRAY':
         raw_values_list = []
         for cell_value in column_series:
@@ -715,8 +720,10 @@ def add_element_to_object(request, pk):
                 child_df = pickle.load(f)
             ident_param = Parameter.objects.filter(object=child_obj, identificator=True).first()
             if ident_param is not None:
-                for _, row in child_df.iterrows():
-                    ident_list.append((row['id_to_connect'], row[int(ident_param.id)]))
+                ident_column_key = _resolve_dataframe_column(child_df, ident_param.id)
+                if ident_column_key is not None:
+                    for _, row in child_df.iterrows():
+                        ident_list.append((row['id_to_connect'], row[ident_column_key]))
         except Exception:
             ident_list = []
         # Group the child object's parameters for display in the preview
@@ -772,6 +779,35 @@ def get_indexed_unique_filtered_values(values_list, array_separator=None):
     return [(i, data) for i, data in enumerate(unique_filtered)]
 
 
+def _resolve_dataframe_column(df, parameter_id):
+    """
+    Return the actual column label used in the DataFrame for the given parameter id.
+    Columns may be stored either as integers or strings depending on the source.
+    """
+    if df is None:
+        return None
+
+    candidates = []
+
+    try:
+        candidates.append(int(parameter_id))
+    except (TypeError, ValueError):
+        pass
+
+    str_candidate = str(parameter_id)
+    if str_candidate not in candidates:
+        candidates.append(str_candidate)
+
+    if parameter_id not in candidates:
+        candidates.append(parameter_id)
+
+    for candidate in candidates:
+        if candidate in df.columns:
+            return candidate
+
+    return None
+
+
 def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
     """
     Load a DataFrame and return, for each Parameter, the available values and
@@ -786,8 +822,15 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
     parameters_data = []
     for parameter in Parameter.objects.filter(object=obj):
         current_data = ""
+        column_key = _resolve_dataframe_column(data_obj, parameter.id)
+        if column_key is None:
+            parameters_data.append((parameter, [], [], ""))
+            continue
         if row is not None and not row.empty:
-            current_data = str(row[int(parameter.id)].iloc[0]).strip()
+            try:
+                current_data = str(row[column_key].iloc[0]).strip()
+            except (KeyError, IndexError):
+                current_data = ""
         current_data = current_data if current_data not in ['None', 'nan', None, '<NA>'] else ""
         if parameter.linked_object:
             # For linked parameters, get selected ids from links
@@ -803,14 +846,23 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
                     child_df = pickle.load(f)
                 ident_param = Parameter.objects.filter(object=parameter.linked_object, identificator=True).first()
                 if ident_param:
-                    data = [(row['id_to_connect'], str(row[int(ident_param.id)]).strip()) for _, row in child_df.iterrows() if str(row[int(ident_param.id)]).strip()]
+                    ident_column_key = _resolve_dataframe_column(child_df, ident_param.id)
+                    if ident_column_key is not None:
+                        data = [
+                            (row['id_to_connect'], str(row[ident_column_key]).strip())
+                            for _, row in child_df.iterrows()
+                            if str(row[ident_column_key]).strip()
+                        ]
+                    else:
+                        data = []
                 else:
                     data = []
             except Exception:
                 data = []
             parameters_data.append((parameter, data, selected_ids, current_data))
         else:
-            param_data = data_obj[int(parameter.id)].dropna().values.tolist()
+            param_series = data_obj[column_key]
+            param_data = param_series.dropna().values.tolist()
             if parameter.data_type == 'ARRAY':
                 arrays_data = parameter.array_separator.join(param_data)
                 unique_param_data = set(filter(lambda x: str(x).strip(), arrays_data.split(parameter.array_separator)))
@@ -841,7 +893,10 @@ def update_element_to_object(request, pk):
         for col_id in col_ids:
             col_values = request.POST.getlist(f'col_value_{col_id}[]')
             parameter = Parameter.objects.get(id=col_id)
-            data_obj.loc[data_obj['id_to_connect'] == param_ident_id, int(col_id)] = (
+            column_key = _resolve_dataframe_column(data_obj, parameter.id)
+            if column_key is None:
+                continue
+            data_obj.loc[data_obj['id_to_connect'] == param_ident_id, column_key] = (
                 str(col_values[0]) if len(col_values) == 1 else parameter.array_separator.join(col_values)
             )
         data_obj.to_pickle(obj.data.path)
@@ -908,11 +963,13 @@ def update_element_to_object(request, pk):
             ident_param = Parameter.objects.filter(object=po.object, identificator=True).first()
             ident_list = []
             if ident_param is not None:
-                for _, row in child_df.iterrows():
-                    ident_list.append((row['id_to_connect'], row[int(ident_param.id)]))
+                ident_column_key = _resolve_dataframe_column(child_df, ident_param.id)
+                if ident_column_key is not None:
+                    for _, row in child_df.iterrows():
+                        ident_list.append((row['id_to_connect'], row[ident_column_key]))
             parameters_objects_idents.append((po.id, po.object, ident_list, selected_ids, po.link_type))
         except Exception:
-            parameters_objects_idents.append((po.id, po.object, [], linked_param_ident_id))
+            parameters_objects_idents.append((po.id, po.object, [], selected_ids, po.link_type))
     print(parameters_objects_idents)
     return render(request, 'database_manager/update_element_to_object.html', context={
         'object': obj,
@@ -962,12 +1019,12 @@ def update_csv(request, pk):
             df.dropna(subset=[drop_column], inplace=True)
         new_df = {}
         for parameter in sorted(Parameter.objects.filter(object=obj), key=lambda x: x.id):
-            col_id = int(parameter.id)
-            csv_name = request.POST.get(f'csv_column_{col_id}', '')
+            column_key = str(parameter.id)
+            csv_name = request.POST.get(f'csv_column_{parameter.id}', '')
             if not csv_name or csv_name == '-1':
-                new_df[col_id] = pd.NA
+                new_df[column_key] = pd.NA
                 continue
-            new_df[col_id] = df[csv_name].map(lambda x: str(x).strip()).tolist()
+            new_df[column_key] = df[csv_name].map(lambda x: str(x).strip()).tolist()
         new_df['id_to_connect'] = [f"{_}_{uuid.uuid4().hex}" for _ in range(df.shape[0])]
         new_df = pd.DataFrame(new_df)
         # Overwrite the existing pickle
@@ -1008,7 +1065,11 @@ def generate_excel_file(request, pk):
     documents = DocumentPattern_Objects.objects.filter(object=obj)
     doc_list = [f"{doc.document.name}**{doc.document.id}**" for doc in documents]
     df_object = pd.read_pickle(obj.data.path)
-    ident_list = [f"{row[ident_param.id]}**{row['id_to_connect']}" for _, row in df_object.iterrows()]
+    ident_column_key = _resolve_dataframe_column(df_object, ident_param.id)
+    if ident_column_key is None:
+        ident_list = [f"**{row['id_to_connect']}" for _, row in df_object.iterrows()]
+    else:
+        ident_list = [f"{row[ident_column_key]}**{row['id_to_connect']}" for _, row in df_object.iterrows()]
     dict_to_df = {f'{ident_param.id}**{ident_param.object.id}**': ident_list}
     df = pd.DataFrame({**dict_to_df, **{doc: ['-'] * len(ident_list) for doc in doc_list}})
     temp_dir = os.path.join(settings.MEDIA_ROOT, 'generated_files')
