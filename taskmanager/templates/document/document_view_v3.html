@@ -2715,6 +2715,20 @@
                 element.style.borderLeftColor = ''  
             }
 
+            function restoreRadioSelections(){
+                if(!document_main)
+                    return;
+                for(let element of document_main.querySelectorAll('.docelement')){
+                    let radioGroupId = element.getAttribute('data-idRadioGroup');
+                    if(!radioGroupId || radioGroupId === 'radioGroup-1')
+                        continue;
+                    let radioGroupElement = document.getElementById(radioGroupId);
+                    if(!radioGroupElement)
+                        continue;
+                    setRadio(element, radioGroupElement);
+                }
+            }
+
             async function radioGroupClick(event){
                 let radioGroup = event.target.closest('.RadioGroup')
                 for(let vari of document.querySelectorAll('.selectedRadioGroup')){
@@ -3400,19 +3414,13 @@
 
                     }
 
-                    parentContainer.appendChild(treeElement);
-
                     CheckUserCanSeeFlags(treeElement);
 
-                    const radioGroupId = child.getAttribute('data-idRadioGroup');
-                    if (radioGroupId && radioGroupId !== 'radioGroup-1') {
-                        const radioGroupElement = document.getElementById(radioGroupId);
-                        if (radioGroupElement) {
-                            setRadio(child, radioGroupElement);
-                        }
-                    }
+                    parentContainer.appendChild(treeElement);
 
                 }
+
+                restoreRadioSelections();
 
                 switchAdminMode(document.querySelector('#tree_develop').checked);
 

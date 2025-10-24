@@ -808,6 +808,20 @@ def _resolve_dataframe_column(df, parameter_id):
     return None
 
 
+def _ensure_dataframe_column(df, parameter_id):
+    """
+    Ensure the DataFrame contains a column for the given parameter id.
+    Returns the column key (existing or newly created).
+    """
+    column_key = _resolve_dataframe_column(df, parameter_id)
+    if column_key is not None:
+        return column_key
+    column_key = str(parameter_id)
+    if column_key not in df.columns:
+        df[column_key] = pd.NA
+    return column_key
+
+
 def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
     """
     Load a DataFrame and return, for each Parameter, the available values and
@@ -822,11 +836,8 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
     parameters_data = []
     for parameter in Parameter.objects.filter(object=obj):
         current_data = ""
-        column_key = _resolve_dataframe_column(data_obj, parameter.id)
-        if column_key is None:
-            parameters_data.append((parameter, [], [], ""))
-            continue
-        if row is not None and not row.empty:
+        column_key = _ensure_dataframe_column(data_obj, parameter.id)
+        if row is not None and not row.empty and column_key is not None:
             try:
                 current_data = str(row[column_key].iloc[0]).strip()
             except (KeyError, IndexError):
@@ -861,7 +872,7 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
                 data = []
             parameters_data.append((parameter, data, selected_ids, current_data))
         else:
-            param_series = data_obj[column_key]
+            param_series = data_obj[column_key] if column_key in data_obj.columns else pd.Series(dtype=object)
             param_data = param_series.dropna().values.tolist()
             if parameter.data_type == 'ARRAY':
                 arrays_data = parameter.array_separator.join(param_data)
@@ -893,9 +904,7 @@ def update_element_to_object(request, pk):
         for col_id in col_ids:
             col_values = request.POST.getlist(f'col_value_{col_id}[]')
             parameter = Parameter.objects.get(id=col_id)
-            column_key = _resolve_dataframe_column(data_obj, parameter.id)
-            if column_key is None:
-                continue
+            column_key = _ensure_dataframe_column(data_obj, parameter.id)
             data_obj.loc[data_obj['id_to_connect'] == param_ident_id, column_key] = (
                 str(col_values[0]) if len(col_values) == 1 else parameter.array_separator.join(col_values)
             )
@@ -1119,6 +1128,20 @@ def add_objects_links(request, pk):
                 linked_object=child_obj,
                 order=0
             )
+            try:
+                with open(parent_object.data.path, 'rb') as f:
+                    parent_df = pickle.load(f)
+            except Exception:
+                parent_df = pd.DataFrame({'id_to_connect': []})
+            _ensure_dataframe_column(parent_df, param.id)
+            try:
+                parent_df.to_pickle(parent_object.data.path)
+            except Exception:
+                logger.warning(
+                    "Failed to persist column for new linked parameter %s on object %s",
+                    param.id,
+                    parent_object.id,
+                )
         links.append({'link': link, 'param': param})
     response_data = {'links': []}
     for item in links:
