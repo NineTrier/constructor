@@ -181,3 +181,24 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 if os.getenv("DJANGO_FORCE_SECURE_SCHEME", "").lower() in ("1", "true", "yes"):
     os.environ['wsgi.url_scheme'] = 'https'
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'taskmanager.database_manager': {
+            'handlers': ['console'],
+            'level': os.getenv('DBM_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': os.getenv('DJANGO_ROOT_LOG_LEVEL', 'WARNING'),
+    },
+}
+

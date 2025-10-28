@@ -454,11 +454,11 @@ def post_data_from_object(request, pk):
                 'data_type': param.data_type,
                 'value': safe_val if safe_val is not None else '',
             }
-    logger.debug(
-        "Prepared row payload for object %s (id_to_connect=%s): keys=%s",
+    logger.info(
+        "Prepared row payload for object %s (id_to_connect=%s): %s",
         obj.pk,
         id_to_connect,
-        list(response_record.keys()),
+        response_record,
     )
     import math
 
