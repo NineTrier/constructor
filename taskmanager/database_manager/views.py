@@ -329,9 +329,15 @@ def get_object(request, pk):
         if child_obj.id not in child_params:
             mapping = {p.id: p.name for p in Parameter.objects.filter(object=child_obj)}
             child_params[child_obj.id] = mapping
+    param_qs = Parameter.objects.filter(object=obj)
+    logger.debug(
+        "Rendering object %s with parameters %s",
+        obj.pk,
+        list(param_qs.values_list('id', flat=True)),
+    )
     context = {
         'object': obj,
-        'parameters': sorted(Parameter.objects.filter(object=obj), key=lambda x: x.id),
+        'parameters': sorted(param_qs, key=lambda x: x.id),
         'idents': idents,
         'documents': [doc.document for doc in DocumentPattern_Objects.objects.filter(object=obj)],
         'child_params': child_params,
@@ -382,30 +388,36 @@ def post_data_from_object(request, pk):
         data = data_obj.loc[data_obj['id_to_connect'] == id_to_connect]
     except KeyError:
         logger.exception(
-            "Failed to filter DataFrame by id_to_connect for object %s.", obj.pk
+            "Failed to filter DataFrame by id_to_connect for object %s.",
+            obj.pk,
         )
         return JsonResponse([], safe=False)
     if data.empty:
         logger.info(
-            "Row with id_to_connect=%s not found for object %s.", id_to_connect, obj.pk
+            "Row with id_to_connect=%s not found for object %s.",
+            id_to_connect,
+            obj.pk,
         )
         return JsonResponse([], safe=False)
-    try:
-        data_dict = data.to_dict(orient='records')
-    except Exception:
-        logger.exception(
-            "Failed to serialise data for object %s row %s.", obj.pk, id_to_connect
-        )
-        return JsonResponse([], safe=False)
-    if not data_dict:
-        return JsonResponse([], safe=False)
-    record = data_dict[0]
-    for key, value in list(record.items()):
-        try:
-            param_id = int(key)
-            param = Parameter.objects.get(id=param_id)
-        except (ValueError, Parameter.DoesNotExist):
+    row = data.iloc[0]
+    response_record = {'id_to_connect': id_to_connect}
+    parameters = Parameter.objects.filter(object=obj).order_by('id')
+    for param in parameters:
+        column_key = _resolve_dataframe_column(data_obj, param.id)
+        key_name = str(param.id)
+        if column_key is None:
+            warnings.append(
+                f"Для параметра '{param.name}' (ID {param.id}) отсутствует столбец в данных объекта."
+            )
+            logger.warning(
+                "Missing column for parameter %s (object %s, parameter id=%s).",
+                param.name,
+                obj.pk,
+                param.id,
+            )
+            response_record[key_name] = {'data_type': param.data_type, 'value': ''}
             continue
+        value = row.get(column_key, '')
         safe_val = value
         try:
             if isinstance(value, float) and (value != value):
@@ -415,11 +427,11 @@ def post_data_from_object(request, pk):
         except Exception:
             logger.exception(
                 "Failed to normalise value for parameter %s in object %s.",
-                param_id,
+                param.id,
                 obj.pk,
             )
         if param.data_type == 'ARRAY':
-            record[key] = {
+            response_record[key_name] = {
                 'data_type': param.data_type,
                 'value': str(safe_val).split(param.array_separator) if safe_val else [],
             }
@@ -430,18 +442,24 @@ def post_data_from_object(request, pk):
                 except Exception:
                     logger.exception(
                         "Failed to parse date value for parameter %s in object %s.",
-                        param_id,
+                        param.id,
                         obj.pk,
                     )
                     parsed_value = ''
-                record[key] = {'data_type': param.data_type, 'value': parsed_value}
+                response_record[key_name] = {'data_type': param.data_type, 'value': parsed_value}
             else:
-                record[key] = {'data_type': param.data_type, 'value': ''}
+                response_record[key_name] = {'data_type': param.data_type, 'value': ''}
         else:
-            record[key] = {
+            response_record[key_name] = {
                 'data_type': param.data_type,
                 'value': safe_val if safe_val is not None else '',
             }
+    logger.debug(
+        "Prepared row payload for object %s (id_to_connect=%s): keys=%s",
+        obj.pk,
+        id_to_connect,
+        list(response_record.keys()),
+    )
     import math
 
     def sanitize(obj):
@@ -455,8 +473,8 @@ def post_data_from_object(request, pk):
             return [sanitize(x) for x in obj]
         return obj
 
-    safe_data = sanitize(data_dict)
-    return JsonResponse(safe_data, safe=False)
+    safe_record = sanitize(response_record)
+    return JsonResponse([safe_record], safe=False)
 
 
 @login_required
