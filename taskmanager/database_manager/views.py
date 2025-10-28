@@ -273,7 +273,13 @@ def get_object(request, pk):
         elif param_ident is None:
             warnings.append("Для объекта не найден параметр с флагом идентификатора.")
         else:
-            missing_columns = [col for col in ('id_to_connect', param_ident.id) if col not in data_obj.columns]
+            id_column_key = _resolve_dataframe_column(data_obj, 'id_to_connect')
+            param_column_key = _resolve_dataframe_column(data_obj, param_ident.id)
+            missing_columns = []
+            if id_column_key is None:
+                missing_columns.append('id_to_connect')
+            if param_column_key is None:
+                missing_columns.append(str(param_ident.id))
             if missing_columns:
                 logger.warning(
                     "Object %s data frame is missing columns: %s",
@@ -286,7 +292,7 @@ def get_object(request, pk):
                 )
             else:
                 for index, row in data_obj.sort_index(axis=0, ascending=False).iterrows():
-                    ident_value = row.get('id_to_connect')
+                    ident_value = row.get(id_column_key)
                     if pd.isna(ident_value):
                         logger.warning(
                             "Row %s in object %s skipped: empty id_to_connect value",
@@ -295,7 +301,7 @@ def get_object(request, pk):
                         )
                         warnings.append(f"Строка {index} пропущена: пустое значение id_to_connect.")
                         continue
-                    param_value = row.get(param_ident.id)
+                    param_value = row.get(param_column_key)
                     if pd.isna(param_value):
                         logger.warning(
                             "Row %s in object %s has empty value for identifier parameter %s",
