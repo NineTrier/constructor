@@ -1,6 +1,7 @@
 import logging
 
 from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
 from django.views.generic import CreateView
 from django.contrib.auth import views, models  # noqa: F401  # imported for side effects
 from django.contrib.auth.decorators import login_required, permission_required
@@ -246,16 +247,67 @@ def get_object(request, pk):
     instead of rendering the template.
     """
     obj = get_object_or_404(Object, pk=pk)
+    warnings = []
+    idents = []
+    param_ident = Parameter.objects.filter(object=obj, identificator=True).first()
     try:
         with open(obj.data.path, 'rb') as f:
             data_obj = pickle.load(f)
-        param_ident = Parameter.objects.filter(object=obj, identificator=True).first()
-        idents = []
-        if param_ident is not None:
-            for i, row in data_obj.sort_index(axis=0, ascending=False).iterrows():
-                idents.append({'id': row['id_to_connect'], 'param_ident': row[param_ident.id]})
-    except (Object.DoesNotExist, Parameter.DoesNotExist, KeyError, IndexError, FileNotFoundError, pickle.UnpicklingError):
-        return HttpResponse(status=404)
+    except FileNotFoundError:
+        logger.exception("Data file for object %s is missing (path=%s)", obj.pk, obj.data.name)
+        warnings.append("Файл с данными объекта не найден, список идентификаторов будет пуст.")
+    except pickle.UnpicklingError:
+        logger.exception("Data file for object %s could not be unpickled", obj.pk)
+        warnings.append("Не удалось прочитать файл данных объекта, список идентификаторов будет пуст.")
+    except Exception:
+        logger.exception("Unexpected error while loading data for object %s", obj.pk)
+        warnings.append("Возникла ошибка при загрузке данных объекта, список идентификаторов будет пуст.")
+    else:
+        if not isinstance(data_obj, pd.DataFrame):
+            logger.warning(
+                "Data for object %s is of type %s instead of pandas.DataFrame",
+                obj.pk,
+                type(data_obj),
+            )
+            warnings.append("Файл данных объекта имеет неподдерживаемый формат, список идентификаторов будет пуст.")
+        elif param_ident is None:
+            warnings.append("Для объекта не найден параметр с флагом идентификатора.")
+        else:
+            missing_columns = [col for col in ('id_to_connect', param_ident.id) if col not in data_obj.columns]
+            if missing_columns:
+                logger.warning(
+                    "Object %s data frame is missing columns: %s",
+                    obj.pk,
+                    ', '.join(str(col) for col in missing_columns),
+                )
+                warnings.append(
+                    "В данных объекта отсутствуют обязательные столбцы ({0}), список идентификаторов будет пуст."
+                    .format(', '.join(str(col) for col in missing_columns))
+                )
+            else:
+                for index, row in data_obj.sort_index(axis=0, ascending=False).iterrows():
+                    ident_value = row.get('id_to_connect')
+                    if pd.isna(ident_value):
+                        logger.warning(
+                            "Row %s in object %s skipped: empty id_to_connect value",
+                            index,
+                            obj.pk,
+                        )
+                        warnings.append(f"Строка {index} пропущена: пустое значение id_to_connect.")
+                        continue
+                    param_value = row.get(param_ident.id)
+                    if pd.isna(param_value):
+                        logger.warning(
+                            "Row %s in object %s has empty value for identifier parameter %s",
+                            index,
+                            obj.pk,
+                            param_ident.id,
+                        )
+                        param_value = ''
+                    idents.append({'id': str(ident_value), 'param_ident': '' if param_value is None else str(param_value)})
+    if warnings and request.method != 'POST':
+        for warning in warnings:
+            messages.warning(request, warning)
     # Build a mapping of parameter metadata for the base object.  We
     # additionally prepare a mapping of child object parameter IDs to
     # their names so that the front‑end can render human‑readable labels
@@ -277,12 +329,14 @@ def get_object(request, pk):
         'idents': idents,
         'documents': [doc.document for doc in DocumentPattern_Objects.objects.filter(object=obj)],
         'child_params': child_params,
+        'warnings': warnings,
     }
     if request.method == 'POST':
         return HttpResponse(json.dumps({
             'object': obj.to_dict(),
             'idents': idents,
             'documents': [{doc.document.id: doc.document.name} for doc in DocumentPattern_Objects.objects.filter(object=obj)],
+            'warnings': warnings,
         }))
     return render(request, 'database_manager/get_object.html', context)
 
@@ -296,61 +350,107 @@ def post_data_from_object(request, pk):
     type and appropriately parsed value.
     """
     obj = get_object_or_404(Object, pk=pk)
-    if request.method == 'POST':
-        with open(obj.data.path, 'rb') as f:
-            data_obj = pickle.load(f)
-        id_to_connect = request.POST.get("param_ident_id")
-        param_ident = Parameter.objects.filter(object=obj, identificator=True).first()
-        # Retrieve the row matching id_to_connect
+    if request.method != 'POST':
+        return HttpResponseBadRequest("Expected POST request.")
+    data_obj, warnings = _safe_load_dataframe(obj.data, object_id=obj.pk)
+    if warnings:
+        logger.info(
+            "Warnings while loading data for object %s during row fetch: %s",
+            obj.pk,
+            "; ".join(warnings),
+        )
+    if data_obj is None:
+        return JsonResponse([], safe=False)
+    id_to_connect = request.POST.get("param_ident_id")
+    if not id_to_connect:
+        logger.warning("Missing param_ident_id in request for object %s.", obj.pk)
+        return JsonResponse([], safe=False)
+    if 'id_to_connect' not in data_obj.columns:
+        logger.warning(
+            "Object %s data frame missing 'id_to_connect' column when fetching value %s.",
+            obj.pk,
+            id_to_connect,
+        )
+        return JsonResponse([], safe=False)
+    try:
         data = data_obj.loc[data_obj['id_to_connect'] == id_to_connect]
-        if data.empty:
-            return HttpResponse(status=404)
+    except KeyError:
+        logger.exception(
+            "Failed to filter DataFrame by id_to_connect for object %s.", obj.pk
+        )
+        return JsonResponse([], safe=False)
+    if data.empty:
+        logger.info(
+            "Row with id_to_connect=%s not found for object %s.", id_to_connect, obj.pk
+        )
+        return JsonResponse([], safe=False)
+    try:
         data_dict = data.to_dict(orient='records')
-        for key, value in data_dict[0].items():
-            try:
-                # Keys that aren't integers correspond to DataFrame index columns like id_to_connect
-                param_id = int(key)
-                param = Parameter.objects.get(id=param_id)
-            except (ValueError, Parameter.DoesNotExist):
-                continue
-            # Convert the value based on its data type
-            # Normalise missing/invalid values: treat NaN, None, 'nan', 'None', '<NA>' as empty
-            safe_val = value
-            try:
-                # Check for float NaN
-                if isinstance(value, float) and (value != value):
-                    safe_val = ''
-                elif str(value).strip().lower() in ['nan', 'none', '<na>', '']:
-                    safe_val = ''
-            except Exception:
-                pass
-            if param.data_type == 'ARRAY':
-                # Split only if there is a value; otherwise return empty list
-                if safe_val:
-                    data_dict[0][key] = {'data_type': param.data_type, 'value': str(safe_val).split(param.array_separator)}
-                else:
-                    data_dict[0][key] = {'data_type': param.data_type, 'value': []}
-            elif param.data_type == 'DATE':
-                if safe_val:
-                    data_dict[0][key] = {'data_type': param.data_type, 'value': param.parse_date(safe_val)}
-                else:
-                    data_dict[0][key] = {'data_type': param.data_type, 'value': ''}
+    except Exception:
+        logger.exception(
+            "Failed to serialise data for object %s row %s.", obj.pk, id_to_connect
+        )
+        return JsonResponse([], safe=False)
+    if not data_dict:
+        return JsonResponse([], safe=False)
+    record = data_dict[0]
+    for key, value in list(record.items()):
+        try:
+            param_id = int(key)
+            param = Parameter.objects.get(id=param_id)
+        except (ValueError, Parameter.DoesNotExist):
+            continue
+        safe_val = value
+        try:
+            if isinstance(value, float) and (value != value):
+                safe_val = ''
+            elif str(value).strip().lower() in ['nan', 'none', '<na>', '']:
+                safe_val = ''
+        except Exception:
+            logger.exception(
+                "Failed to normalise value for parameter %s in object %s.",
+                param_id,
+                obj.pk,
+            )
+        if param.data_type == 'ARRAY':
+            record[key] = {
+                'data_type': param.data_type,
+                'value': str(safe_val).split(param.array_separator) if safe_val else [],
+            }
+        elif param.data_type == 'DATE':
+            if safe_val:
+                try:
+                    parsed_value = param.parse_date(safe_val)
+                except Exception:
+                    logger.exception(
+                        "Failed to parse date value for parameter %s in object %s.",
+                        param_id,
+                        obj.pk,
+                    )
+                    parsed_value = ''
+                record[key] = {'data_type': param.data_type, 'value': parsed_value}
             else:
-                data_dict[0][key] = {'data_type': param.data_type, 'value': safe_val if safe_val is not None else ''}
-        # Recursively replace NaN/None values in the data_dict to avoid invalid JSON like NaN
-        import math
-        def sanitize(obj):
-            if isinstance(obj, float):
-                return '' if math.isnan(obj) else obj
-            if obj is None:
-                return ''
-            if isinstance(obj, dict):
-                return {k: sanitize(v) for k, v in obj.items()}
-            if isinstance(obj, list):
-                return [sanitize(x) for x in obj]
-            return obj
-        safe_data = sanitize(data_dict)
-        return HttpResponse(json.dumps(safe_data))
+                record[key] = {'data_type': param.data_type, 'value': ''}
+        else:
+            record[key] = {
+                'data_type': param.data_type,
+                'value': safe_val if safe_val is not None else '',
+            }
+    import math
+
+    def sanitize(obj):
+        if isinstance(obj, float):
+            return '' if math.isnan(obj) else obj
+        if obj is None:
+            return ''
+        if isinstance(obj, dict):
+            return {k: sanitize(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [sanitize(x) for x in obj]
+        return obj
+
+    safe_data = sanitize(data_dict)
+    return JsonResponse(safe_data, safe=False)
 
 
 @login_required
@@ -422,11 +522,18 @@ def update_object(request, pk):
     parameter definitions. Writes the updated DataFrame back to disk.
     """
     obj = get_object_or_404(Object, pk=pk)
-    # Use the FileField's path attribute to access the underlying file
-    # instead of constructing the path manually. obj.data is a FieldFile,
-    # and obj.data.path resolves to MEDIA_ROOT + obj.data.name.
-    with open(obj.data.path, 'rb') as f:
-        data_obj = pickle.load(f)
+    data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, allow_empty=True)
+    if load_warnings:
+        logger.info(
+            "Warnings while loading data for update_object (object %s): %s",
+            obj.pk,
+            "; ".join(load_warnings),
+        )
+        if request.method != 'POST':
+            for warning in load_warnings:
+                messages.warning(request, warning)
+    if data_obj is None:
+        data_obj = pd.DataFrame({'id_to_connect': []})
     if request.method == 'POST':
         changed = int(request.POST.get('changed', '0'))
         if changed == 0:
@@ -516,6 +623,74 @@ def update_object(request, pk):
     })
 
 
+def _safe_load_dataframe(file_field, *, object_id=None, allow_empty=False):
+    """
+    Safely load a pandas DataFrame from a Django FileField.
+
+    Returns a tuple (dataframe_or_none, warnings_list).  When ``allow_empty`` is
+    True, the function falls back to an empty DataFrame with an ``id_to_connect``
+    column if the file cannot be read.
+    """
+    warnings = []
+    fallback_value = pd.DataFrame({'id_to_connect': []}) if allow_empty else None
+    if not file_field:
+        logger.warning(
+            "Attempted to load data for object %s, but FileField is empty.",
+            object_id,
+        )
+        warnings.append(f"Для объекта (ID {object_id}) не задан файл с данными.")
+        return fallback_value, warnings
+    try:
+        file_path = file_field.path
+    except (ValueError, AttributeError):
+        file_path = None
+    file_name = getattr(file_field, 'name', None)
+    if not file_path:
+        logger.warning(
+            "Data file path is unavailable for object %s (name=%s).",
+            object_id,
+            file_name,
+        )
+        warnings.append(f"Не удалось определить путь к файлу данных объекта (ID {object_id}).")
+        return fallback_value, warnings
+    try:
+        with open(file_path, 'rb') as f:
+            data_obj = pickle.load(f)
+    except FileNotFoundError:
+        logger.exception(
+            "Data file for object %s is missing (path=%s).",
+            object_id,
+            file_name or file_path,
+        )
+        warnings.append(f"Файл данных объекта (ID {object_id}) не найден.")
+        return fallback_value, warnings
+    except pickle.UnpicklingError:
+        logger.exception(
+            "Data file for object %s could not be unpickled (path=%s).",
+            object_id,
+            file_name or file_path,
+        )
+        warnings.append(f"Не удалось прочитать файл данных объекта (ID {object_id}).")
+        return fallback_value, warnings
+    except Exception:
+        logger.exception(
+            "Unexpected error while loading data for object %s (path=%s).",
+            object_id,
+            file_name or file_path,
+        )
+        warnings.append(f"Возникла ошибка при загрузке данных объекта (ID {object_id}).")
+        return fallback_value, warnings
+    if not isinstance(data_obj, pd.DataFrame):
+        logger.warning(
+            "Loaded data for object %s has type %s instead of pandas.DataFrame.",
+            object_id,
+            type(data_obj),
+        )
+        warnings.append(f"Файл данных объекта (ID {object_id}) имеет неподдерживаемый формат.")
+        return fallback_value, warnings
+    return data_obj, warnings
+
+
 def get_unique_filtered_strings(list_of_values):
     """
     Transform a list of values into a sorted list of unique, non‑empty strings.
@@ -536,23 +711,38 @@ def get_parameter_data(data_obj, parameter):
     separator. For linked parameters, returns the ident_list of the linked object.
     """
     if parameter.linked_object:
-        # For linked parameters, return the list of (id_to_connect, identifier_label)
-        try:
-            with open(parameter.linked_object.data.path, 'rb') as f:
-                child_df = pickle.load(f)
-            ident_param = Parameter.objects.filter(object=parameter.linked_object, identificator=True).first()
-            if ident_param:
-                ident_column_key = _resolve_dataframe_column(child_df, ident_param.id)
-                if ident_column_key is not None:
-                    ident_list = [
-                        (row['id_to_connect'], str(row[ident_column_key]).strip())
-                        for _, row in child_df.iterrows()
-                        if str(row[ident_column_key]).strip()
-                    ]
-                    return ident_list
+        child_df, child_warnings = _safe_load_dataframe(
+            getattr(parameter.linked_object, 'data', None),
+            object_id=getattr(parameter.linked_object, 'id', None),
+            allow_empty=True,
+        )
+        if child_warnings:
+            logger.info(
+                "Warnings while loading linked parameter data in get_parameter_data (object %s -> child %s): %s",
+                parameter.object_id,
+                getattr(parameter.linked_object, 'id', None),
+                "; ".join(child_warnings),
+            )
+        if child_df is None:
             return []
-        except Exception:
-            return []
+        ident_param = Parameter.objects.filter(object=parameter.linked_object, identificator=True).first()
+        if ident_param:
+            ident_column_key = _resolve_dataframe_column(child_df, ident_param.id)
+            if ident_column_key is not None:
+                ident_list = []
+                for _, row in child_df.iterrows():
+                    child_ident = row.get('id_to_connect')
+                    ident_value = row.get(ident_column_key)
+                    if pd.isna(child_ident) or pd.isna(ident_value):
+                        continue
+                    ident_list.append((str(child_ident), str(ident_value).strip()))
+                return ident_list
+            logger.warning(
+                "Linked object %s data missing identifier column %s when collecting parameter values.",
+                getattr(parameter.linked_object, 'id', None),
+                ident_param.id,
+            )
+        return []
     column_key = _resolve_dataframe_column(data_obj, parameter.id)
     if column_key is None:
         data_obj[str(parameter.id)] = pd.NA
@@ -574,10 +764,15 @@ def get_parameters_data_all(obj):
     for all parameters defined on the object. Parameters with no values are
     skipped.
     """
-    # Load the DataFrame using the FileField's path instead of building
-    # the absolute path manually. This avoids mixing str and FieldFile types.
-    with open(obj.data.path, 'rb') as f:
-        data_obj = pickle.load(f)
+    data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk)
+    if load_warnings:
+        logger.info(
+            "Warnings while loading data for get_parameters_data_all (object %s): %s",
+            obj.pk,
+            "; ".join(load_warnings),
+        )
+    if data_obj is None:
+        return []
     parameters_data = []
     for parameter in Parameter.objects.filter(object=obj):
         data = get_parameter_data(data_obj, parameter)
@@ -602,12 +797,17 @@ def add_element_to_object(request, pk):
     any selected child links are recorded in ``ObjectLink_identificators``.
     """
     obj = get_object_or_404(Object, pk=pk)
-    # Load the object's DataFrame. If the file is missing or corrupt, an empty
-    # DataFrame is created to allow adding the first row.
-    try:
-        with open(obj.data.path, 'rb') as f:
-            data_obj = pickle.load(f)
-    except Exception:
+    data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, allow_empty=True)
+    if load_warnings:
+        logger.info(
+            "Warnings while loading data for add_element_to_object (object %s): %s",
+            obj.pk,
+            "; ".join(load_warnings),
+        )
+        if request.method != 'POST':
+            for warning in load_warnings:
+                messages.warning(request, warning)
+    if data_obj is None:
         data_obj = pd.DataFrame({'id_to_connect': []})
     # Handle form submission
     if request.method == 'POST':
@@ -625,15 +825,37 @@ def add_element_to_object(request, pk):
                 for idx, po in enumerate(parameters_objects):
                     child_obj = po.object
                     ident_list = []
-                    try:
-                        with open(child_obj.data.path, 'rb') as f:
-                            child_df = pickle.load(f)
+                    child_df, child_warnings = _safe_load_dataframe(
+                        getattr(child_obj, 'data', None),
+                        object_id=getattr(child_obj, 'id', None),
+                        allow_empty=True,
+                    )
+                    if child_warnings:
+                        logger.info(
+                            "Warnings while loading child object data for validation (parent %s -> child %s): %s",
+                            obj.pk,
+                            getattr(child_obj, 'id', None),
+                            "; ".join(child_warnings),
+                        )
+                        for warning in child_warnings:
+                            messages.warning(request, warning)
+                    if child_df is not None:
                         ident_child_param = Parameter.objects.filter(object=child_obj, identificator=True).first()
                         if ident_child_param is not None:
-                            for _, row in child_df.iterrows():
-                                ident_list.append((row['id_to_connect'], row[int(ident_child_param.id)]))
-                    except Exception:
-                        ident_list = []
+                            ident_column_key = _resolve_dataframe_column(child_df, ident_child_param.id)
+                            if ident_column_key is None:
+                                logger.warning(
+                                    "Child object %s data missing identifier column %s during validation.",
+                                    getattr(child_obj, 'id', None),
+                                    ident_child_param.id,
+                                )
+                            else:
+                                for _, row in child_df.iterrows():
+                                    child_ident = row.get('id_to_connect')
+                                    ident_value = row.get(ident_column_key)
+                                    if pd.isna(child_ident) or pd.isna(ident_value):
+                                        continue
+                                    ident_list.append((str(child_ident), str(ident_value).strip()))
                     child_params_data = get_parameters_data_all(child_obj)
                     child_group_data = _group_parameters_data(child_params_data)
                     child_objects_data.append({
@@ -715,17 +937,37 @@ def add_element_to_object(request, pk):
         child_obj = po.object
         # Build list of (id_to_connect, identifier label) for the child object
         ident_list = []
-        try:
-            with open(child_obj.data.path, 'rb') as f:
-                child_df = pickle.load(f)
+        child_df, child_warnings = _safe_load_dataframe(
+            getattr(child_obj, 'data', None),
+            object_id=getattr(child_obj, 'id', None),
+            allow_empty=True,
+        )
+        if child_warnings:
+            logger.info(
+                "Warnings while loading child object data for preview (parent %s -> child %s): %s",
+                obj.pk,
+                getattr(child_obj, 'id', None),
+                "; ".join(child_warnings),
+            )
+            for warning in child_warnings:
+                messages.warning(request, warning)
+        if child_df is not None:
             ident_param = Parameter.objects.filter(object=child_obj, identificator=True).first()
             if ident_param is not None:
                 ident_column_key = _resolve_dataframe_column(child_df, ident_param.id)
-                if ident_column_key is not None:
+                if ident_column_key is None:
+                    logger.warning(
+                        "Child object %s data missing identifier column %s for preview.",
+                        getattr(child_obj, 'id', None),
+                        ident_param.id,
+                    )
+                else:
                     for _, row in child_df.iterrows():
-                        ident_list.append((row['id_to_connect'], row[ident_column_key]))
-        except Exception:
-            ident_list = []
+                        child_ident = row.get('id_to_connect')
+                        ident_value = row.get(ident_column_key)
+                        if pd.isna(child_ident) or pd.isna(ident_value):
+                            continue
+                        ident_list.append((str(child_ident), str(ident_value).strip()))
         # Group the child object's parameters for display in the preview
         child_params_data = get_parameters_data_all(child_obj)
         child_group_data = _group_parameters_data(child_params_data)
@@ -827,12 +1069,35 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
     Load a DataFrame and return, for each Parameter, the available values and
     which indices should be selected for the given row (`param_ident_id`).
     """
-    # Read the pickled DataFrame using FileField.path. Using os.path.join
-    # with obj.data (a FieldFile) causes a TypeError because join expects
-    # a string or path-like object, not a FieldFile.
-    with open(obj.data.path, 'rb') as f:
-        data_obj = pickle.load(f)
-    row = None if param_ident_id is None else data_obj[data_obj['id_to_connect'] == param_ident_id]
+    data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk)
+    if load_warnings:
+        logger.info(
+            "Warnings while loading data for get_parameters_data_by_ident (object %s): %s",
+            obj.pk,
+            "; ".join(load_warnings),
+        )
+    if data_obj is None:
+        return []
+    if param_ident_id is None:
+        row = None
+    else:
+        if 'id_to_connect' not in data_obj.columns:
+            logger.warning(
+                "Data frame for object %s missing 'id_to_connect' column when querying row %s.",
+                obj.pk,
+                param_ident_id,
+            )
+            row = None
+        else:
+            try:
+                row = data_obj[data_obj['id_to_connect'] == param_ident_id]
+            except KeyError:
+                logger.exception(
+                    "Failed to locate row %s in object %s due to missing column.",
+                    param_ident_id,
+                    obj.pk,
+                )
+                row = None
     parameters_data = []
     for parameter in Parameter.objects.filter(object=obj):
         current_data = ""
@@ -852,24 +1117,36 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
                 li = ObjectLink_identificators.objects.filter(object_link=link, parent_object_identificator=param_ident_id).first()
                 selected_ids = [li.object_identificator] if li else []
             # Get data as list of (id, label)
-            try:
-                with open(parameter.linked_object.data.path, 'rb') as f:
-                    child_df = pickle.load(f)
+            child_df, child_warnings = _safe_load_dataframe(
+                getattr(parameter.linked_object, 'data', None),
+                object_id=getattr(parameter.linked_object, 'id', None),
+                allow_empty=True,
+            )
+            if child_warnings:
+                logger.info(
+                    "Warnings while loading linked parameter data (object %s -> child %s): %s",
+                    obj.pk,
+                    getattr(parameter.linked_object, 'id', None),
+                    "; ".join(child_warnings),
+                )
+            data = []
+            if child_df is not None:
                 ident_param = Parameter.objects.filter(object=parameter.linked_object, identificator=True).first()
                 if ident_param:
                     ident_column_key = _resolve_dataframe_column(child_df, ident_param.id)
-                    if ident_column_key is not None:
-                        data = [
-                            (row['id_to_connect'], str(row[ident_column_key]).strip())
-                            for _, row in child_df.iterrows()
-                            if str(row[ident_column_key]).strip()
-                        ]
+                    if ident_column_key is None:
+                        logger.warning(
+                            "Linked object %s data missing identifier column %s.",
+                            getattr(parameter.linked_object, 'id', None),
+                            ident_param.id,
+                        )
                     else:
-                        data = []
-                else:
-                    data = []
-            except Exception:
-                data = []
+                        for _, row in child_df.iterrows():
+                            child_ident = row.get('id_to_connect')
+                            ident_value = row.get(ident_column_key)
+                            if pd.isna(child_ident) or pd.isna(ident_value):
+                                continue
+                            data.append((str(child_ident), str(ident_value).strip()))
             parameters_data.append((parameter, data, selected_ids, current_data))
         else:
             param_series = data_obj[column_key] if column_key in data_obj.columns else pd.Series(dtype=object)
@@ -896,8 +1173,20 @@ def update_element_to_object(request, pk):
     are persisted. This view also populates data for any linked child objects.
     """
     obj = get_object_or_404(Object, pk=pk)
-    with open(obj.data.path, 'rb') as f:
-        data_obj = pickle.load(f)
+    data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, allow_empty=True)
+    if load_warnings:
+        logger.info(
+            "Warnings while loading data for update_element_to_object (object %s): %s",
+            obj.pk,
+            "; ".join(load_warnings),
+        )
+        if request.method != 'POST':
+            for warning in load_warnings:
+                messages.warning(request, warning)
+    if data_obj is None:
+        data_obj = pd.DataFrame({'id_to_connect': []})
+    if 'id_to_connect' not in data_obj.columns:
+        data_obj['id_to_connect'] = pd.NA
     param_ident_id = request.GET.get('id')
     if request.method == 'POST':
         col_ids = list(map(int, request.POST.getlist('col_id[]')))
@@ -966,20 +1255,40 @@ def update_element_to_object(request, pk):
         parameters_objects_data.append((po.object, True if idx == 0 else False))
         parameters_objects_params_group_data.append((po.object, po_group_data, True if idx == 0 else False))
         # Build list of identifiers for the child object
-        try:
-            with open(po.object.data.path, 'rb') as f:
-                child_df = pickle.load(f)
+        child_df, child_warnings = _safe_load_dataframe(
+            getattr(po.object, 'data', None),
+            object_id=getattr(po.object, 'id', None),
+            allow_empty=True,
+        )
+        if child_warnings:
+            logger.info(
+                "Warnings while loading identifiers for update_element_to_object (parent %s -> child %s): %s",
+                obj.pk,
+                getattr(po.object, 'id', None),
+                "; ".join(child_warnings),
+            )
+            if request.method != 'POST':
+                for warning in child_warnings:
+                    messages.warning(request, warning)
+        ident_list = []
+        if child_df is not None:
             ident_param = Parameter.objects.filter(object=po.object, identificator=True).first()
-            ident_list = []
             if ident_param is not None:
                 ident_column_key = _resolve_dataframe_column(child_df, ident_param.id)
-                if ident_column_key is not None:
+                if ident_column_key is None:
+                    logger.warning(
+                        "Child object %s data missing identifier column %s.",
+                        getattr(po.object, 'id', None),
+                        ident_param.id,
+                    )
+                else:
                     for _, row in child_df.iterrows():
-                        ident_list.append((row['id_to_connect'], row[ident_column_key]))
-            parameters_objects_idents.append((po.id, po.object, ident_list, selected_ids, po.link_type))
-        except Exception:
-            parameters_objects_idents.append((po.id, po.object, [], selected_ids, po.link_type))
-    print(parameters_objects_idents)
+                        child_ident = row.get('id_to_connect')
+                        ident_value = row.get(ident_column_key)
+                        if pd.isna(child_ident) or pd.isna(ident_value):
+                            continue
+                        ident_list.append((str(child_ident), str(ident_value).strip()))
+        parameters_objects_idents.append((po.id, po.object, ident_list, selected_ids, po.link_type))
     return render(request, 'database_manager/update_element_to_object.html', context={
         'object': obj,
         'parameters_group_data': parameters_group_data,
@@ -997,15 +1306,47 @@ def delete_element_to_object(request, pk):
     Delete a specific row from an object's DataFrame. Expects the row identifier
     to be provided as the 'id' query parameter.
     """
-    if request.method == 'POST':
-        obj = get_object_or_404(Object, pk=pk)
-        with open(obj.data.path, 'rb') as f:
-            data_obj = pickle.load(f)
-        param_ident_id = request.GET.get('id')
+    if request.method != 'POST':
+        return HttpResponseBadRequest("Expected POST request.")
+    obj = get_object_or_404(Object, pk=pk)
+    data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk)
+    if load_warnings:
+        logger.info(
+            "Warnings while loading data for delete_element_to_object (object %s): %s",
+            obj.pk,
+            "; ".join(load_warnings),
+        )
+    if data_obj is None:
+        return HttpResponse(status=200)
+    param_ident_id = request.GET.get('id')
+    if not param_ident_id:
+        logger.warning("Missing id parameter when deleting element from object %s.", obj.pk)
+        return HttpResponseBadRequest("Missing id parameter.")
+    if 'id_to_connect' not in data_obj.columns:
+        logger.warning(
+            "Data frame for object %s missing 'id_to_connect' column during delete.",
+            obj.pk,
+        )
+        return HttpResponse(status=200)
+    try:
         index = data_obj[data_obj['id_to_connect'] == param_ident_id].index
-        data_obj.drop(index, inplace=True)
-        data_obj.to_pickle(obj.data.path)
-        return HttpResponse()
+    except KeyError:
+        logger.exception(
+            "Failed to locate row %s in object %s while deleting (missing column).",
+            param_ident_id,
+            obj.pk,
+        )
+        return HttpResponse(status=200)
+    if index.empty:
+        logger.info(
+            "Row %s not found in object %s during delete request.",
+            param_ident_id,
+            obj.pk,
+        )
+        return HttpResponse(status=204)
+    data_obj.drop(index, inplace=True)
+    data_obj.to_pickle(obj.data.path)
+    return HttpResponse()
 
 
 @login_required
@@ -1019,8 +1360,13 @@ def update_csv(request, pk):
     """
     obj = get_object_or_404(Object, pk=pk)
     if request.method == 'POST':
-        with open(obj.data.path, 'rb') as f:
-            data_obj = pickle.load(f)
+        _, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk)
+        if load_warnings:
+            logger.info(
+                "Warnings while loading existing data before CSV update (object %s): %s",
+                obj.pk,
+                "; ".join(load_warnings),
+            )
         csv_file = request.FILES['csv_file']
         df = pd.read_csv(csv_file, converters={i: str for i in range(100)})
         drop_column = request.POST.get('drop_column', '-1')
@@ -1128,16 +1474,25 @@ def add_objects_links(request, pk):
                 linked_object=child_obj,
                 order=0
             )
-            try:
-                with open(parent_object.data.path, 'rb') as f:
-                    parent_df = pickle.load(f)
-            except Exception:
+            parent_df, parent_warnings = _safe_load_dataframe(
+                parent_object.data,
+                object_id=parent_object.id,
+                allow_empty=True,
+            )
+            if parent_warnings:
+                logger.info(
+                    "Warnings while loading parent data during link creation (parent %s -> child %s): %s",
+                    parent_object.id,
+                    child_obj.id,
+                    "; ".join(parent_warnings),
+                )
+            if parent_df is None:
                 parent_df = pd.DataFrame({'id_to_connect': []})
             _ensure_dataframe_column(parent_df, param.id)
             try:
                 parent_df.to_pickle(parent_object.data.path)
             except Exception:
-                logger.warning(
+                logger.exception(
                     "Failed to persist column for new linked parameter %s on object %s",
                     param.id,
                     parent_object.id,

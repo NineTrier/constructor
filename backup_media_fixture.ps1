@@ -58,16 +58,20 @@ Write-Log "Media archive created." 'Green'
 
 if (-not $SkipFixture) {
     $fixturePath = Join-Path $backupDirFull "fixture_$timestamp.json"
+    $fixtureTemp = "/tmp/fixture_$timestamp.json"
     Write-Log "Dumping Django fixture -> $fixturePath" 'Cyan'
 
-    $fixtureCommand = "cd /app/taskmanager && PYTHONIOENCODING=utf-8 python manage.py dumpdata --exclude contenttypes --exclude auth.permission --indent 2"
-    $fixtureContent = docker compose --project-directory $projectDir exec -T web bash -lc $fixtureCommand
-
-    [System.IO.File]::WriteAllText(
-        $fixturePath,
-        $fixtureContent,
-        [System.Text.UTF8Encoding]::new($false)
-    )
+    $dumpCommand = @"
+cd /app/taskmanager \
+ && PYTHONIOENCODING=utf-8 python manage.py dumpdata \
+        --exclude contenttypes \
+        --exclude auth.permission \
+        --indent 2 \
+    > $fixtureTemp
+"@
+    docker compose --project-directory $projectDir exec -T web bash -lc $dumpCommand | Out-Null
+    docker compose --project-directory $projectDir cp "web:$fixtureTemp" $fixturePath
+    docker compose --project-directory $projectDir exec -T web rm -f $fixtureTemp | Out-Null
     Write-Log "Fixture saved." 'Green'
 } else {
     Write-Log "Fixture dump skipped." 'Yellow'
