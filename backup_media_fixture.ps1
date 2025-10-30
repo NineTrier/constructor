@@ -28,6 +28,32 @@ function Write-Log {
     Write-Host "[$timestamp] $Message" -ForegroundColor $Color
 }
 
+function Convert-FixtureToUtf8 {
+    param([string]$SourcePath)
+
+    $bytes = [System.IO.File]::ReadAllBytes($SourcePath)
+    if ($bytes.Length -eq 0) {
+        return
+    }
+
+    $utf8Encoding = New-Object System.Text.UTF8Encoding($false)
+
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+        return
+    }
+
+    if ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) {
+        $text = [System.Text.Encoding]::Unicode.GetString($bytes, 2, $bytes.Length - 2)
+    } elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF) {
+        $text = [System.Text.Encoding]::BigEndianUnicode.GetString($bytes, 2, $bytes.Length - 2)
+    } else {
+        $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+        return
+    }
+
+    [System.IO.File]::WriteAllText($SourcePath, $text, $utf8Encoding)
+}
+
 $projectDir = "C:\constructor"
 $backupRoot = "C:\constructor\backup"
 $timestamp  = Get-Date -Format 'yyyyMMdd_HHmm'
@@ -72,6 +98,7 @@ cd /app/taskmanager \
     docker compose --project-directory $projectDir exec -T web bash -lc $dumpCommand | Out-Null
     docker compose --project-directory $projectDir cp "web:$fixtureTemp" $fixturePath
     docker compose --project-directory $projectDir exec -T web rm -f $fixtureTemp | Out-Null
+    Convert-FixtureToUtf8 -SourcePath $fixturePath
     Write-Log "Fixture saved." 'Green'
 } else {
     Write-Log "Fixture dump skipped." 'Yellow'

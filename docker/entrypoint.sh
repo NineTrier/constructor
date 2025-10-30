@@ -32,9 +32,41 @@ else
   cd /app
 fi
 
-python manage.py makemigrations --noinput
-# Apply migrations.
-python manage.py migrate --noinput
+# Apply migrations unless explicitly disabled.
+AUTO_MIGRATE=${DJANGO_AUTO_MIGRATE:-1}
+if [ "$AUTO_MIGRATE" = "1" ]; then
+  NEED_MIGRATIONS_OUTPUT="$(
+    python <<'PY'
+import os
+import sys
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "taskmanager.settings")
+try:
+    import django
+    django.setup()
+    from django.db import connections
+    from django.db.migrations.executor import MigrationExecutor
+    connection = connections['default']
+    executor = MigrationExecutor(connection)
+    targets = executor.loader.graph.leaf_nodes()
+    plan = executor.migration_plan(targets)
+    print("1" if plan else "0")
+except Exception as exc:
+    print(f"migration_check_error:{exc}")
+    print("0")
+PY
+  )"
+  NEED_MIGRATIONS="$(printf '%s\n' "$NEED_MIGRATIONS_OUTPUT" | tail -n 1)"
+  if [ "$NEED_MIGRATIONS" = "1" ]; then
+    echo "Pending migrations detected; applying..."
+    if ! python manage.py migrate --noinput --fake-initial; then
+      echo "Migration command failed; skipping automatic migration."
+    fi
+  else
+    echo "No pending migrations detected; skipping automatic migrate."
+  fi
+else
+  echo "Automatic migrations disabled (DJANGO_AUTO_MIGRATE=${AUTO_MIGRATE})."
+fi
 
 # Optionally load fixture data if database is empty.
 if [ "$AUTO_IMPORT" = "1" ]; then

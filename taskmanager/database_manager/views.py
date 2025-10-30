@@ -32,9 +32,17 @@ import os
 import uuid
 import json
 import pickle
+from pathlib import Path
+from functools import lru_cache
+
 import pandas as pd
 from sqlalchemy.engine import create_engine  # noqa: F401  # imported for side effects
 from sqlalchemy import inspect, text  # noqa: F401  # imported for side effects
+
+try:  # Optional encryption support
+    from cryptography.fernet import Fernet, InvalidToken
+except ImportError:  # pragma: no cover - dependency may be absent
+    Fernet = InvalidToken = None
 
 
 """
@@ -70,6 +78,189 @@ editing objects, and managing rows.
 # -----------------------------------------------------------------------------
 # Helper functions used by multiple views
 # -----------------------------------------------------------------------------
+
+_DATASTORE_JSON_MAGIC = b'DFJSON1|'
+_DATASTORE_ENCRYPTED_MAGIC = b'DFENC1|'
+_DATASTORE_FORMAT_VERSION = 1
+_DATASTORE_SUBDIR = Path('dataframes')
+
+
+@lru_cache(maxsize=1)
+def _get_fernet():
+    key = getattr(settings, 'DATASTORE_ENCRYPTION_KEY', None)
+    if not key:
+        return None
+    if Fernet is None:
+        logger.warning(
+            "DATASTORE_ENCRYPTION_KEY is set, but the 'cryptography' package is not installed. "
+            "Falling back to plaintext JSON."
+        )
+        return None
+    try:
+        return Fernet(key)
+    except Exception:
+        logger.warning(
+            "Failed to initialise Fernet with the provided DATASTORE_ENCRYPTION_KEY. "
+            "Falling back to plaintext JSON."
+        )
+        return None
+
+
+def _get_backup_limit() -> int:
+    try:
+        limit = int(getattr(settings, 'DATASTORE_BACKUP_LIMIT', 10))
+    except (TypeError, ValueError):
+        limit = 10
+    return max(limit, 0)
+
+
+def _normalise_storage_name(name: str) -> str:
+    if not name:
+        return ''
+    return name.replace('\\', '/').lstrip('/')
+
+
+def _ensure_storage_name(file_field, desired_suffix: str = '.json'):
+    current = _normalise_storage_name(getattr(file_field, 'name', '') or '')
+    changed = False
+    if not current:
+        current = (_DATASTORE_SUBDIR / f"{uuid.uuid4().hex}{desired_suffix}").as_posix()
+        changed = True
+    else:
+        path_obj = Path(current)
+        if path_obj.suffix.lower() != desired_suffix:
+            current = path_obj.with_suffix(desired_suffix).as_posix()
+            changed = True
+    file_field.name = current
+    return current, changed
+
+
+def _build_absolute_path(relative_name: str) -> Path:
+    relative_name = _normalise_storage_name(relative_name)
+    if not relative_name:
+        raise ValueError("Cannot resolve absolute path without a relative file name.")
+    return Path(settings.MEDIA_ROOT).joinpath(Path(relative_name))
+
+
+def _rotate_backups(path: Path) -> None:
+    limit = _get_backup_limit()
+    if limit <= 0:
+        return
+    for idx in range(limit, 0, -1):
+        src = path.with_suffix(path.suffix + f'.old{idx}')
+        dst = path.with_suffix(path.suffix + f'.old{idx + 1}')
+        if src.exists():
+            if idx == limit:
+                src.unlink()
+            else:
+                src.rename(dst)
+    if path.exists():
+        path.rename(path.with_suffix(path.suffix + '.old1'))
+
+
+def _serialise_dataframe(df: pd.DataFrame) -> dict:
+    if df is None:
+        df = pd.DataFrame()
+    serialisable = df.copy()
+    serialisable = serialisable.replace({pd.NA: None})
+    serialisable = serialisable.where(pd.notnull(serialisable), None)
+    columns = [str(col) for col in serialisable.columns]
+    records = []
+    for row in serialisable.to_dict(orient='records'):
+        records.append({str(k): v for k, v in row.items()})
+    return {
+        'version': _DATASTORE_FORMAT_VERSION,
+        'columns': columns,
+        'records': records,
+    }
+
+
+def _serialise_dataframe_to_bytes(df: pd.DataFrame) -> bytes:
+    payload = _serialise_dataframe(df)
+    json_bytes = json.dumps(payload, ensure_ascii=False, default=str).encode('utf-8')
+    fernet = _get_fernet()
+    if fernet:
+        try:
+            encrypted = fernet.encrypt(json_bytes)
+        except Exception:
+            logger.exception("Failed to encrypt DataFrame payload; writing plaintext JSON instead.")
+        else:
+            return _DATASTORE_ENCRYPTED_MAGIC + encrypted
+    return _DATASTORE_JSON_MAGIC + json_bytes
+
+
+def _deserialise_dataframe_from_payload(payload: dict) -> pd.DataFrame:
+    if not isinstance(payload, dict):
+        raise ValueError("Malformed dataframe payload: expected an object at top level.")
+    columns = payload.get('columns', [])
+    records = payload.get('records', [])
+    if columns and not isinstance(columns, list):
+        raise ValueError("Malformed dataframe payload: 'columns' must be a list.")
+    if not isinstance(records, list):
+        raise ValueError("Malformed dataframe payload: 'records' must be a list.")
+    df = pd.DataFrame(records)
+    if columns:
+        ordered_columns = [str(col) for col in columns]
+        seen = set()
+        deduped_order = []
+        for col in ordered_columns:
+            if col in seen:
+                continue
+            seen.add(col)
+            deduped_order.append(col)
+        ordered_columns = deduped_order
+        for column in ordered_columns:
+            if column not in df.columns:
+                df[column] = pd.NA
+        df = df[ordered_columns]
+    df = df.where(pd.notnull(df), pd.NA)
+    return df
+
+
+def _load_dataframe_from_path(path: Path):
+    with path.open('rb') as handle:
+        raw_bytes = handle.read()
+    if not raw_bytes:
+        return pd.DataFrame(), 'json'
+    try:
+        if raw_bytes.startswith(_DATASTORE_ENCRYPTED_MAGIC):
+            fernet = _get_fernet()
+            if fernet is None:
+                raise RuntimeError(
+                    "Encrypted datastore encountered but DATASTORE_ENCRYPTION_KEY is not configured or invalid."
+                )
+            decrypted = fernet.decrypt(raw_bytes[len(_DATASTORE_ENCRYPTED_MAGIC):])
+            payload = json.loads(decrypted.decode('utf-8'))
+            return _deserialise_dataframe_from_payload(payload), 'json-encrypted'
+        if raw_bytes.startswith(_DATASTORE_JSON_MAGIC):
+            payload = json.loads(raw_bytes[len(_DATASTORE_JSON_MAGIC):].decode('utf-8'))
+            return _deserialise_dataframe_from_payload(payload), 'json'
+        if path.suffix.lower() == '.json':
+            payload = json.loads(raw_bytes.decode('utf-8'))
+            return _deserialise_dataframe_from_payload(payload), 'json'
+        data_obj = pickle.loads(raw_bytes)
+        return data_obj, 'pickle'
+    except InvalidToken as exc:
+        raise RuntimeError("Failed to decrypt encrypted datastore.") from exc
+
+
+def _archive_legacy_file(path: Path) -> None:
+    if path.exists():
+        _rotate_backups(path)
+
+
+def _write_dataframe(file_field, df: pd.DataFrame, *, object_instance=None) -> str:
+    relative_name, changed = _ensure_storage_name(file_field, desired_suffix='.json')
+    absolute_path = _build_absolute_path(relative_name)
+    absolute_path.parent.mkdir(parents=True, exist_ok=True)
+    _rotate_backups(absolute_path)
+    payload = _serialise_dataframe_to_bytes(df)
+    with absolute_path.open('wb') as handle:
+        handle.write(payload)
+    if changed and object_instance is not None and getattr(object_instance, 'pk', None):
+        object_instance.save(update_fields=['data'])
+    return relative_name
+
 
 @login_required
 @permission_required('database_manager.manage_object_structure', raise_exception=True)
@@ -225,16 +416,12 @@ def create_new_object(request):
     file_id = uuid.uuid4().hex
     # Configure the file name within the media root.  Assigning to
     # ``data.name`` ensures the FileField stores the relative path correctly.
-    relative_path = '/'.join(['dataframes', f'{file_id}.pkl'])
+    relative_path = '/'.join(['dataframes', f'{file_id}.json'])
     new_object.data.name = relative_path
     new_object.save()
     # Initialise an empty DataFrame with only the id_to_connect column
     df = pd.DataFrame({"id_to_connect": []})
-    # Build the absolute file path using obj.data.path (which resolves
-    # settings.MEDIA_ROOT + relative_path)
-    file_path = new_object.data.path
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    df.to_pickle(file_path)
+    _write_dataframe(new_object.data, df, object_instance=new_object)
     return JsonResponse({'id': new_object.id})
 
 
@@ -250,26 +437,21 @@ def get_object(request, pk):
     warnings = []
     idents = []
     param_ident = Parameter.objects.filter(object=obj, identificator=True).first()
-    try:
-        with open(obj.data.path, 'rb') as f:
-            data_obj = pickle.load(f)
-    except FileNotFoundError:
-        logger.exception("Data file for object %s is missing (path=%s)", obj.pk, obj.data.name)
-        warnings.append("Файл с данными объекта не найден, список идентификаторов будет пуст.")
-    except pickle.UnpicklingError:
-        logger.exception("Data file for object %s could not be unpickled", obj.pk)
-        warnings.append("Не удалось прочитать файл данных объекта, список идентификаторов будет пуст.")
-    except Exception:
-        logger.exception("Unexpected error while loading data for object %s", obj.pk)
-        warnings.append("Возникла ошибка при загрузке данных объекта, список идентификаторов будет пуст.")
-    else:
+    data_obj, load_warnings = _safe_load_dataframe(
+        obj.data,
+        object_id=obj.pk,
+        object_instance=obj,
+    )
+    if load_warnings:
+        warnings.extend(load_warnings)
+    if data_obj is not None:
         if not isinstance(data_obj, pd.DataFrame):
             logger.warning(
                 "Data for object %s is of type %s instead of pandas.DataFrame",
                 obj.pk,
                 type(data_obj),
             )
-            warnings.append("Файл данных объекта имеет неподдерживаемый формат, список идентификаторов будет пуст.")
+            warnings.append("Файл с данными объекта имеет неподдерживаемый формат, список идентификаторов будет пуст.")
         elif param_ident is None:
             warnings.append("Для объекта не найден параметр с флагом идентификатора.")
         else:
@@ -364,7 +546,7 @@ def post_data_from_object(request, pk):
     obj = get_object_or_404(Object, pk=pk)
     if request.method != 'POST':
         return HttpResponseBadRequest("Expected POST request.")
-    data_obj, warnings = _safe_load_dataframe(obj.data, object_id=obj.pk)
+    data_obj, warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj)
     if warnings:
         logger.info(
             "Warnings while loading data for object %s during row fetch: %s",
@@ -494,11 +676,11 @@ def upload_csv(request):
             df.dropna(subset=[drop_column], inplace=True)
         # Convert all values to strings and trim whitespace
         df = df.map(lambda x: str(x).strip())
-        # Create a unique filename for the data pickle
+        # Create a unique filename for the data store
         file_id = uuid.uuid4().hex
-        file_path = os.path.join(settings.MEDIA_ROOT, 'dataframes', f'{file_id}.pkl')
+        relative_name = '/'.join(['dataframes', f'{file_id}.json'])
         # Create Object and save
-        obj = Object(name=request.POST['name'], data='/'.join(['dataframes', f'{file_id}.pkl']))
+        obj = Object(name=request.POST['name'], data=relative_name)
         obj.save()
         # Determine which column is the identifier
         ident = request.POST.get('ident_column', df.columns[0])
@@ -519,10 +701,9 @@ def upload_csv(request):
             for i, col in enumerate(df.columns)
         ]
         params = Parameter.objects.bulk_create(parameters)
-        df.columns = [param.id for param in params]
+        df.columns = [str(param.id) for param in params]
         df['id_to_connect'] = [f"{_}_{uuid.uuid4().hex}" for _ in range(df.shape[0])]
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        df.to_pickle(file_path)
+        _write_dataframe(obj.data, df, object_instance=obj)
         return HttpResponse(f'/database/get_object/{obj.id}')
     return render(request, 'database_manager/upload_csv.html')
 
@@ -546,7 +727,7 @@ def update_object(request, pk):
     parameter definitions. Writes the updated DataFrame back to disk.
     """
     obj = get_object_or_404(Object, pk=pk)
-    data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, allow_empty=True)
+    data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj, allow_empty=True)
     if load_warnings:
         logger.info(
             "Warnings while loading data for update_object (object %s): %s",
@@ -622,7 +803,7 @@ def update_object(request, pk):
                 parameter.save()
         # Persist DataFrame changes back to the file. The FileField's path
         # handles MEDIA_ROOT internally, so no need for os.path.join.
-        data_obj.to_pickle(obj.data.path)
+        _write_dataframe(obj.data, data_obj, object_instance=obj)
         # Update link types for existing object links
         for link in Object_ParentObject.objects.filter(parent_object=obj):
             lt = request.POST.get(f'link_type_{link.id}', None)
@@ -647,11 +828,12 @@ def update_object(request, pk):
     })
 
 
-def _safe_load_dataframe(file_field, *, object_id=None, allow_empty=False):
+
+def _safe_load_dataframe(file_field, *, object_id=None, object_instance=None, allow_empty=False):
     """
     Safely load a pandas DataFrame from a Django FileField.
 
-    Returns a tuple (dataframe_or_none, warnings_list).  When ``allow_empty`` is
+    Returns a tuple ``(dataframe_or_none, warnings_list)``.  When ``allow_empty`` is
     True, the function falls back to an empty DataFrame with an ``id_to_connect``
     column if the file cannot be read.
     """
@@ -662,58 +844,112 @@ def _safe_load_dataframe(file_field, *, object_id=None, allow_empty=False):
             "Attempted to load data for object %s, but FileField is empty.",
             object_id,
         )
-        warnings.append(f"Для объекта (ID {object_id}) не задан файл с данными.")
+        warnings.append(f"Для объекта не указан файл с данными.")
         return fallback_value, warnings
+
+    relative_name = _normalise_storage_name(getattr(file_field, 'name', '') or '')
     try:
-        file_path = file_field.path
+        file_path = Path(file_field.path)
     except (ValueError, AttributeError):
         file_path = None
-    file_name = getattr(file_field, 'name', None)
-    if not file_path:
+        if relative_name:
+            try:
+                file_path = _build_absolute_path(relative_name)
+            except ValueError:
+                file_path = None
+
+    if not file_path or not file_path.exists():
         logger.warning(
-            "Data file path is unavailable for object %s (name=%s).",
+            "Data file for object %s is missing or inaccessible (name=%s, resolved_path=%s).",
             object_id,
-            file_name,
+            relative_name,
+            file_path,
         )
-        warnings.append(f"Не удалось определить путь к файлу данных объекта (ID {object_id}).")
+        warnings.append(f"Файл с данными объекта не найден.")
         return fallback_value, warnings
+
     try:
-        with open(file_path, 'rb') as f:
-            data_obj = pickle.load(f)
+        data_obj, format_hint = _load_dataframe_from_path(file_path)
     except FileNotFoundError:
-        logger.exception(
-            "Data file for object %s is missing (path=%s).",
+        logger.warning(
+            "Data file for object %s disappeared before it could be read (path=%s).",
             object_id,
-            file_name or file_path,
+            file_path,
         )
-        warnings.append(f"Файл данных объекта (ID {object_id}) не найден.")
+        warnings.append(f"Файл с данными объекта не найден.")
         return fallback_value, warnings
-    except pickle.UnpicklingError:
+    except RuntimeError as exc:
         logger.exception(
-            "Data file for object %s could not be unpickled (path=%s).",
+            "Failed to decode datastore for object %s (path=%s): %s",
             object_id,
-            file_name or file_path,
+            file_path,
+            exc,
         )
-        warnings.append(f"Не удалось прочитать файл данных объекта (ID {object_id}).")
+        warnings.append(
+            f"Не удалось прочитать файл данных объекта. Проверьте настройки шифрования."
+        )
+        return fallback_value, warnings
+    except (pickle.UnpicklingError, json.JSONDecodeError, UnicodeDecodeError):
+        logger.exception(
+            "Structured data for object %s is corrupted (path=%s).",
+            object_id,
+            file_path,
+        )
+        warnings.append(
+            f"Файл с данными объекта повреждён или имеет неизвестный формат."
+        )
         return fallback_value, warnings
     except Exception:
         logger.exception(
             "Unexpected error while loading data for object %s (path=%s).",
             object_id,
-            file_name or file_path,
+            file_path,
         )
-        warnings.append(f"Возникла ошибка при загрузке данных объекта (ID {object_id}).")
+        warnings.append(
+            f"Произошла непредвиденная ошибка при чтении данных объекта."
+        )
         return fallback_value, warnings
+
     if not isinstance(data_obj, pd.DataFrame):
         logger.warning(
-            "Loaded data for object %s has type %s instead of pandas.DataFrame.",
+            "Loaded data for object %s has unexpected type %s.",
             object_id,
             type(data_obj),
         )
-        warnings.append(f"Файл данных объекта (ID {object_id}) имеет неподдерживаемый формат.")
+        warnings.append(
+            f"Файл с данными объекта содержит неподдерживаемый формат."
+        )
         return fallback_value, warnings
-    return data_obj, warnings
 
+    if format_hint == 'pickle':
+        try:
+            _archive_legacy_file(file_path)
+        except Exception:
+            logger.exception(
+                "Failed to archive legacy pickle file for object %s (path=%s).",
+                object_id,
+                file_path,
+            )
+            warnings.append(
+                f"Не удалось создать резервную копию старого pickle-файла объекта."
+            )
+        try:
+            _write_dataframe(file_field, data_obj, object_instance=object_instance)
+        except Exception:
+            logger.exception(
+                "Failed to convert pickle data to JSON for object %s.",
+                object_id,
+            )
+            warnings.append(
+                f"Не удалось автоматически конвертировать данные объекта в новый формат."
+            )
+        else:
+            warnings.append(
+                "Данные объекта автоматически переведены в новый формат хранения. "
+                "Старый файл сохранён рядом с расширением .old1."
+            )
+
+    return data_obj, warnings
 
 def get_unique_filtered_strings(list_of_values):
     """
@@ -738,6 +974,7 @@ def get_parameter_data(data_obj, parameter):
         child_df, child_warnings = _safe_load_dataframe(
             getattr(parameter.linked_object, 'data', None),
             object_id=getattr(parameter.linked_object, 'id', None),
+            object_instance=parameter.linked_object,
             allow_empty=True,
         )
         if child_warnings:
@@ -788,7 +1025,7 @@ def get_parameters_data_all(obj):
     for all parameters defined on the object. Parameters with no values are
     skipped.
     """
-    data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk)
+    data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj)
     if load_warnings:
         logger.info(
             "Warnings while loading data for get_parameters_data_all (object %s): %s",
@@ -821,7 +1058,7 @@ def add_element_to_object(request, pk):
     any selected child links are recorded in ``ObjectLink_identificators``.
     """
     obj = get_object_or_404(Object, pk=pk)
-    data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, allow_empty=True)
+    data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj, allow_empty=True)
     if load_warnings:
         logger.info(
             "Warnings while loading data for add_element_to_object (object %s): %s",
@@ -852,6 +1089,7 @@ def add_element_to_object(request, pk):
                     child_df, child_warnings = _safe_load_dataframe(
                         getattr(child_obj, 'data', None),
                         object_id=getattr(child_obj, 'id', None),
+                        object_instance=child_obj,
                         allow_empty=True,
                     )
                     if child_warnings:
@@ -910,16 +1148,16 @@ def add_element_to_object(request, pk):
                 parameter = Parameter.objects.get(id=col_id)
             except Parameter.DoesNotExist:
                 continue
+            column_key = _ensure_dataframe_column(data_obj, parameter.id)
             if not col_values:
-                new_row[col_id] = ''
+                new_row[column_key] = ''
             else:
-                new_row[col_id] = (
+                new_row[column_key] = (
                     str(col_values[0]) if len(col_values) == 1 else parameter.array_separator.join(col_values)
                 )
         # Append to DataFrame and persist
         data_obj = pd.concat([data_obj, pd.DataFrame([new_row])], ignore_index=True)
-        os.makedirs(os.path.dirname(obj.data.path), exist_ok=True)
-        data_obj.to_pickle(obj.data.path)
+        _write_dataframe(obj.data, data_obj, object_instance=obj)
         # After saving the row, record any selected child links from linked parameters
         for parameter in Parameter.objects.filter(object=obj, linked_object__isnull=False):
             link = Object_ParentObject.objects.get(parent_object=obj, object=parameter.linked_object)
@@ -964,6 +1202,7 @@ def add_element_to_object(request, pk):
         child_df, child_warnings = _safe_load_dataframe(
             getattr(child_obj, 'data', None),
             object_id=getattr(child_obj, 'id', None),
+            object_instance=child_obj,
             allow_empty=True,
         )
         if child_warnings:
@@ -1093,7 +1332,7 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
     Load a DataFrame and return, for each Parameter, the available values and
     which indices should be selected for the given row (`param_ident_id`).
     """
-    data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk)
+    data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj)
     if load_warnings:
         logger.info(
             "Warnings while loading data for get_parameters_data_by_ident (object %s): %s",
@@ -1144,6 +1383,7 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
             child_df, child_warnings = _safe_load_dataframe(
                 getattr(parameter.linked_object, 'data', None),
                 object_id=getattr(parameter.linked_object, 'id', None),
+                object_instance=parameter.linked_object,
                 allow_empty=True,
             )
             if child_warnings:
@@ -1174,15 +1414,36 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
             parameters_data.append((parameter, data, selected_ids, current_data))
         else:
             param_series = data_obj[column_key] if column_key in data_obj.columns else pd.Series(dtype=object)
-            param_data = param_series.dropna().values.tolist()
+            param_data_raw = param_series.dropna().values.tolist()
             if parameter.data_type == 'ARRAY':
+                param_data = [str(value) for value in param_data_raw]
                 arrays_data = parameter.array_separator.join(param_data)
                 unique_param_data = set(filter(lambda x: str(x).strip(), arrays_data.split(parameter.array_separator)))
                 arrays_data_list = list(set([value.strip() for value in unique_param_data if value not in ['None', 'nan', None, '<NA>'] and value]))
                 arrays_data_indexed = [(i, data) for i, data in enumerate(arrays_data_list)]
                 parameters_data.append((parameter, arrays_data_indexed, find_in_params_data(arrays_data_indexed, current_data, parameter), current_data))
             else:
-                filtered_param_data = list(set([value.strip() for value in param_data if value not in ['None', 'nan', None, '<NA>'] and value]))
+                param_data = param_data_raw
+                cleaned_values = []
+                for value in param_data:
+                    if value in ['None', 'nan', None, '<NA>']:
+                        continue
+                    if isinstance(value, str):
+                        normalised = value.strip()
+                        if normalised and normalised not in ['None', 'nan', '<NA>']:
+                            cleaned_values.append(normalised)
+                    elif isinstance(value, (list, tuple, set)):
+                        for item in value:
+                            if item in ['None', 'nan', None, '<NA>']:
+                                continue
+                            normalised = str(item).strip()
+                            if normalised and normalised not in ['None', 'nan', '<NA>']:
+                                cleaned_values.append(normalised)
+                    else:
+                        normalised = str(value).strip()
+                        if normalised and normalised not in ['None', 'nan', '<NA>']:
+                            cleaned_values.append(normalised)
+                filtered_param_data = list(set(cleaned_values))
                 param_data_indexed = [(i, data) for i, data in enumerate(filtered_param_data)]
                 parameters_data.append((parameter, param_data_indexed, find_in_params_data(param_data_indexed, current_data, parameter), current_data))
     return parameters_data
@@ -1197,7 +1458,7 @@ def update_element_to_object(request, pk):
     are persisted. This view also populates data for any linked child objects.
     """
     obj = get_object_or_404(Object, pk=pk)
-    data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, allow_empty=True)
+    data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj, allow_empty=True)
     if load_warnings:
         logger.info(
             "Warnings while loading data for update_element_to_object (object %s): %s",
@@ -1221,7 +1482,7 @@ def update_element_to_object(request, pk):
             data_obj.loc[data_obj['id_to_connect'] == param_ident_id, column_key] = (
                 str(col_values[0]) if len(col_values) == 1 else parameter.array_separator.join(col_values)
             )
-        data_obj.to_pickle(obj.data.path)
+        _write_dataframe(obj.data, data_obj, object_instance=obj)
         # Update child links from linked parameters
         for parameter in Parameter.objects.filter(object=obj, linked_object__isnull=False):
             link = Object_ParentObject.objects.get(parent_object=obj, object=parameter.linked_object)
@@ -1282,6 +1543,7 @@ def update_element_to_object(request, pk):
         child_df, child_warnings = _safe_load_dataframe(
             getattr(po.object, 'data', None),
             object_id=getattr(po.object, 'id', None),
+            object_instance=po.object,
             allow_empty=True,
         )
         if child_warnings:
@@ -1333,7 +1595,7 @@ def delete_element_to_object(request, pk):
     if request.method != 'POST':
         return HttpResponseBadRequest("Expected POST request.")
     obj = get_object_or_404(Object, pk=pk)
-    data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk)
+    data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj)
     if load_warnings:
         logger.info(
             "Warnings while loading data for delete_element_to_object (object %s): %s",
@@ -1369,7 +1631,7 @@ def delete_element_to_object(request, pk):
         )
         return HttpResponse(status=204)
     data_obj.drop(index, inplace=True)
-    data_obj.to_pickle(obj.data.path)
+    _write_dataframe(obj.data, data_obj, object_instance=obj)
     return HttpResponse()
 
 
@@ -1384,7 +1646,7 @@ def update_csv(request, pk):
     """
     obj = get_object_or_404(Object, pk=pk)
     if request.method == 'POST':
-        _, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk)
+        _, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj)
         if load_warnings:
             logger.info(
                 "Warnings while loading existing data before CSV update (object %s): %s",
@@ -1406,9 +1668,7 @@ def update_csv(request, pk):
             new_df[column_key] = df[csv_name].map(lambda x: str(x).strip()).tolist()
         new_df['id_to_connect'] = [f"{_}_{uuid.uuid4().hex}" for _ in range(df.shape[0])]
         new_df = pd.DataFrame(new_df)
-        # Overwrite the existing pickle
-        os.makedirs(os.path.dirname(obj.data.path), exist_ok=True)
-        new_df.to_pickle(obj.data.path)
+        _write_dataframe(obj.data, new_df, object_instance=obj)
         return HttpResponse(f'/database/get_object/{obj.id}')
     return render(request, 'database_manager/upload_csv.html')
 
@@ -1443,7 +1703,11 @@ def generate_excel_file(request, pk):
     ident_param = Parameter.objects.get(object=obj, identificator=True)
     documents = DocumentPattern_Objects.objects.filter(object=obj)
     doc_list = [f"{doc.document.name}**{doc.document.id}**" for doc in documents]
-    df_object = pd.read_pickle(obj.data.path)
+    df_object, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj)
+    if load_warnings:
+        logger.info("Warnings while preparing Excel export for object %s: %s", obj.pk, '; '.join(load_warnings))
+    if df_object is None:
+        raise Http404
     ident_column_key = _resolve_dataframe_column(df_object, ident_param.id)
     if ident_column_key is None:
         ident_list = [f"**{row['id_to_connect']}" for _, row in df_object.iterrows()]
@@ -1501,6 +1765,7 @@ def add_objects_links(request, pk):
             parent_df, parent_warnings = _safe_load_dataframe(
                 parent_object.data,
                 object_id=parent_object.id,
+                object_instance=parent_object,
                 allow_empty=True,
             )
             if parent_warnings:
@@ -1514,7 +1779,7 @@ def add_objects_links(request, pk):
                 parent_df = pd.DataFrame({'id_to_connect': []})
             _ensure_dataframe_column(parent_df, param.id)
             try:
-                parent_df.to_pickle(parent_object.data.path)
+                _write_dataframe(parent_object.data, parent_df, object_instance=parent_object)
             except Exception:
                 logger.exception(
                     "Failed to persist column for new linked parameter %s on object %s",
@@ -1595,3 +1860,4 @@ def delete_object_link(request, pk):
     ObjectLink_identificators.objects.filter(object_link=link).delete()
     link.delete()
     return HttpResponse('')
+

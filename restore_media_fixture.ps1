@@ -31,6 +31,37 @@ function Write-Log {
     Write-Host "[$timestamp] $Message" -ForegroundColor $Color
 }
 
+function Convert-FixtureToUtf8 {
+    param([string]$SourcePath)
+
+    $bytes = [System.IO.File]::ReadAllBytes($SourcePath)
+    if ($bytes.Length -eq 0) {
+        return $SourcePath
+    }
+
+    $utf8Encoding = New-Object System.Text.UTF8Encoding($false)
+    $text = $null
+
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+        # Already UTF-8 with BOM
+        return $SourcePath
+    } elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) {
+        # UTF-16 LE
+        $text = [System.Text.Encoding]::Unicode.GetString($bytes, 2, $bytes.Length - 2)
+    } elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF) {
+        # UTF-16 BE
+        $text = [System.Text.Encoding]::BigEndianUnicode.GetString($bytes, 2, $bytes.Length - 2)
+    } else {
+        # Assume UTF-8 (without BOM) or ASCII
+        $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+        return $SourcePath
+    }
+
+    $tempPath = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetFileName($SourcePath))
+    [System.IO.File]::WriteAllText($tempPath, $text, $utf8Encoding)
+    return $tempPath
+}
+
 if (-not (Test-Path $BackupRoot)) {
     throw "Backup directory '$BackupRoot' not found."
 }
@@ -107,11 +138,16 @@ if ($LoadFixture.IsPresent) {
         Write-Log "fixture_*.json not found in backup; skipping loaddata." 'Yellow'
     } else {
         $fixtureDest = "/tmp/$($fixtureFile.Name)"
+        $fixtureSourcePath = $fixtureFile.FullName
+        $convertedFixture = Convert-FixtureToUtf8 -SourcePath $fixtureSourcePath
         Write-Log "Loading Django fixture $($fixtureFile.Name)..." 'Cyan'
-        & docker compose --project-directory $projectDirFull cp $fixtureFile.FullName "web:$fixtureDest" | Out-Null
+        & docker compose --project-directory $projectDirFull cp $convertedFixture "web:$fixtureDest" | Out-Null
         $fixtureCommand = "cd /app/taskmanager && PYTHONIOENCODING=utf-8 python manage.py loaddata $fixtureDest"
         & docker compose --project-directory $projectDirFull exec web bash -lc $fixtureCommand | Out-Null
         & docker compose --project-directory $projectDirFull exec web rm -f $fixtureDest | Out-Null
+        if ($convertedFixture -ne $fixtureSourcePath -and (Test-Path $convertedFixture)) {
+            Remove-Item $convertedFixture -Force
+        }
         Write-Log "Fixture loaded." 'Green'
     }
 } else {
