@@ -9,11 +9,56 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/database_manager/add_element.css' %}">
-<h3>Добавить элемент в объект</h3>
+<style>
+.form-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.action-toolbar {
+    position: sticky;
+    top: 64px;
+    z-index: 1030;
+    background-color: #fff;
+    border-bottom: 1px solid #dee2e6;
+    padding: 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.action-toolbar .toolbar-spacer {
+    flex-grow: 1;
+}
+
+@media (max-width: 767.98px) {
+    .action-toolbar {
+        top: 56px;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px 0;
+    }
+
+    .action-toolbar .toolbar-spacer {
+        display: none;
+    }
+}
+</style>
+<div class="form-container">
+<h3>Создание записи в объекте</h3>
 <h4>{{ object.name }}</h4>
 {% if error_message %}
 <div class="alert alert-danger" role="alert">{{ error_message }}</div>
 {% endif %}
+<div class="action-toolbar">
+    <div>
+        <span class="text-muted">Новая запись</span>
+    </div>
+    <div class="toolbar-spacer"></div>
+    <a href="{% url 'get_object' object.id %}" class="btn btn-outline-secondary">Назад</a>
+    <button type="submit" class="btn btn-primary" form="form_add_data_to_object">Добавить</button>
+</div>
 <form method="post" id="form_add_data_to_object" data-objectId="{{ object.id }}">
     {% csrf_token %}
     
@@ -123,8 +168,8 @@
             {% endfor %}
         </div>
     {% endif %}
-    <button type="submit" class="btn btn-primary mt-4">Добавить</button>
 </form>
+</div>
 
 {% endblock %}
 

@@ -15,6 +15,35 @@
     margin: 0 auto;
     padding: 20px;
 }
+
+.action-toolbar {
+    position: sticky;
+    top: 64px;
+    z-index: 1030;
+    background-color: #fff;
+    border-bottom: 1px solid #dee2e6;
+    padding: 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.action-toolbar .toolbar-spacer {
+    flex-grow: 1;
+}
+
+@media (max-width: 767.98px) {
+    .action-toolbar {
+        top: 56px;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px 0;
+    }
+
+    .action-toolbar .toolbar-spacer {
+        display: none;
+    }
+}
 </style>
 <div class="form-container">
 <h3>Редактировать элемент в объекте</h3>
@@ -22,6 +51,26 @@
 {% if error_message %}
 <div class="alert alert-danger" role="alert">{{ error_message }}</div>
 {% endif %}
+<div class="action-toolbar">
+    <div>
+        {% if param_ident_id %}
+        <span class="text-muted">ID: {{ param_ident_id }}</span>
+        {% else %}
+        <span class="text-muted">Редактирование записи</span>
+        {% endif %}
+    </div>
+    <div class="toolbar-spacer"></div>
+    <a href="{% url 'get_object' object.id %}" class="btn btn-outline-secondary">Назад</a>
+    <button type="button"
+            class="btn btn-outline-danger{% if not param_ident_id %} disabled{% endif %}"
+            id="delete-element-button"
+            data-delete-url="{% if param_ident_id %}{% url 'delete_element' object.id %}?id={{ param_ident_id|urlencode }}{% endif %}"
+            data-redirect-url="{% url 'get_object' object.id %}"
+            {% if not param_ident_id %}disabled{% endif %}>
+        Удалить
+    </button>
+    <button type="submit" class="btn btn-primary" form="form_update_data_to_object">Сохранить</button>
+</div>
 <form method="post" id="form_update_data_to_object" data-objectId="{{ object.id }}">
     {% csrf_token %}
 
@@ -138,7 +187,6 @@
             {% endfor %}
         </div>
     {% endif %}
-    <button type="submit" class="btn btn-primary mt-4">Сохранить</button>
 </form>
 </div>
 
@@ -148,7 +196,44 @@
 <script>
 // JavaScript to fetch child row data and populate the preview fields
 $(document).ready(function() {
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+    const csrfToken = csrfInput ? csrfInput.value : '';
+
+    const deleteButton = document.getElementById('delete-element-button');
+    if (deleteButton && deleteButton.dataset.deleteUrl) {
+        const deleteUrl = deleteButton.dataset.deleteUrl;
+        const redirectUrl = deleteButton.dataset.redirectUrl;
+        deleteButton.addEventListener('click', function() {
+            if (deleteButton.disabled) {
+                return;
+            }
+            if (!confirm('Удалить текущую запись? Это действие нельзя отменить.')) {
+                return;
+            }
+            deleteButton.disabled = true;
+            deleteButton.classList.add('disabled');
+            fetch(deleteUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                }
+            }).then(function(response) {
+                if (response.ok || response.status === 204) {
+                    if (redirectUrl) {
+                        window.location.href = redirectUrl;
+                    } else {
+                        window.location.reload();
+                    }
+                    return;
+                }
+                throw new Error('Failed to delete');
+            }).catch(function() {
+                alert('Не удалось удалить запись. Попробуйте ещё раз позже.');
+                deleteButton.disabled = false;
+                deleteButton.classList.remove('disabled');
+            });
+        });
+    }
 
     // Fetch and populate preview fields for a child object
     function fetchChildData(childObjId, selectedId) {

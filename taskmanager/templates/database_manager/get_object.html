@@ -7,6 +7,7 @@
 {% block meta %}
 <meta name="object_id" content="{{ object.id }}">
 <meta name="csrf_token" content="{{ csrf_token }}">
+<meta name="object_name" content="{{ object.name|escape }}">
 {% endblock %}
 
 {% block connection %}
@@ -22,6 +23,32 @@
         padding: 20px;
     }
 </style>
+<div class="modal fade" id="deleteObjectModal" tabindex="-1" aria-hidden="true" aria-labelledby="deleteObjectModalLabel">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteObjectModalLabel">Удаление объекта</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Чтобы удалить объект, введите его наименование. Операцию нельзя отменить.</p>
+                <div class="mb-3">
+                    <label for="delete-object-confirm-input" class="form-label">Наименование объекта</label>
+                    <input type="text"
+                           class="form-control"
+                           id="delete-object-confirm-input"
+                           placeholder="{{ object.name }}"
+                           data-object-name="{{ object.name|escape }}"
+                           autocomplete="off">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-danger" id="delete-object-confirm-button" disabled>Удалить</button>
+            </div>
+        </div>
+    </div>
+</div>
 <div class="page-container">
     <h3>{{ object.name }}</h3>
 
@@ -236,21 +263,111 @@
 
     $(document).ready(function () {
         // Management functions
-        function delete_object(evt) {
-            let csrf_token = document.querySelector('meta[name="csrf_token"]').getAttribute('content')
-            fetch('/database/delete_object/' + document.querySelector('meta[name="object_id"]').getAttribute('content') + '/', {
+        const deleteModalElement = document.getElementById('deleteObjectModal');
+        const deleteInput = document.getElementById('delete-object-confirm-input');
+        const deleteConfirmButton = document.getElementById('delete-object-confirm-button');
+        const objectIdMeta = document.querySelector('meta[name="object_id"]');
+        const csrfMeta = document.querySelector('meta[name="csrf_token"]');
+        const objectNameMeta = document.querySelector('meta[name="object_name"]');
+        const objectName = (deleteInput ? deleteInput.dataset.objectName : null) || (objectNameMeta ? objectNameMeta.getAttribute('content') : '') || '';
+        const deleteButtonInitialText = deleteConfirmButton ? deleteConfirmButton.textContent.trim() : '';
+
+        function resetDeleteModalState() {
+            if (deleteInput) {
+                deleteInput.value = '';
+            }
+            if (deleteConfirmButton) {
+                deleteConfirmButton.disabled = true;
+                if (deleteButtonInitialText) {
+                    deleteConfirmButton.textContent = deleteButtonInitialText;
+                }
+            }
+        }
+
+        if (deleteModalElement) {
+            deleteModalElement.addEventListener('hidden.bs.modal', resetDeleteModalState);
+            deleteModalElement.addEventListener('shown.bs.modal', function () {
+                if (deleteInput) {
+                    deleteInput.focus();
+                }
+            });
+        }
+
+        if (deleteInput && deleteConfirmButton) {
+            const normalizedObjectName = objectName.trim();
+            deleteInput.addEventListener('input', function () {
+                const matches = deleteInput.value.trim() === normalizedObjectName;
+                deleteConfirmButton.disabled = !matches;
+            });
+        }
+
+        if (deleteConfirmButton) {
+            deleteConfirmButton.addEventListener('click', function () {
+                if (!deleteModalElement || deleteConfirmButton.disabled) {
+                    return;
+                }
+                performObjectDelete();
+            });
+        }
+
+        function performObjectDelete() {
+            const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+            const objectId = objectIdMeta ? objectIdMeta.getAttribute('content') : '';
+            if (!objectId) {
+                console.error('Не удалось определить идентификатор объекта для удаления.');
+                return;
+            }
+            if (deleteConfirmButton) {
+                deleteConfirmButton.disabled = true;
+                deleteConfirmButton.textContent = 'Удаление...';
+            }
+            fetch('/database/delete_object/' + objectId + '/', {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': csrf_token
+                    'X-CSRFToken': csrfToken
                 },
                 body: new FormData(),
             })
-                .then(response => response.text())
-                .then(data => {
-                    console.log(data);
-                    location.href = "/database/object_manager"
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Ошибка при попытке удалить объект');
+                    }
+                    if (deleteModalElement && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                        const modalInstance = bootstrap.Modal.getInstance(deleteModalElement);
+                        if (modalInstance) {
+                            modalInstance.hide();
+                        }
+                    }
+                    location.href = "/database/object_manager";
                 })
-                .catch(error => console.error(error));
+                .catch(error => {
+                    console.error(error);
+                    alert('Не удалось удалить объект. Попробуйте позже.');
+                    if (deleteConfirmButton) {
+                        deleteConfirmButton.disabled = false;
+                        deleteConfirmButton.textContent = deleteButtonInitialText || 'Удалить';
+                    }
+                });
+        }
+
+        function delete_object(evt) {
+            evt.preventDefault();
+            if (!objectName) {
+                if (confirm('Удалить объект? Это действие нельзя отменить.')) {
+                    performObjectDelete();
+                }
+                return;
+            }
+            if (deleteModalElement && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                resetDeleteModalState();
+                const modalInstance = bootstrap.Modal.getOrCreateInstance(deleteModalElement);
+                modalInstance.show();
+            } else {
+                const answer = prompt('Для удаления введите наименование объекта:');
+                if (answer && answer.trim() === objectName.trim()) {
+                    performObjectDelete();
+                }
+            }
         }
 
         function fileChangerExcelDownload(evt) {

@@ -1,4 +1,5 @@
 import logging
+import contextlib
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
@@ -44,6 +45,11 @@ try:  # Optional encryption support
 except ImportError:  # pragma: no cover - dependency may be absent
     Fernet = InvalidToken = None
 
+try:  # POSIX file locking
+    import fcntl  # type: ignore[attr-defined]
+except ImportError:  # pragma: no cover - non-POSIX systems
+    fcntl = None  # type: ignore[assignment]
+
 
 """
 Views for the database_manager application.
@@ -83,6 +89,34 @@ _DATASTORE_JSON_MAGIC = b'DFJSON1|'
 _DATASTORE_ENCRYPTED_MAGIC = b'DFENC1|'
 _DATASTORE_FORMAT_VERSION = 1
 _DATASTORE_SUBDIR = Path('dataframes')
+_LOCKING_SUPPORTED = fcntl is not None
+
+if not _LOCKING_SUPPORTED:
+    logger.warning(
+        "System-level file locking (fcntl) is unavailable; dataframe writes will not be synchronised across workers."
+    )
+
+
+@contextlib.contextmanager
+def _file_lock(path: Path, *, shared: bool):
+    """
+    Cooperative advisory lock around dataframe files to prevent concurrent writers
+    from clobbering data. Falls back to a no-op on platforms without fcntl.
+    """
+    if not _LOCKING_SUPPORTED:
+        yield
+        return
+    lock_path = path.with_suffix(path.suffix + '.lock')
+    try:
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+    except FileExistsError:
+        pass
+    with lock_path.open('a') as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_SH if shared else fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 @lru_cache(maxsize=1)
@@ -164,7 +198,15 @@ def _serialise_dataframe(df: pd.DataFrame) -> dict:
     serialisable = df.copy()
     serialisable = serialisable.replace({pd.NA: None})
     serialisable = serialisable.where(pd.notnull(serialisable), None)
-    columns = [str(col) for col in serialisable.columns]
+    serialisable.columns = [str(col) for col in serialisable.columns]
+    if serialisable.columns.duplicated().any():
+        duplicated_cols = serialisable.columns[serialisable.columns.duplicated()].tolist()
+        logger.warning(
+            "Duplicate dataframe columns detected during serialisation; keeping first occurrence for: %s",
+            ', '.join(duplicated_cols),
+        )
+        serialisable = serialisable.loc[:, ~serialisable.columns.duplicated()]
+    columns = list(serialisable.columns)
     records = []
     for row in serialisable.to_dict(orient='records'):
         records.append({str(k): v for k, v in row.items()})
@@ -218,8 +260,9 @@ def _deserialise_dataframe_from_payload(payload: dict) -> pd.DataFrame:
 
 
 def _load_dataframe_from_path(path: Path):
-    with path.open('rb') as handle:
-        raw_bytes = handle.read()
+    with _file_lock(path, shared=True):
+        with path.open('rb') as handle:
+            raw_bytes = handle.read()
     if not raw_bytes:
         return pd.DataFrame(), 'json'
     try:
@@ -246,17 +289,19 @@ def _load_dataframe_from_path(path: Path):
 
 def _archive_legacy_file(path: Path) -> None:
     if path.exists():
-        _rotate_backups(path)
+        with _file_lock(path, shared=False):
+            _rotate_backups(path)
 
 
 def _write_dataframe(file_field, df: pd.DataFrame, *, object_instance=None) -> str:
     relative_name, changed = _ensure_storage_name(file_field, desired_suffix='.json')
     absolute_path = _build_absolute_path(relative_name)
     absolute_path.parent.mkdir(parents=True, exist_ok=True)
-    _rotate_backups(absolute_path)
     payload = _serialise_dataframe_to_bytes(df)
-    with absolute_path.open('wb') as handle:
-        handle.write(payload)
+    with _file_lock(absolute_path, shared=False):
+        _rotate_backups(absolute_path)
+        with absolute_path.open('wb') as handle:
+            handle.write(payload)
     if changed and object_instance is not None and getattr(object_instance, 'pk', None):
         object_instance.save(update_fields=['data'])
     return relative_name
@@ -948,6 +993,20 @@ def _safe_load_dataframe(file_field, *, object_id=None, object_instance=None, al
                 "Данные объекта автоматически переведены в новый формат хранения. "
                 "Старый файл сохранён рядом с расширением .old1."
             )
+
+    try:
+        data_obj.columns = [str(col) for col in data_obj.columns]
+    except Exception:
+        logger.exception("Failed to normalise dataframe columns for object %s.", object_id)
+    else:
+        if data_obj.columns.duplicated().any():
+            duplicate_cols = data_obj.columns[data_obj.columns.duplicated()].tolist()
+            logger.warning(
+                "Duplicate columns detected in dataframe for object %s; keeping first occurrence for: %s",
+                object_id,
+                ', '.join(duplicate_cols),
+            )
+            data_obj = data_obj.loc[:, ~data_obj.columns.duplicated()]
 
     return data_obj, warnings
 
