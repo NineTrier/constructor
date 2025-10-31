@@ -18,7 +18,7 @@ from django.http import (
     HttpResponseBadRequest,
 )
 from django.views.decorators.http import require_http_methods
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.conf import settings
 from django.db import connection
 from django.db.models import Q, Max
@@ -1386,6 +1386,27 @@ def _ensure_dataframe_column(df, parameter_id):
     return column_key
 
 
+def _is_api_request(request):
+    """
+    Detect whether the incoming request is likely triggered via fetch/AJAX/HTMX.
+    This lets views decide between returning JSON payloads vs browser redirects.
+    """
+    headers = request.headers
+    if headers.get('HX-Request'):
+        return True
+    if headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return True
+    accept = headers.get('Accept', '')
+    if 'application/json' in accept.lower():
+        return True
+    fetch_mode = headers.get('Sec-Fetch-Mode', '').lower()
+    if fetch_mode in {'cors', 'no-cors', 'same-origin'}:
+        return True
+    if request.GET.get('format') == 'json':
+        return True
+    return False
+
+
 def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
     """
     Load a DataFrame and return, for each Parameter, the available values and
@@ -1533,19 +1554,72 @@ def update_element_to_object(request, pk):
         data_obj['id_to_connect'] = pd.NA
     param_ident_id = request.GET.get('id')
     if request.method == 'POST':
-        col_ids = list(map(int, request.POST.getlist('col_id[]')))
-        for col_id in col_ids:
-            col_values = request.POST.getlist(f'col_value_{col_id}[]')
-            parameter = Parameter.objects.get(id=col_id)
+        def _parse_param_id_from_key(key: str):
+            prefix = 'col_value_'
+            if not key.startswith(prefix):
+                return None
+            suffix = key[len(prefix):]
+            if suffix.endswith('[]'):
+                suffix = suffix[:-2]
+            try:
+                return int(suffix)
+            except (TypeError, ValueError):
+                return None
+
+        ordered_param_ids = []
+        seen_param_ids = set()
+        for col_id_raw in request.POST.getlist('col_id[]'):
+            try:
+                col_id = int(col_id_raw)
+            except (TypeError, ValueError):
+                continue
+            if col_id not in seen_param_ids:
+                ordered_param_ids.append(col_id)
+                seen_param_ids.add(col_id)
+        if not ordered_param_ids:
+            for key in request.POST.keys():
+                parsed_id = _parse_param_id_from_key(key)
+                if parsed_id is None or parsed_id in seen_param_ids:
+                    continue
+                ordered_param_ids.append(parsed_id)
+                seen_param_ids.add(parsed_id)
+
+        if ordered_param_ids:
+            param_map = {
+                param.id: param
+                for param in Parameter.objects.filter(object=obj, id__in=ordered_param_ids)
+            }
+        else:
+            param_map = {}
+
+        for col_id in ordered_param_ids:
+            parameter = param_map.get(col_id)
+            if not parameter:
+                continue
+            field_name = f'col_value_{col_id}[]'
+            if field_name not in request.POST:
+                # No submitted value (likely a disabled field) – keep stored data.
+                continue
+            col_values = request.POST.getlist(field_name)
             column_key = _ensure_dataframe_column(data_obj, parameter.id)
-            data_obj.loc[data_obj['id_to_connect'] == param_ident_id, column_key] = (
-                str(col_values[0]) if len(col_values) == 1 else parameter.array_separator.join(col_values)
-            )
+            if not col_values:
+                value = ''
+            elif len(col_values) == 1:
+                value = str(col_values[0])
+            else:
+                separator = parameter.array_separator if parameter.array_separator is not None else ' '
+                value = separator.join(col_values)
+            data_obj.loc[data_obj['id_to_connect'] == param_ident_id, column_key] = value
         _write_dataframe(obj.data, data_obj, object_instance=obj)
         # Update child links from linked parameters
-        for parameter in Parameter.objects.filter(object=obj, linked_object__isnull=False):
+        for parameter in param_map.values():
+            if not parameter.linked_object_id:
+                continue
+            field_name = f'col_value_{parameter.id}[]'
+            if field_name not in request.POST:
+                continue
             link = Object_ParentObject.objects.get(parent_object=obj, object=parameter.linked_object)
-            col_values = request.POST.getlist(f'col_value_{parameter.id}[]')
+            col_values = request.POST.getlist(field_name)
             if parameter.data_type == 'ARRAY':
                 # Multiple links
                 ObjectLink_identificators.objects.filter(object_link=link, parent_object_identificator=param_ident_id).delete()
@@ -1570,7 +1644,10 @@ def update_element_to_object(request, pk):
                         object_link=link,
                         parent_object_identificator=param_ident_id
                     ).delete()
-        return redirect('get_object', pk=obj.id)
+        redirect_url = reverse('get_object', args=[obj.id])
+        if _is_api_request(request):
+            return JsonResponse({'status': 'ok', 'redirect_url': redirect_url})
+        return redirect(redirect_url)
     parameters_data = get_parameters_data_by_ident(obj, param_ident_id)
     # Group parameters by categories for the base object
     parameters_group_data = _group_parameters_data(parameters_data)
