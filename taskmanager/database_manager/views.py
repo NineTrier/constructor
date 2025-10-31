@@ -1196,29 +1196,73 @@ def add_element_to_object(request, pk):
         # Build a new row with a unique id_to_connect
         new_row_id = f"{data_obj.shape[0]}_{uuid.uuid4().hex}"
         new_row = {"id_to_connect": new_row_id}
-        # Collect values for each parameter.  The form sends parallel lists
-        # ``col_id[]`` and ``col_value_<id>[]`` for each parameter.
-        col_ids_raw = request.POST.getlist('col_id[]')
-        col_ids = [int(x) for x in col_ids_raw if x]
-        for col_id in col_ids:
-            # For array parameters multiple values may be submitted
-            col_values = request.POST.getlist(f'col_value_{col_id}[]')
+
+        def _parse_param_id_from_key(key: str):
+            prefix = 'col_value_'
+            if not key.startswith(prefix):
+                return None
+            suffix = key[len(prefix):]
+            if suffix.endswith('[]'):
+                suffix = suffix[:-2]
             try:
-                parameter = Parameter.objects.get(id=col_id)
-            except Parameter.DoesNotExist:
+                return int(suffix)
+            except (TypeError, ValueError):
+                return None
+
+        ordered_param_ids = []
+        seen_param_ids = set()
+        for raw_id in request.POST.getlist('col_id[]'):
+            if not raw_id:
                 continue
+            try:
+                col_id = int(raw_id)
+            except (TypeError, ValueError):
+                continue
+            if col_id not in seen_param_ids:
+                ordered_param_ids.append(col_id)
+                seen_param_ids.add(col_id)
+        if not ordered_param_ids:
+            for key in request.POST.keys():
+                parsed_id = _parse_param_id_from_key(key)
+                if parsed_id is None or parsed_id in seen_param_ids:
+                    continue
+                ordered_param_ids.append(parsed_id)
+                seen_param_ids.add(parsed_id)
+
+        param_map = {
+            param.id: param
+            for param in Parameter.objects.filter(object=obj, id__in=ordered_param_ids)
+        } if ordered_param_ids else {}
+
+        for col_id in ordered_param_ids:
+            parameter = param_map.get(col_id)
+            if not parameter:
+                logger.warning(
+                    "Parameter %s referenced during add operation but not found for object %s.",
+                    col_id,
+                    obj.pk,
+                )
+                continue
+            field_name = f'col_value_{col_id}[]'
+            if field_name not in request.POST:
+                # No value submitted (likely disabled field); skip.
+                continue
+            col_values = request.POST.getlist(field_name)
             column_key = _ensure_dataframe_column(data_obj, parameter.id)
             if not col_values:
                 new_row[column_key] = ''
+            elif len(col_values) == 1:
+                new_row[column_key] = str(col_values[0])
             else:
-                new_row[column_key] = (
-                    str(col_values[0]) if len(col_values) == 1 else parameter.array_separator.join(col_values)
-                )
+                separator = parameter.array_separator if parameter.array_separator is not None else ' '
+                new_row[column_key] = separator.join(col_values)
         # Append to DataFrame and persist
         data_obj = pd.concat([data_obj, pd.DataFrame([new_row])], ignore_index=True)
         _write_dataframe(obj.data, data_obj, object_instance=obj)
         # After saving the row, record any selected child links from linked parameters
-        for parameter in Parameter.objects.filter(object=obj, linked_object__isnull=False):
+        for parameter in param_map.values():
+            if not parameter.linked_object_id:
+                continue
             link = Object_ParentObject.objects.get(parent_object=obj, object=parameter.linked_object)
             col_values = request.POST.getlist(f'col_value_{parameter.id}[]')
             if parameter.data_type == 'ARRAY':
