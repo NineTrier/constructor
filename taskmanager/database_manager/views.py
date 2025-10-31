@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 import contextlib
 
 from django.shortcuts import render, get_object_or_404, redirect
@@ -49,6 +49,8 @@ try:  # POSIX file locking
     import fcntl  # type: ignore[attr-defined]
 except ImportError:  # pragma: no cover - non-POSIX systems
     fcntl = None  # type: ignore[assignment]
+
+from typing import Dict, List, Optional, Tuple, Union
 
 
 """
@@ -593,7 +595,7 @@ def post_data_from_object(request, pk):
         return HttpResponseBadRequest("Expected POST request.")
     data_obj, warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj)
     if warnings:
-        logger.info(
+        logger.warning(
             "Warnings while loading data for object %s during row fetch: %s",
             obj.pk,
             "; ".join(warnings),
@@ -620,7 +622,7 @@ def post_data_from_object(request, pk):
         )
         return JsonResponse([], safe=False)
     if data.empty:
-        logger.info(
+        logger.warning(
             "Row with id_to_connect=%s not found for object %s.",
             id_to_connect,
             obj.pk,
@@ -629,6 +631,7 @@ def post_data_from_object(request, pk):
     row = data.iloc[0]
     response_record = {'id_to_connect': id_to_connect}
     parameters = Parameter.objects.filter(object=obj).order_by('id')
+    handled_columns = set()
     for param in parameters:
         column_key = _resolve_dataframe_column(data_obj, param.id)
         key_name = str(param.id)
@@ -644,6 +647,7 @@ def post_data_from_object(request, pk):
             )
             response_record[key_name] = {'data_type': param.data_type, 'value': ''}
             continue
+        handled_columns.add(column_key)
         value = row.get(column_key, '')
         safe_val = value
         try:
@@ -681,7 +685,44 @@ def post_data_from_object(request, pk):
                 'data_type': param.data_type,
                 'value': safe_val if safe_val is not None else '',
             }
-    logger.info(
+
+    def _normalise_label(label):
+        text = str(label).strip()
+        if not text:
+            return text
+        if '.' in text:
+            stripped = text.rstrip('0').rstrip('.')
+            if stripped:
+                text = stripped
+        return text
+
+    known_param_keys = {str(p.id) for p in parameters}
+    for column_label, value in row.items():
+        if column_label == 'id_to_connect':
+            continue
+        if column_label in handled_columns:
+            continue
+        normalised = _normalise_label(column_label)
+        if not normalised or normalised in response_record or normalised in known_param_keys:
+            continue
+        safe_val = value
+        try:
+            if isinstance(value, float) and (value != value):
+                safe_val = ''
+            elif str(value).strip().lower() in ['nan', 'none', '<na>']:
+                safe_val = ''
+        except Exception:
+            logger.exception(
+                "Failed to normalise orphan column value for object %s (column=%s).",
+                obj.pk,
+                column_label,
+            )
+        response_record[normalised] = {
+            'data_type': 'TXT',
+            'value': safe_val if safe_val is not None else '',
+        }
+
+    logger.warning(
         "Prepared row payload for object %s (id_to_connect=%s): %s",
         obj.pk,
         id_to_connect,
@@ -774,7 +815,7 @@ def update_object(request, pk):
     obj = get_object_or_404(Object, pk=pk)
     data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj, allow_empty=True)
     if load_warnings:
-        logger.info(
+        logger.warning(
             "Warnings while loading data for update_object (object %s): %s",
             obj.pk,
             "; ".join(load_warnings),
@@ -1037,7 +1078,7 @@ def get_parameter_data(data_obj, parameter):
             allow_empty=True,
         )
         if child_warnings:
-            logger.info(
+            logger.warning(
                 "Warnings while loading linked parameter data in get_parameter_data (object %s -> child %s): %s",
                 parameter.object_id,
                 getattr(parameter.linked_object, 'id', None),
@@ -1086,7 +1127,7 @@ def get_parameters_data_all(obj):
     """
     data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj)
     if load_warnings:
-        logger.info(
+        logger.warning(
             "Warnings while loading data for get_parameters_data_all (object %s): %s",
             obj.pk,
             "; ".join(load_warnings),
@@ -1119,7 +1160,7 @@ def add_element_to_object(request, pk):
     obj = get_object_or_404(Object, pk=pk)
     data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj, allow_empty=True)
     if load_warnings:
-        logger.info(
+        logger.warning(
             "Warnings while loading data for add_element_to_object (object %s): %s",
             obj.pk,
             "; ".join(load_warnings),
@@ -1152,7 +1193,7 @@ def add_element_to_object(request, pk):
                         allow_empty=True,
                     )
                     if child_warnings:
-                        logger.info(
+                        logger.warning(
                             "Warnings while loading child object data for validation (parent %s -> child %s): %s",
                             obj.pk,
                             getattr(child_obj, 'id', None),
@@ -1309,7 +1350,7 @@ def add_element_to_object(request, pk):
             allow_empty=True,
         )
         if child_warnings:
-            logger.info(
+            logger.warning(
                 "Warnings while loading child object data for preview (parent %s -> child %s): %s",
                 obj.pk,
                 getattr(child_obj, 'id', None),
@@ -1409,9 +1450,30 @@ def _resolve_dataframe_column(df, parameter_id):
     if parameter_id not in candidates:
         candidates.append(parameter_id)
 
+    # Try exact matches for the primary candidates first
     for candidate in candidates:
         if candidate in df.columns:
             return candidate
+
+    # Fallback: normalise column labels by trimming whitespace and trailing ".0" artefacts
+    def _normalise_label(label):
+        text = str(label).strip()
+        if not text:
+            return text
+        # Remove trailing zeros in numeric-like labels (e.g. "798.0" -> "798")
+        if '.' in text:
+            stripped = text.rstrip('0').rstrip('.')
+            if stripped:
+                text = stripped
+        return text
+
+    target_norm = _normalise_label(str_candidate)
+    if not target_norm and isinstance(parameter_id, (int, float)):
+        target_norm = _normalise_label(parameter_id)
+
+    for column in df.columns:
+        if _normalise_label(column) == target_norm:
+            return column
 
     return None
 
@@ -1446,6 +1508,13 @@ def _is_api_request(request):
     fetch_mode = headers.get('Sec-Fetch-Mode', '').lower()
     if fetch_mode in {'cors', 'no-cors', 'same-origin'}:
         return True
+    fetch_dest = headers.get('Sec-Fetch-Dest', '').lower()
+    if fetch_dest == 'empty':
+        return True
+    if request.META.get('HTTP_SEC_FETCH_DEST', '').lower() == 'empty':
+        return True
+    if not headers.get('Upgrade-Insecure-Requests'):
+        return True
     if request.GET.get('format') == 'json':
         return True
     return False
@@ -1458,26 +1527,26 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
     """
     data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj)
     if load_warnings:
-        logger.info(
+        logger.warning(
             "Warnings while loading data for get_parameters_data_by_ident (object %s): %s",
             obj.pk,
             "; ".join(load_warnings),
         )
     if data_obj is None:
         return []
-    if param_ident_id is None:
-        row = None
-    else:
+    row = None
+    row_mask = None
+    if param_ident_id is not None:
         if 'id_to_connect' not in data_obj.columns:
             logger.warning(
                 "Data frame for object %s missing 'id_to_connect' column when querying row %s.",
                 obj.pk,
                 param_ident_id,
             )
-            row = None
         else:
             try:
-                row = data_obj[data_obj['id_to_connect'] == param_ident_id]
+                row_mask = data_obj['id_to_connect'] == param_ident_id
+                row = data_obj.loc[row_mask]
             except KeyError:
                 logger.exception(
                     "Failed to locate row %s in object %s due to missing column.",
@@ -1485,15 +1554,36 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
                     obj.pk,
                 )
                 row = None
+                row_mask = None
     parameters_data = []
     for parameter in Parameter.objects.filter(object=obj):
         current_data = ""
         column_key = _ensure_dataframe_column(data_obj, parameter.id)
         if row is not None and not row.empty and column_key is not None:
-            try:
-                current_data = str(row[column_key].iloc[0]).strip()
-            except (KeyError, IndexError):
-                current_data = ""
+            refreshed_row = data_obj.loc[row_mask] if row_mask is not None else row
+            candidate_key = None
+            if column_key in refreshed_row.columns:
+                candidate_key = column_key
+            else:
+                candidate_key = _resolve_dataframe_column(refreshed_row, parameter.id)
+            if candidate_key is None:
+                try:
+                    numeric_key = int(column_key)
+                except (TypeError, ValueError):
+                    numeric_key = None
+                else:
+                    if numeric_key in refreshed_row.columns:
+                        candidate_key = numeric_key
+            if candidate_key is not None and candidate_key in refreshed_row.columns:
+                series = refreshed_row[candidate_key]
+                if not series.empty:
+                    try:
+                        cell_value = series.iloc[0]
+                    except (IndexError, KeyError):
+                        cell_value = ""
+                    else:
+                        if not (pd.isna(cell_value) or str(cell_value) in ['None', 'nan', '<NA>']):
+                            current_data = str(cell_value).strip()
         current_data = current_data if current_data not in ['None', 'nan', None, '<NA>'] else ""
         if parameter.linked_object:
             # For linked parameters, get selected ids from links
@@ -1511,7 +1601,7 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
                 allow_empty=True,
             )
             if child_warnings:
-                logger.info(
+                logger.warning(
                     "Warnings while loading linked parameter data (object %s -> child %s): %s",
                     obj.pk,
                     getattr(parameter.linked_object, 'id', None),
@@ -1569,8 +1659,261 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
                             cleaned_values.append(normalised)
                 filtered_param_data = list(set(cleaned_values))
                 param_data_indexed = [(i, data) for i, data in enumerate(filtered_param_data)]
+                # print(current_data)
                 parameters_data.append((parameter, param_data_indexed, find_in_params_data(param_data_indexed, current_data, parameter), current_data))
+    # print('#'*50)
+    # print(parameters_data)
+    # print('#'*50)
     return parameters_data
+
+
+def _extract_param_ids_from_request(request) -> List[int]:
+    """
+    Restore the order in which parameters were rendered in the form.
+    Falls back to inspecting POST keys if the hidden inputs are missing.
+    """
+    ordered_param_ids: List[int] = []
+    seen: set[int] = set()
+    for col_id_raw in request.POST.getlist('col_id[]'):
+        try:
+            col_id = int(col_id_raw)
+        except (TypeError, ValueError):
+            continue
+        if col_id in seen:
+            continue
+        ordered_param_ids.append(col_id)
+        seen.add(col_id)
+    if ordered_param_ids:
+        return ordered_param_ids
+    prefix = 'col_value_'
+    for key in request.POST.keys():
+        if not key.startswith(prefix):
+            continue
+        suffix = key[len(prefix):]
+        if suffix.endswith('[]'):
+            suffix = suffix[:-2]
+        try:
+            col_id = int(suffix)
+        except (TypeError, ValueError):
+            continue
+        if col_id in seen:
+            continue
+        ordered_param_ids.append(col_id)
+        seen.add(col_id)
+    return ordered_param_ids
+
+
+def _gather_posted_parameter_values(request, param_map: Dict[int, Parameter]) -> Dict[int, List[str]]:
+    """
+    Build a mapping param_id -> list of submitted values. Missing fields are
+    skipped so that disabled inputs keep their stored value.
+    """
+    values: Dict[int, List[str]] = {}
+    for param_id in param_map.keys():
+        field_name = f'col_value_{param_id}[]'
+        if field_name not in request.POST:
+            continue
+        raw_values = request.POST.getlist(field_name)
+        values[param_id] = ["" if value is None else str(value) for value in raw_values]
+    return values
+
+
+def _format_parameter_value(parameter: Parameter, raw_values: List[str]) -> str:
+    """
+    Convert a list of posted values into a single string suitable for keeping
+    inside the pandas DataFrame column.
+    """
+    if not raw_values:
+        return ''
+    cleaned = [value.strip() for value in raw_values if value is not None]
+    if not cleaned:
+        return ''
+    if len(cleaned) == 1:
+        return cleaned[0]
+    separator = parameter.array_separator if parameter.array_separator else ' '
+    return separator.join(cleaned)
+
+
+def _apply_values_to_dataframe(
+    data_obj: pd.DataFrame,
+    row_identifier: Optional[str],
+    param_map: Dict[int, Parameter],
+    posted_values: Dict[int, List[str]],
+) -> bool:
+    """
+    Update the dataframe row identified by ``row_identifier`` with the posted
+    parameter values. Returns True when any column was actually updated.
+    """
+    if row_identifier is None:
+        return False
+    if 'id_to_connect' not in data_obj.columns:
+        logger.warning("DataFrame missing 'id_to_connect' column while updating row %s.", row_identifier)
+        return False
+    mask = data_obj['id_to_connect'].astype(str) == str(row_identifier)
+    if not mask.any():
+        logger.warning("Row %s not found in dataframe during update.", row_identifier)
+        return False
+    updated = False
+    print(param_map)
+    for param_id, parameter in param_map.items():
+        if param_id not in posted_values:
+            continue
+        column_key = _ensure_dataframe_column(data_obj, parameter.id)
+        if column_key is None:
+            print("Column for parameter %s is missing while updating row %s.", parameter.id, row_identifier)
+            logger.warning("Column for parameter %s is missing while updating row %s.", parameter.id, row_identifier)
+            continue
+        formatted_value = _format_parameter_value(parameter, posted_values[param_id])
+        data_obj.loc[mask, column_key] = formatted_value
+        updated = True
+    print(updated)
+    return updated
+
+
+def _sync_linked_parameters(
+    obj: Object,
+    row_identifier: Optional[str],
+    param_map: Dict[int, Parameter],
+    posted_values: Dict[int, List[str]],
+) -> None:
+    """
+    Persist row-level links for parameters that reference child objects.
+    """
+    if row_identifier is None:
+        return
+    for parameter in param_map.values():
+        if not parameter.linked_object_id:
+            continue
+        link = Object_ParentObject.objects.filter(parent_object=obj, object=parameter.linked_object).first()
+        if link is None:
+            logger.warning(
+                "Linked parameter %s references child object %s but link is missing.",
+                parameter.id,
+                parameter.linked_object_id,
+            )
+            continue
+        values = posted_values.get(parameter.id, [])
+        if parameter.data_type == 'ARRAY':
+            ObjectLink_identificators.objects.filter(
+                object_link=link,
+                parent_object_identificator=row_identifier,
+            ).delete()
+            for value in values:
+                cleaned = value.strip()
+                if not cleaned:
+                    continue
+                ObjectLink_identificators.objects.update_or_create(
+                    object_link=link,
+                    parent_object_identificator=row_identifier,
+                    object_identificator=cleaned,
+                )
+        else:
+            choice = ''
+            for value in values:
+                cleaned = value.strip()
+                if cleaned:
+                    choice = cleaned
+                    break
+            if choice:
+                ObjectLink_identificators.objects.update_or_create(
+                    object_link=link,
+                    parent_object_identificator=row_identifier,
+                    defaults={'object_identificator': choice},
+                )
+            else:
+                ObjectLink_identificators.objects.filter(
+                    object_link=link,
+                    parent_object_identificator=row_identifier,
+                ).delete()
+
+
+def _prepare_parameter_options(parameter: Parameter, data, selected) -> List[Dict[str, Union[str, bool]]]:
+    """
+    Convert helper data produced by ``get_parameters_data_by_ident`` into a
+    uniform ``[{value, label, selected}]`` structure understood by templates.
+    """
+    options: List[Dict[str, Union[str, bool]]] = []
+    if parameter.linked_object_id:
+        selected_set = {str(item) for item in selected}
+        for value, label in data:
+            value_str = str(value)
+            options.append({
+                'value': value_str,
+                'label': label,
+                'selected': value_str in selected_set,
+            })
+    else:
+        selected_indices = set(selected)
+        for idx, label in data:
+            label_str = str(label)
+            options.append({
+                'value': label_str,
+                'label': label_str,
+                'selected': idx in selected_indices,
+            })
+    return options
+
+
+def _serialise_grouped_parameters(parameters_data) -> List[dict]:
+    """
+    Transform grouped parameter tuples into template-friendly dictionaries.
+    """
+    grouped_payload = []
+    for category_name, entries in _group_parameters_data(parameters_data):
+        fields = []
+        for parameter, data, selected, current_data in entries:
+            fields.append({
+                'parameter': parameter,
+                'id': parameter.id,
+                'name': parameter.name,
+                'data_type': parameter.data_type,
+                'value': current_data,
+                'is_identificator': parameter.identificator,
+                'linked_object': parameter.linked_object,
+                'linked_object_id': parameter.linked_object_id,
+                'options': _prepare_parameter_options(parameter, data, selected),
+                'has_options': bool(data),
+                'allow_multiple': parameter.data_type == 'ARRAY',
+            })
+        grouped_payload.append({
+            'name': category_name,
+            'fields': fields,
+        })
+    return grouped_payload
+
+
+def _collect_child_identifier_options(child_obj: Object):
+    """
+    Load identifier options for a child object together with user-facing warnings.
+    """
+    warnings: List[str] = []
+    child_df, child_warnings = _safe_load_dataframe(
+        getattr(child_obj, 'data', None),
+        object_id=getattr(child_obj, 'id', None),
+        object_instance=child_obj,
+        allow_empty=True,
+    )
+    if child_warnings:
+        warnings.extend(child_warnings)
+    ident_list: List[Tuple[str, str]] = []
+    if child_df is not None:
+        ident_param = Parameter.objects.filter(object=child_obj, identificator=True).first()
+        if ident_param is None:
+            warnings.append(f"У дочернего объекта {child_obj.id} не найден идентификаторный параметр.")
+        else:
+            ident_column_key = _resolve_dataframe_column(child_df, ident_param.id)
+            if ident_column_key is None:
+                warnings.append(
+                    f"У дочернего объекта {child_obj.id} отсутствует колонка для идентификатора {ident_param.id}."
+                )
+            else:
+                for _, row in child_df.iterrows():
+                    child_ident = row.get('id_to_connect')
+                    ident_value = row.get(ident_column_key)
+                    if pd.isna(child_ident) or pd.isna(ident_value):
+                        continue
+                    ident_list.append((str(child_ident), str(ident_value).strip()))
+    return ident_list, warnings
 
 
 @login_required
@@ -1582,187 +1925,92 @@ def update_element_to_object(request, pk):
     are persisted. This view also populates data for any linked child objects.
     """
     obj = get_object_or_404(Object, pk=pk)
-    data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj, allow_empty=True)
-    if load_warnings:
-        logger.info(
-            "Warnings while loading data for update_element_to_object (object %s): %s",
-            obj.pk,
-            "; ".join(load_warnings),
-        )
-        if request.method != 'POST':
-            for warning in load_warnings:
-                messages.warning(request, warning)
+    data_obj, load_warnings = _safe_load_dataframe(
+        obj.data,
+        object_id=obj.pk,
+        object_instance=obj,
+        allow_empty=True,
+    )
+    if load_warnings and request.method != 'POST':
+        for warning in load_warnings:
+            messages.warning(request, warning)
     if data_obj is None:
         data_obj = pd.DataFrame({'id_to_connect': []})
     if 'id_to_connect' not in data_obj.columns:
         data_obj['id_to_connect'] = pd.NA
     param_ident_id = request.GET.get('id')
+    row_identifier = str(param_ident_id) if param_ident_id not in (None, '') else None
     if request.method == 'POST':
-        def _parse_param_id_from_key(key: str):
-            prefix = 'col_value_'
-            if not key.startswith(prefix):
-                return None
-            suffix = key[len(prefix):]
-            if suffix.endswith('[]'):
-                suffix = suffix[:-2]
-            try:
-                return int(suffix)
-            except (TypeError, ValueError):
-                return None
-
-        ordered_param_ids = []
-        seen_param_ids = set()
-        for col_id_raw in request.POST.getlist('col_id[]'):
-            try:
-                col_id = int(col_id_raw)
-            except (TypeError, ValueError):
-                continue
-            if col_id not in seen_param_ids:
-                ordered_param_ids.append(col_id)
-                seen_param_ids.add(col_id)
-        if not ordered_param_ids:
-            for key in request.POST.keys():
-                parsed_id = _parse_param_id_from_key(key)
-                if parsed_id is None or parsed_id in seen_param_ids:
-                    continue
-                ordered_param_ids.append(parsed_id)
-                seen_param_ids.add(parsed_id)
-
-        if ordered_param_ids:
-            param_map = {
-                param.id: param
-                for param in Parameter.objects.filter(object=obj, id__in=ordered_param_ids)
-            }
-        else:
-            param_map = {}
-
-        for col_id in ordered_param_ids:
-            parameter = param_map.get(col_id)
-            if not parameter:
-                continue
-            field_name = f'col_value_{col_id}[]'
-            if field_name not in request.POST:
-                # No submitted value (likely a disabled field) – keep stored data.
-                continue
-            col_values = request.POST.getlist(field_name)
-            column_key = _ensure_dataframe_column(data_obj, parameter.id)
-            if not col_values:
-                value = ''
-            elif len(col_values) == 1:
-                value = str(col_values[0])
-            else:
-                separator = parameter.array_separator if parameter.array_separator is not None else ' '
-                value = separator.join(col_values)
-            data_obj.loc[data_obj['id_to_connect'] == param_ident_id, column_key] = value
-        _write_dataframe(obj.data, data_obj, object_instance=obj)
-        # Update child links from linked parameters
-        for parameter in param_map.values():
-            if not parameter.linked_object_id:
-                continue
-            field_name = f'col_value_{parameter.id}[]'
-            if field_name not in request.POST:
-                continue
-            link = Object_ParentObject.objects.get(parent_object=obj, object=parameter.linked_object)
-            col_values = request.POST.getlist(field_name)
-            if parameter.data_type == 'ARRAY':
-                # Multiple links
-                ObjectLink_identificators.objects.filter(object_link=link, parent_object_identificator=param_ident_id).delete()
-                for val in col_values:
-                    if val:
-                        ObjectLink_identificators.objects.update_or_create(
-                            object_link=link,
-                            parent_object_identificator=param_ident_id,
-                            object_identificator=val,
-                        )
-            else:
-                # Single link
-                child_value = col_values[0] if col_values else ''
-                if child_value:
-                    ObjectLink_identificators.objects.update_or_create(
-                        object_link=link,
-                        parent_object_identificator=param_ident_id,
-                        defaults={'object_identificator': child_value},
-                    )
-                else:
-                    ObjectLink_identificators.objects.filter(
-                        object_link=link,
-                        parent_object_identificator=param_ident_id
-                    ).delete()
+        ordered_param_ids = _extract_param_ids_from_request(request)
+        param_qs = Parameter.objects.filter(object=obj, id__in=ordered_param_ids).select_related('linked_object')
+        param_map = {param.id: param for param in param_qs}
+        posted_values = _gather_posted_parameter_values(request, param_map)
+        print(posted_values)
+        row_updated = _apply_values_to_dataframe(data_obj, row_identifier, param_map, posted_values)
+        if row_updated:
+            print('Начинаю запись в Dataframe')
+            _write_dataframe(obj.data, data_obj, object_instance=obj)
+        _sync_linked_parameters(obj, row_identifier, param_map, posted_values)
         redirect_url = reverse('get_object', args=[obj.id])
         if _is_api_request(request):
             return JsonResponse({'status': 'ok', 'redirect_url': redirect_url})
+        if posted_values and not row_updated:
+            messages.warning(
+                request,
+                "Не удалось обновить запись: строка с указанным идентификатором не найдена.",
+            )
         return redirect(redirect_url)
-    parameters_data = get_parameters_data_by_ident(obj, param_ident_id)
-    # Group parameters by categories for the base object
-    parameters_group_data = _group_parameters_data(parameters_data)
-    parameters_objects = Object_ParentObject.objects.filter(parent_object=obj)
-    parameters_objects_data = []
-    parameters_objects_params_group_data = []
-    # List of tuples: (object_link_id, child_object, ident_list, selected_ident) for row-level linking
-    parameters_objects_idents = []
-    for idx, po in enumerate(parameters_objects):
-        if po.link_type == 'multiple':
-            linked_links = ObjectLink_identificators.objects.filter(
-                object_link=po,
-                parent_object_identificator=param_ident_id,
-            )
-            selected_ids = [link.object_identificator for link in linked_links]
-            linked_param_ident_id = selected_ids[0] if selected_ids else None
+    parameters_data = get_parameters_data_by_ident(obj, row_identifier)
+    base_categories = _serialise_grouped_parameters(parameters_data)
+    child_links = []
+    child_relations = Object_ParentObject.objects.filter(parent_object=obj).select_related('object')
+    for index, relation in enumerate(child_relations):
+        if row_identifier is None:
+            selected_ids: List[str] = []
+            linked_row_id = None
         else:
-            parameters_link = ObjectLink_identificators.objects.filter(
-                object_link=po,
-                parent_object_identificator=param_ident_id,
-            ).first()
-            selected_ids = [parameters_link.object_identificator] if parameters_link else []
-            linked_param_ident_id = parameters_link.object_identificator if parameters_link else None
-        po_params_data = get_parameters_data_by_ident(po.object, linked_param_ident_id)
-        po_group_data = _group_parameters_data(po_params_data)
-        parameters_objects_data.append((po.object, True if idx == 0 else False))
-        parameters_objects_params_group_data.append((po.object, po_group_data, True if idx == 0 else False))
-        # Build list of identifiers for the child object
-        child_df, child_warnings = _safe_load_dataframe(
-            getattr(po.object, 'data', None),
-            object_id=getattr(po.object, 'id', None),
-            object_instance=po.object,
-            allow_empty=True,
-        )
-        if child_warnings:
-            logger.info(
-                "Warnings while loading identifiers for update_element_to_object (parent %s -> child %s): %s",
-                obj.pk,
-                getattr(po.object, 'id', None),
-                "; ".join(child_warnings),
+            links_qs = ObjectLink_identificators.objects.filter(
+                object_link=relation,
+                parent_object_identificator=row_identifier,
             )
-            if request.method != 'POST':
-                for warning in child_warnings:
-                    messages.warning(request, warning)
-        ident_list = []
-        if child_df is not None:
-            ident_param = Parameter.objects.filter(object=po.object, identificator=True).first()
-            if ident_param is not None:
-                ident_column_key = _resolve_dataframe_column(child_df, ident_param.id)
-                if ident_column_key is None:
-                    logger.warning(
-                        "Child object %s data missing identifier column %s.",
-                        getattr(po.object, 'id', None),
-                        ident_param.id,
-                    )
-                else:
-                    for _, row in child_df.iterrows():
-                        child_ident = row.get('id_to_connect')
-                        ident_value = row.get(ident_column_key)
-                        if pd.isna(child_ident) or pd.isna(ident_value):
-                            continue
-                        ident_list.append((str(child_ident), str(ident_value).strip()))
-        parameters_objects_idents.append((po.id, po.object, ident_list, selected_ids, po.link_type))
-    return render(request, 'database_manager/update_element_to_object.html', context={
+            if relation.link_type == 'multiple':
+                selected_ids = [str(item.object_identificator) for item in links_qs]
+            else:
+                mapping = links_qs.first()
+                selected_ids = [str(mapping.object_identificator)] if mapping else []
+            linked_row_id = selected_ids[0] if selected_ids else None
+        child_params = get_parameters_data_by_ident(relation.object, linked_row_id)
+        child_categories = _serialise_grouped_parameters(child_params)
+        ident_list, child_warnings = _collect_child_identifier_options(relation.object)
+        if child_warnings and request.method != 'POST':
+            for warning in child_warnings:
+                messages.warning(request, warning)
+        selected_set = set(selected_ids)
+        options = [
+            {
+                'value': value,
+                'label': label,
+                'selected': value in selected_set,
+            }
+            for value, label in ident_list
+        ]
+        child_links.append({
+            'link_id': relation.id,
+            'object': relation.object,
+            'is_active': index == 0,
+            'is_multiple': relation.link_type == 'multiple',
+            'link_type': relation.link_type,
+            'options': options,
+            'categories': child_categories,
+            'selected_ids': selected_ids,
+        })
+    context = {
         'object': obj,
-        'parameters_group_data': parameters_group_data,
-        'param_ident_id': param_ident_id,
-        'parameters_objects': parameters_objects_data,
-        'parameters_objects_params_group_data': parameters_objects_params_group_data,
-        'parameters_objects_idents': parameters_objects_idents,
-    })
+        'param_ident_id': row_identifier,
+        'base_categories': base_categories,
+        'child_links': child_links,
+    }
+    return render(request, 'database_manager/update_element_to_object.html', context)
 
 
 @login_required
@@ -1777,7 +2025,7 @@ def delete_element_to_object(request, pk):
     obj = get_object_or_404(Object, pk=pk)
     data_obj, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj)
     if load_warnings:
-        logger.info(
+        logger.warning(
             "Warnings while loading data for delete_element_to_object (object %s): %s",
             obj.pk,
             "; ".join(load_warnings),
@@ -1804,7 +2052,7 @@ def delete_element_to_object(request, pk):
         )
         return HttpResponse(status=200)
     if index.empty:
-        logger.info(
+        logger.warning(
             "Row %s not found in object %s during delete request.",
             param_ident_id,
             obj.pk,
@@ -1828,7 +2076,7 @@ def update_csv(request, pk):
     if request.method == 'POST':
         _, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj)
         if load_warnings:
-            logger.info(
+            logger.warning(
                 "Warnings while loading existing data before CSV update (object %s): %s",
                 obj.pk,
                 "; ".join(load_warnings),
@@ -1885,7 +2133,7 @@ def generate_excel_file(request, pk):
     doc_list = [f"{doc.document.name}**{doc.document.id}**" for doc in documents]
     df_object, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj)
     if load_warnings:
-        logger.info("Warnings while preparing Excel export for object %s: %s", obj.pk, '; '.join(load_warnings))
+        logger.warning("Warnings while preparing Excel export for object %s: %s", obj.pk, '; '.join(load_warnings))
     if df_object is None:
         raise Http404
     ident_column_key = _resolve_dataframe_column(df_object, ident_param.id)
@@ -1949,7 +2197,7 @@ def add_objects_links(request, pk):
                 allow_empty=True,
             )
             if parent_warnings:
-                logger.info(
+                logger.warning(
                     "Warnings while loading parent data during link creation (parent %s -> child %s): %s",
                     parent_object.id,
                     child_obj.id,
@@ -2040,4 +2288,5 @@ def delete_object_link(request, pk):
     ObjectLink_identificators.objects.filter(object_link=link).delete()
     link.delete()
     return HttpResponse('')
+
 
