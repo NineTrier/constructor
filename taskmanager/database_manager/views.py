@@ -632,6 +632,10 @@ def post_data_from_object(request, pk):
     response_record = {'id_to_connect': id_to_connect}
     parameters = Parameter.objects.filter(object=obj).order_by('id')
     handled_columns = set()
+    parent_links = {
+        link.object_id: link
+        for link in Object_ParentObject.objects.filter(parent_object=obj)
+    }
     for param in parameters:
         column_key = _resolve_dataframe_column(data_obj, param.id)
         key_name = str(param.id)
@@ -661,10 +665,42 @@ def post_data_from_object(request, pk):
                 param.id,
                 obj.pk,
             )
+        linked_ids: List[str] = []
+        if param.linked_object_id:
+            link = parent_links.get(param.linked_object_id)
+            if link:
+                link_qs = ObjectLink_identificators.objects.filter(
+                    object_link=link,
+                    parent_object_identificator=id_to_connect,
+                )
+                if param.data_type == 'ARRAY':
+                    linked_ids = [
+                        entry.object_identificator
+                        for entry in link_qs
+                        if entry.object_identificator
+                    ]
+                else:
+                    entry = link_qs.first()
+                    if entry and entry.object_identificator:
+                        linked_ids = [entry.object_identificator]
         if param.data_type == 'ARRAY':
+            if linked_ids:
+                array_value = linked_ids
+            else:
+                if param.array_separator:
+                    raw_items = str(safe_val).split(param.array_separator) if safe_val else []
+                elif isinstance(safe_val, (list, tuple, set)):
+                    raw_items = safe_val
+                else:
+                    raw_items = [safe_val] if safe_val else []
+                array_value = []
+                for item in raw_items:
+                    text = str(item).strip()
+                    if text and text.lower() not in ['nan', 'none', '<na>']:
+                        array_value.append(text)
             response_record[key_name] = {
                 'data_type': param.data_type,
-                'value': str(safe_val).split(param.array_separator) if safe_val else [],
+                'value': array_value,
             }
         elif param.data_type == 'DATE':
             if safe_val:
@@ -680,7 +716,14 @@ def post_data_from_object(request, pk):
                 response_record[key_name] = {'data_type': param.data_type, 'value': parsed_value}
             else:
                 response_record[key_name] = {'data_type': param.data_type, 'value': ''}
+        elif param.data_type == 'TXTS' and linked_ids:
+            response_record[key_name] = {
+                'data_type': param.data_type,
+                'value': linked_ids[0],
+            }
         else:
+            if linked_ids:
+                safe_val = linked_ids[0]
             response_record[key_name] = {
                 'data_type': param.data_type,
                 'value': safe_val if safe_val is not None else '',
@@ -1519,7 +1562,6 @@ def _is_api_request(request):
         return True
     return False
 
-
 def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
     """
     Load a DataFrame and return, for each Parameter, the available values and
@@ -1589,10 +1631,34 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
             # For linked parameters, get selected ids from links
             link = Object_ParentObject.objects.get(parent_object=obj, object=parameter.linked_object)
             if parameter.data_type == 'ARRAY':
-                selected_ids = [li.object_identificator for li in ObjectLink_identificators.objects.filter(object_link=link, parent_object_identificator=param_ident_id)]
+                selected_ids = [
+                    li.object_identificator
+                    for li in ObjectLink_identificators.objects.filter(
+                        object_link=link,
+                        parent_object_identificator=param_ident_id,
+                    )
+                ]
             else:
-                li = ObjectLink_identificators.objects.filter(object_link=link, parent_object_identificator=param_ident_id).first()
+                li = ObjectLink_identificators.objects.filter(
+                    object_link=link,
+                    parent_object_identificator=param_ident_id,
+                ).first()
                 selected_ids = [li.object_identificator] if li else []
+            if not selected_ids and current_data:
+                if parameter.data_type == 'ARRAY':
+                    if parameter.array_separator:
+                        fallback_items = [
+                            item.strip()
+                            for item in str(current_data).split(parameter.array_separator)
+                            if item and item.strip()
+                        ]
+                    else:
+                        fallback_items = [str(current_data).strip()]
+                    selected_ids = [item for item in fallback_items if item]
+                else:
+                    cleaned = str(current_data).strip()
+                    if cleaned:
+                        selected_ids = [cleaned]
             # Get data as list of (id, label)
             child_df, child_warnings = _safe_load_dataframe(
                 getattr(parameter.linked_object, 'data', None),

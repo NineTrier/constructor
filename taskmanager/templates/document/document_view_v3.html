@@ -1842,22 +1842,45 @@
                     },
                     body: form_data,
                 })
-                .then(response => response.text())
-                .then(columns =>{
-                    data = JSON.parse(columns)[0];
-                    for(let [key, value] of Object.entries(data)){
-                        let object_parameter = document.querySelector('.obj_parameter[data-idParam="'+key+'"]')
-                        data_type = value['data_type']
-                        data_value = value['value']
+                .then(response => response.json())
+                .then(payload =>{
+                    if (!Array.isArray(payload) || payload.length === 0) {
+                        console.warn('getLinkedObjectData: empty response for object', obj_id);
+                        return;
+                    }
+                    const data = payload[0];
+                    if (!data || typeof data !== 'object') {
+                        console.warn('getLinkedObjectData: unexpected payload format', data);
+                        return;
+                    }
+                    for(const [key, value] of Object.entries(data)){
+                        if (key === 'id_to_connect') {
+                            continue;
+                        }
+                        const object_parameter = document.querySelector('.obj_parameter[data-idParam="'+key+'"]');
+                        if (!object_parameter) {
+                            console.warn('getLinkedObjectData: parameter container not found', key);
+                            continue;
+                        }
+                        let data_type = value['data_type'];
+                        let data_value = value['value'];
                         if(data_value == 'nan')
                             data_value = ''
                         if(data_type == 'TXT' || data_type == 'TXTS' || data_type == 'DATE'){
-                            let inp = object_parameter.querySelector('input[name="'+key+'"]')
-                            inp.value = data_value
-                            inp.dispatchEvent(new Event('change'))
+                            const inp = object_parameter.querySelector('input[name="'+key+'"]');
+                            if (!inp) {
+                                console.warn('getLinkedObjectData: input not found for parameter', key);
+                                continue;
+                            }
+                            inp.value = data_value;
+                            inp.dispatchEvent(new Event('change'));
                         }
                         else if(data_type == 'ARRAY'){
-                            let container = object_parameter.querySelector('.array_data_container')
+                            const container = object_parameter.querySelector('.array_data_container');
+                            if (!container) {
+                                console.warn('getLinkedObjectData: array container not found for parameter', key);
+                                continue;
+                            }
                             container.innerHTML = ''
                             for(let i = 0; i < data_value.length; i++){
                                 container.insertAdjacentHTML('beforeend', `
@@ -1869,11 +1892,6 @@
                                 `)
                             }
                         }
-                        // else if(data_type == 'DATE'){
-                        //     let inp = form.querySelector('input[name="'+key+'"]') 
-                        //     inp.value = data_value;
-                        //     inp.dispatchEvent(new Event('change'))
-                        // }
                     }
                     $('#objectFindDataModal').modal('hide');
                     
@@ -3876,7 +3894,7 @@
                 var receivers = eventManager.getReceivers(sender)
                 for(let receiver of receivers){
                     for(let event of receiver.events){
-                        console.log(receiver)
+
                         let receiver_element = document.getElementById(event.receiver)
                         let sender_element = document.getElementById(receiver.sender)
                         if(receiver_element === null || receiver_element === undefined || sender_element === undefined || sender_element === null){
@@ -3885,7 +3903,6 @@
                         }
                         let rec = AddEventReceiver(receiver_element, sender_element, event.event.type, event.operation, false, event.id, event.event.uslovie);
                         for(let elem of rec.querySelectorAll('select, input')){
-                            console.log(elem)
                             elem.setAttribute('disabled', true);
                         }
                     } 
@@ -4244,22 +4261,45 @@
                     },
                     body: new FormData(form),
                 })
-                .then(response => response.text())
-                .then(columns =>{
-                    data = JSON.parse(columns)[0];
-                    for(let [key, value] of Object.entries(data)){
-                        let object_parameter = document.querySelector('.obj_parameter[data-idParam="'+key+'"]')
-                        data_type = value['data_type']
-                        data_value = value['value']
+                .then(response => response.json())
+                .then(payload =>{
+                    if (!Array.isArray(payload) || payload.length === 0) {
+                        console.warn('getDataFromObject: empty response for object', obj_id);
+                        return;
+                    }
+                    const data = payload[0];
+                    if (!data || typeof data !== 'object') {
+                        console.warn('getDataFromObject: unexpected payload', data);
+                        return;
+                    }
+                    for(const [key, value] of Object.entries(data)){
+                        if (key === 'id_to_connect') {
+                            continue;
+                        }
+                        const object_parameter = document.querySelector('.obj_parameter[data-idParam="'+key+'"]')
+                        if (!object_parameter) {
+                            console.warn('getDataFromObject: parameter container not found', key);
+                            continue;
+                        }
+                        let data_type = value['data_type']
+                        let data_value = value['value']
                         if(data_value == 'nan')
                             data_value = ''
                         if(data_type == 'TXT' || data_type == 'TXTS' || data_type == 'DATE'){
-                            let inp = object_parameter.querySelector('input[name="'+key+'"]')
+                            const inp = object_parameter.querySelector('input[name="'+key+'"]')
+                            if (!inp) {
+                                console.warn('getDataFromObject: input not found for parameter', key);
+                                continue;
+                            }
                             inp.value = data_value
                             inp.dispatchEvent(new Event('change'))
                         }
                         else if(data_type == 'ARRAY'){
-                            let container = object_parameter.querySelector('.array_data_container')
+                            const container = object_parameter.querySelector('.array_data_container')
+                            if (!container) {
+                                console.warn('getDataFromObject: array container not found for parameter', key);
+                                continue;
+                            }
                             container.innerHTML = ''
                             for(let i = 0; i < data_value.length; i++){
                                 container.insertAdjacentHTML('beforeend', `
@@ -4534,34 +4574,57 @@
                     return false;
                 }
 
-                async switchOperation(operation, receiver, sender){
-                    var receiver_element = document.querySelector('.tree_element[data-idElement="'+ receiver +'"] .hideCheckbox');
-                    var sender_element = document.querySelector('.tree_element[data-idElement="'+ sender +'"] .hideCheckbox');
+                async switchOperation(operation, receiver, sender, eventId=null){
+                    const receiverSelector = '.tree_element[data-idElement="'+ receiver +'"] .hideCheckbox';
+                    const senderSelector = '.tree_element[data-idElement="'+ sender +'"] .hideCheckbox';
+                    const receiver_element = document.querySelector(receiverSelector);
+                    const sender_element = document.querySelector(senderSelector);
+                    if (!receiver_element) {
+                        console.warn('switchOperation: receiver checkbox not found', receiver);
+                        if (eventId) {
+                            this.deleteEventListener(eventId);
+                        }
+                        return;
+                    }
                     switch (operation) {
                         case 'hide':
-                            if(receiver_element.checked == true){
+                            if (receiver_element.checked === true){
                                 receiver_element.checked = false;
                                 receiver_element.dispatchEvent(new Event('change'));
                             }
                             break;
                         case 'unhide':
-                            if(receiver_element.checked == false){
+                            if (receiver_element.checked === false){
                                 receiver_element.checked = true;
                                 receiver_element.dispatchEvent(new Event('change'));
                             }
                             break;
                         case 'toggle':
-                            if(sender_element.checked == true){
-                                this.switchOperation('unhide', receiver, sender);
+                            if (!sender_element) {
+                                console.warn('switchOperation: sender checkbox not found', sender);
+                                if (eventId) {
+                                    this.deleteEventListener(eventId);
+                                }
+                                return;
+                            }
+                            if (sender_element.checked === true){
+                                this.switchOperation('unhide', receiver, sender, eventId);
                             }else{
-                                this.switchOperation('hide', receiver, sender);
+                                this.switchOperation('hide', receiver, sender, eventId);
                             }
                             break;
                         case 'toggle_reverse':
-                            if(sender_element.checked == false){
-                                this.switchOperation('unhide', receiver, sender);
+                            if (!sender_element) {
+                                console.warn('switchOperation: sender checkbox not found', sender);
+                                if (eventId) {
+                                    this.deleteEventListener(eventId);
+                                }
+                                return;
+                            }
+                            if (sender_element.checked === false){
+                                this.switchOperation('unhide', receiver, sender, eventId);
                             }else{
-                                this.switchOperation('hide', receiver, sender);
+                                this.switchOperation('hide', receiver, sender, eventId);
                             }
                             break;
                         default:
@@ -4590,7 +4653,7 @@
                             switch (event.event.type) {
                                 case 'find':
                                     if(sender_text.includes(uslovie)){
-                                        this.switchOperation(operation, receiver, sender_element.id)
+                                        this.switchOperation(operation, receiver, sender_element.id, event.id)
                                     }
                                     // else{
                                     //     this.switchOperation(this.reverseOperations[operation], receiver)
@@ -4598,7 +4661,7 @@
                                     break;
                                 case 'unfind':
                                     if(!sender_text.includes(uslovie)){
-                                        this.switchOperation(operation, receiver, sender_element.id)
+                                        this.switchOperation(operation, receiver, sender_element.id, event.id)
                                     }
                                     // else{
                                     //     this.switchOperation(this.reverseOperations[operation], receiver)
@@ -4618,7 +4681,7 @@
                         try {
                             if(receiver.event.type !== event)
                                 continue
-                            this.switchOperation(receiver.operation, receiver.receiver, sender)
+                            this.switchOperation(receiver.operation, receiver.receiver, sender, receiver.id)
                         } catch (error) {
                             console.log(error)
                             continue
