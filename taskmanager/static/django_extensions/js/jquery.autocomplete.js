@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @fileOverview jquery-autocomplete, the jQuery Autocompleter
  * @author <a href="mailto:dylan@dyve.net">Dylan Verheul</a>
  * @version 2.4.4

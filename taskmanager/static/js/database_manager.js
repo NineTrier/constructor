@@ -1,4 +1,4 @@
-function DeleteVar(event) {
+﻿function DeleteVar(event) {
     var btn = event.target.closest('.btn');
     var json = JSON.stringify({ 'id': btn.parentElement.parentElement.getAttribute('data-idVar') });
     var url;

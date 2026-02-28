@@ -1,4 +1,4 @@
-/*global gettext*/
+﻿/*global gettext*/
 'use strict';
 {
     window.addEventListener('load', function() {

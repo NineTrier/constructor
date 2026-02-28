@@ -1,4 +1,4 @@
-from django.db import DatabaseError
+﻿from django.db import DatabaseError
 
 from .models import Profile
 

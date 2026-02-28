@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+﻿from typing import Any, Dict, Optional
 
 from django.conf import settings
 from django.contrib import messages

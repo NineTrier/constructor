@@ -1,4 +1,4 @@
-/* JavaScript for the documents tools panel.
+﻿/* JavaScript for the documents tools panel.
 
 This script handles validation of placeholders and asynchronous document
 generation with progress updates.  It expects global variables

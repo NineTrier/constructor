@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+﻿from dataclasses import dataclass
 from typing import Iterable, List, Optional, Sequence, Tuple
 
 from django.contrib.auth.models import Group, Permission

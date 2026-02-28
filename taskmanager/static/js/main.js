@@ -1,4 +1,4 @@
-
+﻿
 console.log("JS is connected");
 
 const app = Vue.createApp ({

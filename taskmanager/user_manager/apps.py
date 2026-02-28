@@ -1,4 +1,4 @@
-import os
+﻿import os
 import sys
 
 from django.apps import AppConfig

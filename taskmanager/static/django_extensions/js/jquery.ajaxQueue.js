@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Ajax Queue Plugin
  */
 

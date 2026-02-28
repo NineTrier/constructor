@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 {
     const $ = django.jQuery;
     const fields = $('#django-admin-prepopulated-fields-constants').data('prepopulatedFields');
