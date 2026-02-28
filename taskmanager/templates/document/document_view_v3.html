@@ -8,8 +8,16 @@
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
         <meta name="csrf_token" content="{{ csrf_token }}">
         <meta name="doc_id" content="{{ Doc.id }}">
+        <meta name="dbm_ui_v1_only" content="{% if DBM_UI_V1_ONLY %}1{% else %}0{% endif %}">
+        <meta name="dbm_ui_use_api_for_mutations" content="{% if DBM_UI_USE_API_FOR_MUTATIONS %}1{% else %}0{% endif %}">
+        <meta name="dbm_ui_legacy_fallback" content="{% if DBM_UI_LEGACY_FALLBACK %}1{% else %}0{% endif %}">
         <title>{{ Doc.name }}</title>
         {% load static %}
+        <script>
+            window.DBM_UI_V1_ONLY = {% if DBM_UI_V1_ONLY %}true{% else %}false{% endif %};
+            window.DBM_UI_USE_API_FOR_MUTATIONS = {% if DBM_UI_USE_API_FOR_MUTATIONS %}true{% else %}false{% endif %};
+            window.DBM_UI_LEGACY_FALLBACK = {% if DBM_UI_LEGACY_FALLBACK %}true{% else %}false{% endif %};
+        </script>
         <script src="{% static 'js/jquery.min.js' %}"></script>
         <link rel="stylesheet" href="{% static 'css/select2.min.css' %}">
         <script src="{% static 'js/select2.min.js' %}"></script>
@@ -5162,6 +5170,24 @@
                 }
             });
         });
+    </script>
+    <script src="{% static 'js/dbm_api.js' %}"></script>
+    <script src="{% static 'js/dbm_dto.js' %}"></script>
+    <script src="{% static 'js/document_dbm_integration.js' %}"></script>
+    <script>
+        if (!window.DBM_UI_LEGACY_FALLBACK && window.documentDbmIntegration) {
+            window.linkedParentElementChanged = window.documentDbmIntegration.linkedParentElementChanged;
+            window.getLinkedObjectData = window.documentDbmIntegration.getLinkedObjectData;
+            window.ConnectNewObject = window.documentDbmIntegration.ConnectNewObject;
+            window.deleteObjectFromDocument = window.documentDbmIntegration.deleteObjectFromDocument;
+            window.addObjects = window.documentDbmIntegration.addObjects;
+            window.getDataFromObject = window.documentDbmIntegration.getDataFromObject;
+            window.click_to_ident = window.documentDbmIntegration.click_to_ident;
+            window.updateObjectElement = window.documentDbmIntegration.updateObjectElement;
+            window.openFindDataModal = window.documentDbmIntegration.openFindDataModal;
+            window.onFilterInputInput = window.documentDbmIntegration.onFilterInputInput;
+            window.getObjectData = window.documentDbmIntegration.getObjectData;
+        }
     </script>
 </html>
 

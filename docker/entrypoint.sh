@@ -34,35 +34,20 @@ fi
 
 # Apply migrations unless explicitly disabled.
 AUTO_MIGRATE=${DJANGO_AUTO_MIGRATE:-1}
+# By default fail fast on migration errors to avoid running with a broken schema.
+MIGRATE_FAIL_OPEN=${DJANGO_MIGRATE_FAIL_OPEN:-0}
 if [ "$AUTO_MIGRATE" = "1" ]; then
-  NEED_MIGRATIONS_OUTPUT="$(
-    python <<'PY'
-import os
-import sys
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "taskmanager.settings")
-try:
-    import django
-    django.setup()
-    from django.db import connections
-    from django.db.migrations.executor import MigrationExecutor
-    connection = connections['default']
-    executor = MigrationExecutor(connection)
-    targets = executor.loader.graph.leaf_nodes()
-    plan = executor.migration_plan(targets)
-    print("1" if plan else "0")
-except Exception as exc:
-    print(f"migration_check_error:{exc}")
-    print("0")
-PY
-  )"
-  NEED_MIGRATIONS="$(printf '%s\n' "$NEED_MIGRATIONS_OUTPUT" | tail -n 1)"
-  if [ "$NEED_MIGRATIONS" = "1" ]; then
-    echo "Pending migrations detected; applying..."
-    if ! python manage.py migrate --noinput --fake-initial; then
-      echo "Migration command failed; skipping automatic migration."
-    fi
+  echo "Applying migrations..."
+  if python manage.py migrate --noinput --fake-initial; then
+    echo "Migrations applied successfully (or already up to date)."
   else
-    echo "No pending migrations detected; skipping automatic migrate."
+    echo "Migration command failed." >&2
+    if [ "$MIGRATE_FAIL_OPEN" = "1" ]; then
+      echo "DJANGO_MIGRATE_FAIL_OPEN=1, continuing startup despite migration failure." >&2
+    else
+      echo "Failing startup. Set DJANGO_MIGRATE_FAIL_OPEN=1 only for emergency diagnostics." >&2
+      exit 1
+    fi
   fi
 else
   echo "Automatic migrations disabled (DJANGO_AUTO_MIGRATE=${AUTO_MIGRATE})."

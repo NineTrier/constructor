@@ -1,4 +1,4 @@
-# Класс Документ, представленный xml структурой
+﻿# Класс Документ, представленный xml структурой
 import json
 import re
 from django.conf import settings

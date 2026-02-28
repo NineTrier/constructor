@@ -1,4 +1,4 @@
-from django.contrib import admin
+﻿from django.contrib import admin
 import database_manager.models as models
 
 admin.site.register([

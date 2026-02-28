@@ -1,4 +1,4 @@
-from docx import Document
+﻿from docx import Document
 from docx.oxml import OxmlElement, ns
 
 # Пока что не знаю куда разместить эти функции, поэтому лежат просто в файле

@@ -1,4 +1,4 @@
-{% load static %}
+﻿{% load static %}
 <!doctype html>
 <html lang="ru">
 <head>
@@ -7,6 +7,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <meta name="csrf_token" content="{{ csrf_token }}">
+    <meta name="dbm_ui_v1_only" content="{% if DBM_UI_V1_ONLY %}1{% else %}0{% endif %}">
+    <meta name="dbm_ui_use_api_for_mutations" content="{% if DBM_UI_USE_API_FOR_MUTATIONS %}1{% else %}0{% endif %}">
+    <meta name="dbm_ui_legacy_fallback" content="{% if DBM_UI_LEGACY_FALLBACK %}1{% else %}0{% endif %}">
     <title>{% block title %}{% endblock %}</title>
 
     <script src="{% static 'js/jquery.min.js' %}"></script>
@@ -24,6 +27,9 @@
     <link rel="stylesheet" href="{% static 'css/main/index.css' %}">
     {% block connection %}{% endblock %}
     <script>
+        window.DBM_UI_V1_ONLY = {% if DBM_UI_V1_ONLY %}true{% else %}false{% endif %};
+        window.DBM_UI_USE_API_FOR_MUTATIONS = {% if DBM_UI_USE_API_FOR_MUTATIONS %}true{% else %}false{% endif %};
+        window.DBM_UI_LEGACY_FALLBACK = {% if DBM_UI_LEGACY_FALLBACK %}true{% else %}false{% endif %};
         (function () {
             const originalFetch = window.fetch.bind(window);
             const safeMethods = /^(GET|HEAD|OPTIONS|TRACE)$/i;

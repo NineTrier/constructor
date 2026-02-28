@@ -1,4 +1,4 @@
-from django.contrib import admin
+﻿from django.contrib import admin
 from .models import DocumentsPattern, Fonts, SavedElements, DocType, VariableBlock, Document_ParentDocument
 
 

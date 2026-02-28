@@ -1,0 +1,6 @@
+# Keep frontend source files byte-stable (including UTF-8 BOM)
+# and avoid implicit git text normalization side effects.
+*.html -text
+*.js -text
+*.css -text
+

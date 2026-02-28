@@ -23,8 +23,6 @@ from django.conf import settings
 from django.db import connection
 from django.db.models import Q, Max
 
-logger = logging.getLogger(__name__)
-
 from .models import Object, Parameter, Object_ParentObject, ObjectLink_identificators, ParameterCategory
 from document.models import DocumentPattern_Objects
 from user_manager.models import Profile, Organisation  # noqa: F401  # imported for side effects
@@ -50,7 +48,15 @@ try:  # POSIX file locking
 except ImportError:  # pragma: no cover - non-POSIX systems
     fcntl = None  # type: ignore[assignment]
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+from .application.services import ObjectDataService, ObjectLinkService, ObjectSchemaService
+from .presentation.dto import legacy_record_to_dto, serialise_record_dto
+
+logger = logging.getLogger(__name__)
+object_data_service = ObjectDataService(logger=logger)
+object_link_service = ObjectLinkService(data_service=object_data_service)
+object_schema_service = ObjectSchemaService(data_service=object_data_service)
 
 
 """
@@ -91,6 +97,7 @@ _DATASTORE_JSON_MAGIC = b'DFJSON1|'
 _DATASTORE_ENCRYPTED_MAGIC = b'DFENC1|'
 _DATASTORE_FORMAT_VERSION = 1
 _DATASTORE_SUBDIR = Path('dataframes')
+_RECORD_UID_COLUMN = 'record_uid'
 _LOCKING_SUPPORTED = fcntl is not None
 
 if not _LOCKING_SUPPORTED:
@@ -340,22 +347,10 @@ def get_row_links(request, pk):
     parent_ident_id = request.POST.get('parent_ident_id')
     if not parent_ident_id:
         return JsonResponse({'links': []})
-    links_data = []
-    for link in Object_ParentObject.objects.filter(parent_object=parent_obj):
-        child_obj = link.object
-        child_ids = list(
-            ObjectLink_identificators.objects.filter(
-                object_link=link,
-                parent_object_identificator=parent_ident_id
-            ).values_list('object_identificator', flat=True)
-        )
-        links_data.append({
-            'child_object_id': child_obj.id,
-            'child_object_name': child_obj.name,
-            'link_type': link.link_type,
-            'child_ident_ids': child_ids,
-            'link_id': link.id,
-        })
+    links_data = object_link_service.get_row_links(
+        parent_obj=parent_obj,
+        parent_identifier=str(parent_ident_id),
+    )
     return JsonResponse({'links': links_data})
 
 
@@ -466,8 +461,8 @@ def create_new_object(request):
     relative_path = '/'.join(['dataframes', f'{file_id}.json'])
     new_object.data.name = relative_path
     new_object.save()
-    # Initialise an empty DataFrame with only the id_to_connect column
-    df = pd.DataFrame({"id_to_connect": []})
+    # Initialise an empty DataFrame with legacy and stable row identifiers.
+    df = pd.DataFrame({"id_to_connect": [], _RECORD_UID_COLUMN: []})
     _write_dataframe(new_object.data, df, object_instance=new_object)
     return JsonResponse({'id': new_object.id})
 
@@ -481,102 +476,45 @@ def get_object(request, pk):
     instead of rendering the template.
     """
     obj = get_object_or_404(Object, pk=pk)
-    warnings = []
-    idents = []
-    param_ident = Parameter.objects.filter(object=obj, identificator=True).first()
-    data_obj, load_warnings = _safe_load_dataframe(
-        obj.data,
-        object_id=obj.pk,
-        object_instance=obj,
+    warnings: List[str] = []
+    requested_limit = request.GET.get('limit')
+    requested_offset = request.GET.get('offset')
+    requested_order = request.GET.get('order_by')
+    try:
+        limit = int(requested_limit) if requested_limit else None
+    except (TypeError, ValueError):
+        limit = None
+    try:
+        offset = int(requested_offset) if requested_offset else 0
+    except (TypeError, ValueError):
+        offset = 0
+    overview = object_schema_service.get_object_overview(
+        obj=obj,
+        order_by=requested_order or "-updated_at",
+        limit=limit,
+        offset=offset,
     )
-    if load_warnings:
-        warnings.extend(load_warnings)
-    if data_obj is not None:
-        if not isinstance(data_obj, pd.DataFrame):
-            logger.warning(
-                "Data for object %s is of type %s instead of pandas.DataFrame",
-                obj.pk,
-                type(data_obj),
-            )
-            warnings.append("Файл с данными объекта имеет неподдерживаемый формат, список идентификаторов будет пуст.")
-        elif param_ident is None:
-            warnings.append("Для объекта не найден параметр с флагом идентификатора.")
-        else:
-            id_column_key = _resolve_dataframe_column(data_obj, 'id_to_connect')
-            param_column_key = _resolve_dataframe_column(data_obj, param_ident.id)
-            missing_columns = []
-            if id_column_key is None:
-                missing_columns.append('id_to_connect')
-            if param_column_key is None:
-                missing_columns.append(str(param_ident.id))
-            if missing_columns:
-                logger.warning(
-                    "Object %s data frame is missing columns: %s",
-                    obj.pk,
-                    ', '.join(str(col) for col in missing_columns),
-                )
-                warnings.append(
-                    "В данных объекта отсутствуют обязательные столбцы ({0}), список идентификаторов будет пуст."
-                    .format(', '.join(str(col) for col in missing_columns))
-                )
-            else:
-                for index, row in data_obj.sort_index(axis=0, ascending=False).iterrows():
-                    ident_value = row.get(id_column_key)
-                    if pd.isna(ident_value):
-                        logger.warning(
-                            "Row %s in object %s skipped: empty id_to_connect value",
-                            index,
-                            obj.pk,
-                        )
-                        warnings.append(f"Строка {index} пропущена: пустое значение id_to_connect.")
-                        continue
-                    param_value = row.get(param_column_key)
-                    if pd.isna(param_value):
-                        logger.warning(
-                            "Row %s in object %s has empty value for identifier parameter %s",
-                            index,
-                            obj.pk,
-                            param_ident.id,
-                        )
-                        param_value = ''
-                    idents.append({'id': str(ident_value), 'param_ident': '' if param_value is None else str(param_value)})
+    if not any(parameter.identificator for parameter in overview['parameters']):
+        warnings.append("Для объекта не найден параметр с флагом идентификатора.")
+    idents = overview['idents']
     if warnings and request.method != 'POST':
         for warning in warnings:
             messages.warning(request, warning)
-    # Build a mapping of parameter metadata for the base object.  We
-    # additionally prepare a mapping of child object parameter IDs to
-    # their names so that the front‑end can render human‑readable labels
-    # when displaying row data from linked objects.  Without this the
-    # client would need to fetch the parameter names separately for each
-    # child, leading to additional network round trips.  By computing
-    # `child_params` here, we encapsulate that logic server‑side.
-    # child_params structure: { child_obj_id: {param_id: param_name, ...}, ... }
-    child_params = {}
-    for link in Object_ParentObject.objects.filter(parent_object=obj):
-        child_obj = link.object
-        # Only build the mapping once per child object
-        if child_obj.id not in child_params:
-            mapping = {p.id: p.name for p in Parameter.objects.filter(object=child_obj)}
-            child_params[child_obj.id] = mapping
-    param_qs = Parameter.objects.filter(object=obj)
-    logger.debug(
-        "Rendering object %s with parameters %s",
-        obj.pk,
-        list(param_qs.values_list('id', flat=True)),
-    )
     context = {
-        'object': obj,
-        'parameters': sorted(param_qs, key=lambda x: x.id),
+        'object': overview['object'],
+        'parameters': sorted(overview['parameters'], key=lambda x: x.id),
         'idents': idents,
-        'documents': [doc.document for doc in DocumentPattern_Objects.objects.filter(object=obj)],
-        'child_params': child_params,
+        'documents': overview['documents'],
+        'documents_json': overview['documents_json'],
+        'child_params': overview['child_params'],
         'warnings': warnings,
     }
     if request.method == 'POST':
         return HttpResponse(json.dumps({
-            'object': obj.to_dict(),
+            'object': overview['object'].to_dict(),
             'idents': idents,
-            'documents': [{doc.document.id: doc.document.name} for doc in DocumentPattern_Objects.objects.filter(object=obj)],
+            'schema': overview['schema'],
+            'documents': overview['documents_json'],
             'warnings': warnings,
         }))
     return render(request, 'database_manager/get_object.html', context)
@@ -584,15 +522,244 @@ def get_object(request, pk):
 
 @login_required
 @permission_required('database_manager.view_object', raise_exception=True)
-def post_data_from_object(request, pk):
+@require_http_methods(['GET', 'POST'])
+def api_v1_object_records(request, pk):
     """
-    Given an identifier (id_to_connect) return all values for that row.
-    The response contains information about each parameter, including its data
-    type and appropriately parsed value.
+    API v1 endpoint for object records collection (list/search/pagination).
     """
     obj = get_object_or_404(Object, pk=pk)
-    if request.method != 'POST':
-        return HttpResponseBadRequest("Expected POST request.")
+    try:
+        limit = int(request.GET.get('limit', 50))
+    except (TypeError, ValueError):
+        limit = 50
+    try:
+        offset = int(request.GET.get('offset', 0))
+    except (TypeError, ValueError):
+        offset = 0
+    order = str(request.GET.get('order', 'updated_at') or 'updated_at').strip().lower()
+    if order not in {'updated_at', 'record_uid', 'identificator'}:
+        order = 'updated_at'
+    include_schema_raw = str(request.GET.get('include_schema', '1')).strip().lower()
+    include_schema = include_schema_raw not in {'0', 'false', 'no'}
+    query = str(request.GET.get('q', '') or '')
+    parameters = list(Parameter.objects.filter(object=obj).select_related('category').order_by('id'))
+    if request.method == 'POST':
+        if not request.user.has_perm('database_manager.manage_object_data'):
+            return _v1_error("PERMISSION_DENIED", "Недостаточно прав для создания записи.", status=403)
+        payload = _parse_json_request(request)
+        if payload is None:
+            return _v1_error("VALIDATION_ERROR", "Ожидался JSON payload.", details={"field": "body"})
+        parsed = _extract_v1_fields_payload(payload, parameters, allow_partial=False)
+        if isinstance(parsed, JsonResponse):
+            return parsed
+        fields_payload = parsed
+        return _api_v1_create_record(obj=obj, parameters=parameters, fields_payload=fields_payload)
+
+    try:
+        records_payload = object_data_service.list_records_v1(
+            obj=obj,
+            parameters=parameters,
+            limit=limit,
+            offset=offset,
+            order=order,
+            q=query,
+        )
+    except Exception as exc:
+        logger.exception("Failed to list v1 records for object %s.", obj.id)
+        return _v1_error(
+            "SERVER_ERROR",
+            "Не удалось получить список записей.",
+            status=500,
+            details={"exc": str(exc)},
+        )
+    response_payload: Dict[str, Any] = {
+        'api_version': 'v1',
+        'object_id': obj.id,
+        'records': records_payload['records'],
+        'page': {
+            'limit': max(int(limit), 0),
+            'offset': max(int(offset), 0),
+            'total': int(records_payload['total']),
+        },
+    }
+    if include_schema:
+        response_payload['schema'] = object_schema_service.build_schema(obj, parameters)
+    return JsonResponse(response_payload)
+
+
+@login_required
+@permission_required('database_manager.manage_object_links', raise_exception=True)
+@require_http_methods(['GET'])
+def api_v1_objects_list(request):
+    payload = [
+        {"id": obj.id, "name": obj.name}
+        for obj in Object.objects.all().order_by("name", "id")
+    ]
+    return JsonResponse(
+        {
+            "api_version": "v1",
+            "objects": payload,
+        }
+    )
+
+
+@login_required
+@permission_required('database_manager.view_object', raise_exception=True)
+@require_http_methods(['GET', 'PATCH', 'DELETE'])
+def api_v1_object_record_detail(request, pk, record_uid):
+    obj = get_object_or_404(Object, pk=pk)
+    parameters = list(Parameter.objects.filter(object=obj).select_related('category').order_by('id'))
+    if request.method == 'GET':
+        try:
+            record_payload = object_data_service.read_record_with_policy(
+                obj,
+                record_uid,
+                parameters,
+                build_file_record=lambda: _build_legacy_record_from_file(obj, record_uid, parameters),
+            )
+        except Exception as exc:
+            logger.exception("Failed to fetch v1 record detail for object %s record %s.", obj.id, record_uid)
+            return _v1_error(
+                "SERVER_ERROR",
+                "Не удалось получить запись.",
+                status=500,
+                details={"exc": str(exc)},
+            )
+        if record_payload is None:
+            return _v1_error("NOT_FOUND", "Запись не найдена.", status=404)
+        return JsonResponse(
+            {
+                "api_version": "v1",
+                "object_id": obj.id,
+                "schema": object_schema_service.build_schema(obj, parameters),
+                "record": _legacy_record_to_v1_record(record_payload, parameters=parameters),
+            }
+        )
+
+    if request.method == 'PATCH':
+        if not request.user.has_perm('database_manager.manage_object_data'):
+            return _v1_error("PERMISSION_DENIED", "Недостаточно прав для изменения записи.", status=403)
+        payload = _parse_json_request(request)
+        if payload is None:
+            return _v1_error("VALIDATION_ERROR", "Ожидался JSON payload.", details={"field": "body"})
+        parsed = _extract_v1_fields_payload(payload, parameters, allow_partial=True)
+        if isinstance(parsed, JsonResponse):
+            return parsed
+        fields_payload = parsed
+        if not fields_payload:
+            return _v1_error("VALIDATION_ERROR", "Не переданы поля для обновления.", details={"field": "record.fields"})
+        return _api_v1_update_record(
+            obj=obj,
+            record_uid=str(record_uid),
+            parameters=parameters,
+            fields_payload=fields_payload,
+        )
+
+    # DELETE
+    if not request.user.has_perm('database_manager.manage_object_data'):
+        return _v1_error("PERMISSION_DENIED", "Недостаточно прав для удаления записи.", status=403)
+    return _api_v1_delete_record(obj=obj, record_uid=str(record_uid))
+
+
+@login_required
+@permission_required('database_manager.manage_object_links', raise_exception=True)
+@require_http_methods(['GET', 'POST', 'DELETE'])
+def api_v1_record_links(request, pk, record_uid):
+    obj = get_object_or_404(Object, pk=pk)
+    try:
+        parent_uid = object_data_service.resolve_record_uid_from_identifier(obj=obj, identifier=str(record_uid))
+    except Exception as exc:
+        logger.exception("Failed to resolve parent record uid for links API object %s record %s.", obj.id, record_uid)
+        return _v1_error(
+            "SERVER_ERROR",
+            "Не удалось определить запись родительского объекта.",
+            status=500,
+            details={"exc": str(exc)},
+        )
+    if request.method == 'GET':
+        links_data = object_link_service.get_row_links(parent_obj=obj, parent_identifier=parent_uid)
+        return JsonResponse(
+            {
+                "api_version": "v1",
+                "object_id": obj.id,
+                "record_uid": parent_uid,
+                "links": [
+                    {
+                        "link_meta_id": link_data["link_id"],
+                        "child_object_id": link_data["child_object_id"],
+                        "child_object_name": link_data["child_object_name"],
+                        "link_type": link_data["link_type"],
+                        "child_record_uids": link_data["child_ident_ids"],
+                    }
+                    for link_data in links_data
+                ],
+            }
+        )
+
+    payload = _parse_json_request(request)
+    if payload is None:
+        return _v1_error("VALIDATION_ERROR", "Ожидался JSON payload.", details={"field": "body"})
+    link_meta_id = payload.get("link_meta_id")
+    child_record_uid = str(payload.get("child_record_uid") or "").strip()
+    if not link_meta_id:
+        return _v1_error("VALIDATION_ERROR", "Не указан link_meta_id.", details={"field": "link_meta_id"})
+    if not child_record_uid:
+        return _v1_error("VALIDATION_ERROR", "Не указан child_record_uid.", details={"field": "child_record_uid"})
+    relation = Object_ParentObject.objects.filter(id=link_meta_id, parent_object=obj).select_related("object").first()
+    if relation is None:
+        return _v1_error("NOT_FOUND", "Связь объектов не найдена.", status=404)
+
+    child_uid = object_data_service.resolve_record_uid_from_identifier(
+        obj=relation.object,
+        identifier=child_record_uid,
+    )
+    if request.method == 'POST':
+        if relation.link_type == "single":
+            ObjectLink_identificators.objects.update_or_create(
+                object_link=relation,
+                parent_object_identificator=parent_uid,
+                defaults={"object_identificator": child_uid},
+            )
+        else:
+            ObjectLink_identificators.objects.update_or_create(
+                object_link=relation,
+                parent_object_identificator=parent_uid,
+                object_identificator=child_uid,
+            )
+        object_link_service.sync_parent_row_links(parent_obj=obj, parent_identifier=parent_uid)
+        return JsonResponse(
+            {
+                "api_version": "v1",
+                "object_id": obj.id,
+                "record_uid": parent_uid,
+                "link": {
+                    "link_meta_id": relation.id,
+                    "child_record_uid": child_uid,
+                },
+            },
+            status=201,
+        )
+
+    deleted, _ = ObjectLink_identificators.objects.filter(
+        object_link=relation,
+        parent_object_identificator=parent_uid,
+        object_identificator=child_uid,
+    ).delete()
+    object_link_service.sync_parent_row_links(parent_obj=obj, parent_identifier=parent_uid)
+    return JsonResponse(
+        {
+            "api_version": "v1",
+            "object_id": obj.id,
+            "record_uid": parent_uid,
+            "deleted": int(deleted),
+        }
+    )
+
+def _build_legacy_record_from_file(
+    obj: Object,
+    record_identifier: str,
+    parameters: List[Parameter],
+) -> Optional[Dict[str, object]]:
     data_obj, warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj)
     if warnings:
         logger.warning(
@@ -601,36 +768,26 @@ def post_data_from_object(request, pk):
             "; ".join(warnings),
         )
     if data_obj is None:
-        return JsonResponse([], safe=False)
-    id_to_connect = request.POST.get("param_ident_id")
-    if not id_to_connect:
-        logger.warning("Missing param_ident_id in request for object %s.", obj.pk)
-        return JsonResponse([], safe=False)
-    if 'id_to_connect' not in data_obj.columns:
-        logger.warning(
-            "Object %s data frame missing 'id_to_connect' column when fetching value %s.",
-            obj.pk,
-            id_to_connect,
-        )
-        return JsonResponse([], safe=False)
-    try:
-        data = data_obj.loc[data_obj['id_to_connect'] == id_to_connect]
-    except KeyError:
-        logger.exception(
-            "Failed to filter DataFrame by id_to_connect for object %s.",
-            obj.pk,
-        )
-        return JsonResponse([], safe=False)
+        return None
+    data_obj, _ = _ensure_record_uid_column(obj, data_obj, persist=False)
+    mask = _resolve_row_mask(data_obj, record_identifier)
+    if mask is None:
+        return None
+    data = data_obj.loc[mask]
     if data.empty:
-        logger.warning(
-            "Row with id_to_connect=%s not found for object %s.",
-            id_to_connect,
-            obj.pk,
-        )
-        return JsonResponse([], safe=False)
+        return None
     row = data.iloc[0]
-    response_record = {'id_to_connect': id_to_connect}
-    parameters = Parameter.objects.filter(object=obj).order_by('id')
+    row_record_uid = str(row.get(_RECORD_UID_COLUMN) or '').strip()
+    row_legacy_id = str(row.get('id_to_connect') or '').strip()
+    row_identifier = row_record_uid or row_legacy_id or str(record_identifier)
+    parent_identifier_candidates = {row_identifier}
+    if row_record_uid:
+        parent_identifier_candidates.add(row_record_uid)
+    if row_legacy_id:
+        parent_identifier_candidates.add(row_legacy_id)
+    response_record: Dict[str, object] = {
+        'id_to_connect': row_identifier,
+    }
     handled_columns = set()
     parent_links = {
         link.object_id: link
@@ -642,12 +799,6 @@ def post_data_from_object(request, pk):
         if column_key is None:
             warnings.append(
                 f"Для параметра '{param.name}' (ID {param.id}) отсутствует столбец в данных объекта."
-            )
-            logger.warning(
-                "Missing column for parameter %s (object %s, parameter id=%s).",
-                param.name,
-                obj.pk,
-                param.id,
             )
             response_record[key_name] = {'data_type': param.data_type, 'value': ''}
             continue
@@ -671,7 +822,7 @@ def post_data_from_object(request, pk):
             if link:
                 link_qs = ObjectLink_identificators.objects.filter(
                     object_link=link,
-                    parent_object_identificator=id_to_connect,
+                    parent_object_identificator__in=list(parent_identifier_candidates),
                 )
                 if param.data_type == 'ARRAY':
                     linked_ids = [
@@ -729,23 +880,13 @@ def post_data_from_object(request, pk):
                 'value': safe_val if safe_val is not None else '',
             }
 
-    def _normalise_label(label):
-        text = str(label).strip()
-        if not text:
-            return text
-        if '.' in text:
-            stripped = text.rstrip('0').rstrip('.')
-            if stripped:
-                text = stripped
-        return text
-
     known_param_keys = {str(p.id) for p in parameters}
     for column_label, value in row.items():
-        if column_label == 'id_to_connect':
+        if column_label in {'id_to_connect', _RECORD_UID_COLUMN}:
             continue
         if column_label in handled_columns:
             continue
-        normalised = _normalise_label(column_label)
+        normalised = str(column_label).strip()
         if not normalised or normalised in response_record or normalised in known_param_keys:
             continue
         safe_val = value
@@ -765,12 +906,6 @@ def post_data_from_object(request, pk):
             'value': safe_val if safe_val is not None else '',
         }
 
-    logger.warning(
-        "Prepared row payload for object %s (id_to_connect=%s): %s",
-        obj.pk,
-        id_to_connect,
-        response_record,
-    )
     import math
 
     def sanitize(obj):
@@ -784,8 +919,44 @@ def post_data_from_object(request, pk):
             return [sanitize(x) for x in obj]
         return obj
 
-    safe_record = sanitize(response_record)
-    return JsonResponse([safe_record], safe=False)
+    return sanitize(response_record)
+
+
+@login_required
+@permission_required('database_manager.view_object', raise_exception=True)
+def post_data_from_object(request, pk):
+    """
+    Given an identifier (id_to_connect) return all values for that row.
+    The response contains information about each parameter, including its data
+    type and appropriately parsed value.
+    """
+    obj = get_object_or_404(Object, pk=pk)
+    if request.method != 'POST':
+        return HttpResponseBadRequest("Expected POST request.")
+    id_to_connect = request.POST.get("param_ident_id")
+    if not id_to_connect:
+        logger.warning("Missing param_ident_id in request for object %s.", obj.pk)
+        return JsonResponse([], safe=False)
+    parameters = list(Parameter.objects.filter(object=obj).select_related('category').order_by('id'))
+    safe_record = object_data_service.read_record_with_policy(
+        obj,
+        id_to_connect,
+        parameters,
+        build_file_record=lambda: _build_legacy_record_from_file(obj, id_to_connect, parameters),
+    )
+    if safe_record is None:
+        return JsonResponse([], safe=False)
+    payload, is_legacy = object_data_service.build_record_response(
+        obj,
+        safe_record,
+        parameters,
+        api_version=_resolve_api_version(request),
+    )
+    if not is_legacy:
+        return JsonResponse(payload)
+    legacy_response = JsonResponse(payload.get('records', [safe_record]), safe=False)
+    legacy_response['Warning'] = '299 - "Legacy format is deprecated; use api_version=v1."'
+    return legacy_response
 
 
 @login_required
@@ -831,8 +1002,20 @@ def upload_csv(request):
         ]
         params = Parameter.objects.bulk_create(parameters)
         df.columns = [str(param.id) for param in params]
-        df['id_to_connect'] = [f"{_}_{uuid.uuid4().hex}" for _ in range(df.shape[0])]
+        record_uids = [uuid.uuid4().hex for _ in range(df.shape[0])]
+        df[_RECORD_UID_COLUMN] = record_uids
+        df['id_to_connect'] = record_uids
         _write_dataframe(obj.data, df, object_instance=obj)
+        for _, row in df.iterrows():
+            object_data_service.dual_write_upsert(
+                obj=obj,
+                record_identifier=str(row.get('id_to_connect', '')),
+                row_data=row.to_dict(),
+                parameters=params,
+                op='upload_csv',
+                record_uid=str(row.get(_RECORD_UID_COLUMN, '')),
+                legacy_id_to_connect=str(row.get('id_to_connect', '')),
+            )
         return HttpResponse(f'/database/get_object/{obj.id}')
     return render(request, 'database_manager/upload_csv.html')
 
@@ -867,7 +1050,8 @@ def update_object(request, pk):
             for warning in load_warnings:
                 messages.warning(request, warning)
     if data_obj is None:
-        data_obj = pd.DataFrame({'id_to_connect': []})
+        data_obj = pd.DataFrame({'id_to_connect': [], _RECORD_UID_COLUMN: []})
+    data_obj, _ = _ensure_record_uid_column(obj, data_obj, persist=False)
     if request.method == 'POST':
         changed = int(request.POST.get('changed', '0'))
         if changed == 0:
@@ -967,7 +1151,7 @@ def _safe_load_dataframe(file_field, *, object_id=None, object_instance=None, al
     column if the file cannot be read.
     """
     warnings = []
-    fallback_value = pd.DataFrame({'id_to_connect': []}) if allow_empty else None
+    fallback_value = pd.DataFrame({'id_to_connect': [], _RECORD_UID_COLUMN: []}) if allow_empty else None
     if not file_field:
         logger.warning(
             "Attempted to load data for object %s, but FileField is empty.",
@@ -1094,6 +1278,59 @@ def _safe_load_dataframe(file_field, *, object_id=None, object_instance=None, al
 
     return data_obj, warnings
 
+
+def _resolve_row_mask(data_obj: pd.DataFrame, identifier: str):
+    if data_obj is None:
+        return None
+    if _RECORD_UID_COLUMN in data_obj.columns:
+        mask = data_obj[_RECORD_UID_COLUMN].astype(str) == str(identifier)
+        if mask.any():
+            return mask
+    if 'id_to_connect' in data_obj.columns:
+        mask = data_obj['id_to_connect'].astype(str) == str(identifier)
+        if mask.any():
+            return mask
+    return None
+
+
+def _ensure_record_uid_column(
+    obj: Object,
+    data_obj: pd.DataFrame,
+    *,
+    persist: bool = False,
+) -> Tuple[pd.DataFrame, bool]:
+    if data_obj is None:
+        return pd.DataFrame({_RECORD_UID_COLUMN: [], 'id_to_connect': []}), True
+    changed = False
+    if _RECORD_UID_COLUMN not in data_obj.columns:
+        data_obj[_RECORD_UID_COLUMN] = pd.NA
+        changed = True
+    if 'id_to_connect' not in data_obj.columns:
+        data_obj['id_to_connect'] = pd.NA
+        changed = True
+    for idx, row in data_obj.iterrows():
+        record_uid = row.get(_RECORD_UID_COLUMN)
+        legacy_id = row.get('id_to_connect')
+        record_uid_str = '' if pd.isna(record_uid) else str(record_uid).strip()
+        legacy_id_str = '' if pd.isna(legacy_id) else str(legacy_id).strip()
+        if not record_uid_str:
+            if legacy_id_str:
+                resolved_uid = object_data_service.resolve_record_uid_from_identifier(
+                    obj=obj,
+                    identifier=legacy_id_str,
+                )
+            else:
+                resolved_uid = uuid.uuid4().hex
+            data_obj.at[idx, _RECORD_UID_COLUMN] = resolved_uid
+            record_uid_str = resolved_uid
+            changed = True
+        if not legacy_id_str:
+            data_obj.at[idx, 'id_to_connect'] = record_uid_str
+            changed = True
+    if changed and persist:
+        _write_dataframe(obj.data, data_obj, object_instance=obj)
+    return data_obj, changed
+
 def get_unique_filtered_strings(list_of_values):
     """
     Transform a list of values into a sorted list of unique, non‑empty strings.
@@ -1129,13 +1366,14 @@ def get_parameter_data(data_obj, parameter):
             )
         if child_df is None:
             return []
+        child_df, _ = _ensure_record_uid_column(parameter.linked_object, child_df, persist=False)
         ident_param = Parameter.objects.filter(object=parameter.linked_object, identificator=True).first()
         if ident_param:
             ident_column_key = _resolve_dataframe_column(child_df, ident_param.id)
             if ident_column_key is not None:
                 ident_list = []
                 for _, row in child_df.iterrows():
-                    child_ident = row.get('id_to_connect')
+                    child_ident = row.get(_RECORD_UID_COLUMN) or row.get('id_to_connect')
                     ident_value = row.get(ident_column_key)
                     if pd.isna(child_ident) or pd.isna(ident_value):
                         continue
@@ -1212,7 +1450,8 @@ def add_element_to_object(request, pk):
             for warning in load_warnings:
                 messages.warning(request, warning)
     if data_obj is None:
-        data_obj = pd.DataFrame({'id_to_connect': []})
+        data_obj = pd.DataFrame({'id_to_connect': [], _RECORD_UID_COLUMN: []})
+    data_obj, _ = _ensure_record_uid_column(obj, data_obj, persist=False)
     # Handle form submission
     if request.method == 'POST':
         # Validate that an identifier has been provided if the object defines one
@@ -1245,6 +1484,7 @@ def add_element_to_object(request, pk):
                         for warning in child_warnings:
                             messages.warning(request, warning)
                     if child_df is not None:
+                        child_df, _ = _ensure_record_uid_column(child_obj, child_df, persist=False)
                         ident_child_param = Parameter.objects.filter(object=child_obj, identificator=True).first()
                         if ident_child_param is not None:
                             ident_column_key = _resolve_dataframe_column(child_df, ident_child_param.id)
@@ -1256,7 +1496,7 @@ def add_element_to_object(request, pk):
                                 )
                             else:
                                 for _, row in child_df.iterrows():
-                                    child_ident = row.get('id_to_connect')
+                                    child_ident = row.get(_RECORD_UID_COLUMN) or row.get('id_to_connect')
                                     ident_value = row.get(ident_column_key)
                                     if pd.isna(child_ident) or pd.isna(ident_value):
                                         continue
@@ -1278,8 +1518,9 @@ def add_element_to_object(request, pk):
                     'error_message': 'Поле идентификатора обязательно для заполнения.',
                 })
         # Build a new row with a unique id_to_connect
-        new_row_id = f"{data_obj.shape[0]}_{uuid.uuid4().hex}"
-        new_row = {"id_to_connect": new_row_id}
+        new_record_uid = uuid.uuid4().hex
+        new_row_id = new_record_uid
+        new_row = {"id_to_connect": new_row_id, _RECORD_UID_COLUMN: new_record_uid}
 
         def _parse_param_id_from_key(key: str):
             prefix = 'col_value_'
@@ -1342,7 +1583,33 @@ def add_element_to_object(request, pk):
                 new_row[column_key] = separator.join(col_values)
         # Append to DataFrame and persist
         data_obj = pd.concat([data_obj, pd.DataFrame([new_row])], ignore_index=True)
-        _write_dataframe(obj.data, data_obj, object_instance=obj)
+        if _sql_source_of_truth_enabled():
+            object_data_service.dual_write_upsert(
+                obj=obj,
+                record_identifier=new_row_id,
+                row_data=new_row,
+                parameters=param_map.values(),
+                op='add',
+                record_uid=new_record_uid,
+                legacy_id_to_connect=new_row_id,
+            )
+            object_data_service.run_secondary_file_write(
+                write_callback=lambda: _write_dataframe(obj.data, data_obj, object_instance=obj),
+                object_id=obj.id,
+                record_uid=new_record_uid,
+                op='add',
+            )
+        else:
+            _write_dataframe(obj.data, data_obj, object_instance=obj)
+            object_data_service.dual_write_upsert(
+                obj=obj,
+                record_identifier=new_row_id,
+                row_data=new_row,
+                parameters=param_map.values(),
+                op='add',
+                record_uid=new_record_uid,
+                legacy_id_to_connect=new_row_id,
+            )
         # After saving the row, record any selected child links from linked parameters
         for parameter in param_map.values():
             if not parameter.linked_object_id:
@@ -1354,25 +1621,34 @@ def add_element_to_object(request, pk):
                 ObjectLink_identificators.objects.filter(object_link=link, parent_object_identificator=new_row_id).delete()
                 for val in col_values:
                     if val:
+                        child_record_uid = object_data_service.resolve_record_uid_from_identifier(
+                            obj=parameter.linked_object,
+                            identifier=str(val),
+                        )
                         ObjectLink_identificators.objects.update_or_create(
                             object_link=link,
                             parent_object_identificator=new_row_id,
-                            object_identificator=val,
+                            object_identificator=child_record_uid,
                         )
             else:
                 # Single link
                 child_value = col_values[0] if col_values else ''
                 if child_value:
+                    child_record_uid = object_data_service.resolve_record_uid_from_identifier(
+                        obj=parameter.linked_object,
+                        identifier=str(child_value),
+                    )
                     ObjectLink_identificators.objects.update_or_create(
                         object_link=link,
                         parent_object_identificator=new_row_id,
-                        defaults={'object_identificator': child_value},
+                        defaults={'object_identificator': child_record_uid},
                     )
                 else:
                     ObjectLink_identificators.objects.filter(
                         object_link=link,
                         parent_object_identificator=new_row_id
                     ).delete()
+        object_link_service.sync_parent_row_links(parent_obj=obj, parent_identifier=new_row_id)
         # Redirect back to the object detail page to show the updated data
         return redirect('get_object', pk=obj.id)
     # Prepare data for GET: group base object parameters by categories
@@ -1402,6 +1678,7 @@ def add_element_to_object(request, pk):
             for warning in child_warnings:
                 messages.warning(request, warning)
         if child_df is not None:
+            child_df, _ = _ensure_record_uid_column(child_obj, child_df, persist=False)
             ident_param = Parameter.objects.filter(object=child_obj, identificator=True).first()
             if ident_param is not None:
                 ident_column_key = _resolve_dataframe_column(child_df, ident_param.id)
@@ -1413,7 +1690,7 @@ def add_element_to_object(request, pk):
                     )
                 else:
                     for _, row in child_df.iterrows():
-                        child_ident = row.get('id_to_connect')
+                        child_ident = row.get(_RECORD_UID_COLUMN) or row.get('id_to_connect')
                         ident_value = row.get(ident_column_key)
                         if pd.isna(child_ident) or pd.isna(ident_value):
                             continue
@@ -1562,6 +1839,412 @@ def _is_api_request(request):
         return True
     return False
 
+
+def _resolve_api_version(request, default: str = 'legacy') -> str:
+    """
+    Resolve API version for response payloads.
+
+    Supported selectors:
+    - query param: ?api_version=v1
+    - header: X-API-Version: v1
+    """
+    version_raw = request.GET.get('api_version') or request.headers.get('X-API-Version', '')
+    version = str(version_raw).strip().lower()
+    if version in {'v1', '1'}:
+        return 'v1'
+    return default
+
+
+def _sql_source_of_truth_enabled() -> bool:
+    return bool(getattr(settings, 'DBM_SQL_SOURCE_OF_TRUTH', False))
+
+
+def _v1_error(code: str, message: str, *, status: int = 400, details: Optional[Dict[str, Any]] = None) -> JsonResponse:
+    return JsonResponse(
+        {
+            "error": {
+                "code": code,
+                "message": message,
+                "details": details or {},
+            }
+        },
+        status=status,
+    )
+
+
+def _parse_json_request(request) -> Optional[Dict[str, Any]]:
+    body = request.body.decode("utf-8").strip() if request.body else ""
+    if not body:
+        return {}
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return payload
+
+
+def _legacy_record_to_v1_record(
+    legacy_record: Dict[str, Any],
+    *,
+    parameters: Optional[List[Parameter]] = None,
+) -> Dict[str, Any]:
+    schema = object_data_service._schema_from_parameters(parameters or [])
+    return serialise_record_dto(
+        legacy_record_to_dto(legacy_record, schema=schema, canonicalize=True)
+    )
+
+
+def _extract_v1_fields_payload(
+    payload: Dict[str, Any],
+    parameters: List[Parameter],
+    *,
+    allow_partial: bool,
+) -> Union[Dict[str, Dict[str, Any]], JsonResponse]:
+    record_payload = payload.get("record", {})
+    if not isinstance(record_payload, dict):
+        return _v1_error("VALIDATION_ERROR", "Поле record должно быть объектом.", details={"field": "record"})
+    fields_payload = record_payload.get("fields")
+    if not isinstance(fields_payload, dict):
+        return _v1_error("VALIDATION_ERROR", "Поле record.fields должно быть объектом.", details={"field": "record.fields"})
+    parameter_map = {str(parameter.id): parameter for parameter in parameters}
+    normalised: Dict[str, Dict[str, Any]] = {}
+    for raw_param_id, raw_field in fields_payload.items():
+        param_id = str(raw_param_id)
+        parameter = parameter_map.get(param_id)
+        if parameter is None:
+            return _v1_error(
+                "VALIDATION_ERROR",
+                "Передан неизвестный параметр.",
+                details={"field": f"record.fields.{param_id}"},
+            )
+        if not isinstance(raw_field, dict):
+            return _v1_error(
+                "VALIDATION_ERROR",
+                "Каждое поле должно быть объектом с type/value.",
+                details={"field": f"record.fields.{param_id}"},
+            )
+        normalised[param_id] = {
+            "type": str(raw_field.get("type") or parameter.data_type),
+            "value": raw_field.get("value"),
+        }
+    if allow_partial:
+        return normalised
+    for parameter in parameters:
+        param_id = str(parameter.id)
+        normalised.setdefault(param_id, {"type": parameter.data_type, "value": ""})
+    return normalised
+
+
+def _field_to_dataframe_value(parameter: Parameter, field_payload: Dict[str, Any]) -> str:
+    value = field_payload.get("value")
+    if parameter.data_type == "ARRAY":
+        separator = parameter.array_separator or " "
+        if isinstance(value, list):
+            values = [str(item).strip() for item in value if str(item).strip()]
+        elif value in (None, ""):
+            values = []
+        else:
+            values = [str(value).strip()]
+        return separator.join(values)
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if text.lower() in {"none", "nan", "<na>"}:
+        return ""
+    return text
+
+
+def _sync_links_from_v1_fields(
+    *,
+    obj: Object,
+    record_uid: str,
+    parameter_map: Dict[str, Parameter],
+    fields_payload: Dict[str, Dict[str, Any]],
+) -> None:
+    parent_uid = object_data_service.resolve_record_uid_from_identifier(obj=obj, identifier=str(record_uid))
+    has_link_changes = False
+    for param_id, field_payload in fields_payload.items():
+        parameter = parameter_map.get(str(param_id))
+        if parameter is None or not parameter.linked_object_id:
+            continue
+        relation = Object_ParentObject.objects.filter(
+            parent_object=obj,
+            object_id=parameter.linked_object_id,
+        ).first()
+        if relation is None:
+            continue
+        has_link_changes = True
+        raw_value = field_payload.get("value")
+        if parameter.data_type == "ARRAY":
+            if isinstance(raw_value, list):
+                child_identifiers = [str(item).strip() for item in raw_value if str(item).strip()]
+            elif raw_value in (None, ""):
+                child_identifiers = []
+            else:
+                child_identifiers = [str(raw_value).strip()]
+            ObjectLink_identificators.objects.filter(
+                object_link=relation,
+                parent_object_identificator=parent_uid,
+            ).delete()
+            for child_identifier in child_identifiers:
+                child_uid = object_data_service.resolve_record_uid_from_identifier(
+                    obj=parameter.linked_object,
+                    identifier=child_identifier,
+                )
+                ObjectLink_identificators.objects.update_or_create(
+                    object_link=relation,
+                    parent_object_identificator=parent_uid,
+                    object_identificator=child_uid,
+                )
+        else:
+            child_identifier = str(raw_value or "").strip()
+            if child_identifier:
+                child_uid = object_data_service.resolve_record_uid_from_identifier(
+                    obj=parameter.linked_object,
+                    identifier=child_identifier,
+                )
+                ObjectLink_identificators.objects.update_or_create(
+                    object_link=relation,
+                    parent_object_identificator=parent_uid,
+                    defaults={"object_identificator": child_uid},
+                )
+            else:
+                ObjectLink_identificators.objects.filter(
+                    object_link=relation,
+                    parent_object_identificator=parent_uid,
+                ).delete()
+    if has_link_changes:
+        object_link_service.sync_parent_row_links(parent_obj=obj, parent_identifier=parent_uid)
+
+
+def _api_v1_create_record(
+    *,
+    obj: Object,
+    parameters: List[Parameter],
+    fields_payload: Dict[str, Dict[str, Any]],
+) -> JsonResponse:
+    parameter_map = {str(parameter.id): parameter for parameter in parameters}
+    record_uid = uuid.uuid4().hex
+    row_payload: Dict[str, Any] = {"id_to_connect": record_uid, _RECORD_UID_COLUMN: record_uid}
+    for parameter in parameters:
+        param_id = str(parameter.id)
+        field_payload = fields_payload.get(param_id, {"type": parameter.data_type, "value": ""})
+        row_payload[param_id] = _field_to_dataframe_value(parameter, field_payload)
+
+    data_obj, warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj, allow_empty=True)
+    if warnings:
+        logger.warning("Warnings while loading dataframe for v1 create (object %s): %s", obj.pk, "; ".join(warnings))
+    if data_obj is None:
+        data_obj = pd.DataFrame({"id_to_connect": [], _RECORD_UID_COLUMN: []})
+    data_obj, _ = _ensure_record_uid_column(obj, data_obj, persist=False)
+    for parameter in parameters:
+        _ensure_dataframe_column(data_obj, parameter.id)
+    updated_df = pd.concat([data_obj, pd.DataFrame([row_payload])], ignore_index=True)
+
+    try:
+        if _sql_source_of_truth_enabled():
+            object_data_service.dual_write_upsert(
+                obj=obj,
+                record_identifier=record_uid,
+                row_data=row_payload,
+                parameters=parameters,
+                op="api_create",
+                record_uid=record_uid,
+                legacy_id_to_connect=record_uid,
+            )
+            object_data_service.run_secondary_file_write(
+                write_callback=lambda: _write_dataframe(obj.data, updated_df, object_instance=obj),
+                object_id=obj.id,
+                record_uid=record_uid,
+                op="api_create",
+            )
+        else:
+            _write_dataframe(obj.data, updated_df, object_instance=obj)
+            object_data_service.dual_write_upsert(
+                obj=obj,
+                record_identifier=record_uid,
+                row_data=row_payload,
+                parameters=parameters,
+                op="api_create",
+                record_uid=record_uid,
+                legacy_id_to_connect=record_uid,
+            )
+    except Exception as exc:
+        logger.exception("v1 create failed for object %s.", obj.id)
+        return _v1_error("SERVER_ERROR", "Не удалось создать запись.", status=500, details={"exc": str(exc)})
+
+    _sync_links_from_v1_fields(
+        obj=obj,
+        record_uid=record_uid,
+        parameter_map=parameter_map,
+        fields_payload=fields_payload,
+    )
+    legacy_record = _build_legacy_record_from_file(obj, record_uid, parameters)
+    if legacy_record is None:
+        legacy_record = {"id_to_connect": record_uid}
+        for parameter in parameters:
+            param_id = str(parameter.id)
+            legacy_record[param_id] = {
+                "data_type": parameter.data_type,
+                "value": fields_payload.get(param_id, {}).get("value", ""),
+            }
+    return JsonResponse(
+        {
+            "api_version": "v1",
+            "object_id": obj.id,
+                "record": _legacy_record_to_v1_record(legacy_record, parameters=parameters),
+        },
+        status=201,
+    )
+
+
+def _api_v1_update_record(
+    *,
+    obj: Object,
+    record_uid: str,
+    parameters: List[Parameter],
+    fields_payload: Dict[str, Dict[str, Any]],
+) -> JsonResponse:
+    parameter_map = {str(parameter.id): parameter for parameter in parameters}
+    changed_parameters = [parameter_map[str(param_id)] for param_id in fields_payload.keys() if str(param_id) in parameter_map]
+    data_obj, warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj, allow_empty=True)
+    if warnings:
+        logger.warning("Warnings while loading dataframe for v1 update (object %s): %s", obj.pk, "; ".join(warnings))
+    if data_obj is None:
+        data_obj = pd.DataFrame({"id_to_connect": [], _RECORD_UID_COLUMN: []})
+    data_obj, _ = _ensure_record_uid_column(obj, data_obj, persist=False)
+    row_mask = _resolve_row_mask(data_obj, str(record_uid))
+    row_exists = row_mask is not None and row_mask.any()
+
+    sql_row_payload: Dict[str, Any] = {"id_to_connect": record_uid, _RECORD_UID_COLUMN: record_uid}
+    for param_id, field_payload in fields_payload.items():
+        parameter = parameter_map.get(str(param_id))
+        if parameter is None:
+            continue
+        value_for_df = _field_to_dataframe_value(parameter, field_payload)
+        sql_row_payload[str(param_id)] = value_for_df
+        if row_exists:
+            column_key = _ensure_dataframe_column(data_obj, parameter.id)
+            data_obj.loc[row_mask, column_key] = value_for_df
+
+    try:
+        if _sql_source_of_truth_enabled():
+            object_data_service.dual_write_upsert(
+                obj=obj,
+                record_identifier=record_uid,
+                row_data=sql_row_payload,
+                parameters=changed_parameters,
+                op="api_update",
+                record_uid=record_uid,
+                legacy_id_to_connect=record_uid,
+            )
+            if row_exists:
+                object_data_service.run_secondary_file_write(
+                    write_callback=lambda: _write_dataframe(obj.data, data_obj, object_instance=obj),
+                    object_id=obj.id,
+                    record_uid=record_uid,
+                    op="api_update",
+                )
+        else:
+            if not row_exists:
+                return _v1_error("NOT_FOUND", "Запись не найдена.", status=404)
+            _write_dataframe(obj.data, data_obj, object_instance=obj)
+            row_payload = data_obj.loc[row_mask].iloc[0].to_dict()
+            object_data_service.dual_write_upsert(
+                obj=obj,
+                record_identifier=record_uid,
+                row_data=row_payload,
+                parameters=changed_parameters,
+                op="api_update",
+                record_uid=str(row_payload.get(_RECORD_UID_COLUMN) or record_uid),
+                legacy_id_to_connect=str(row_payload.get("id_to_connect") or record_uid),
+            )
+    except Exception as exc:
+        logger.exception("v1 update failed for object %s record %s.", obj.id, record_uid)
+        return _v1_error("SERVER_ERROR", "Не удалось обновить запись.", status=500, details={"exc": str(exc)})
+
+    _sync_links_from_v1_fields(
+        obj=obj,
+        record_uid=record_uid,
+        parameter_map=parameter_map,
+        fields_payload=fields_payload,
+    )
+    legacy_record = object_data_service.read_record_with_policy(
+        obj,
+        record_uid,
+        parameters,
+        build_file_record=lambda: _build_legacy_record_from_file(obj, record_uid, parameters),
+    )
+    if legacy_record is None:
+        return _v1_error("NOT_FOUND", "Запись не найдена.", status=404)
+    return JsonResponse(
+        {
+            "api_version": "v1",
+            "object_id": obj.id,
+            "record": _legacy_record_to_v1_record(legacy_record, parameters=parameters),
+        }
+    )
+
+
+def _api_v1_delete_record(*, obj: Object, record_uid: str) -> JsonResponse:
+    data_obj, warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj, allow_empty=True)
+    if warnings:
+        logger.warning("Warnings while loading dataframe for v1 delete (object %s): %s", obj.pk, "; ".join(warnings))
+    if data_obj is None:
+        data_obj = pd.DataFrame({"id_to_connect": [], _RECORD_UID_COLUMN: []})
+    data_obj, _ = _ensure_record_uid_column(obj, data_obj, persist=False)
+    row_mask = _resolve_row_mask(data_obj, str(record_uid))
+    row_exists = row_mask is not None and row_mask.any()
+    parent_identifiers = {str(record_uid)}
+    if row_exists:
+        row_data = data_obj.loc[row_mask].iloc[0]
+        row_uid = str(row_data.get(_RECORD_UID_COLUMN) or "").strip()
+        row_legacy = str(row_data.get("id_to_connect") or "").strip()
+        if row_uid:
+            parent_identifiers.add(row_uid)
+        if row_legacy:
+            parent_identifiers.add(row_legacy)
+        data_obj = data_obj.loc[~row_mask].copy()
+
+    ObjectLink_identificators.objects.filter(
+        object_link__parent_object=obj,
+        parent_object_identificator__in=list(parent_identifiers),
+    ).delete()
+    ObjectLink_identificators.objects.filter(
+        object_link__object=obj,
+        object_identificator__in=list(parent_identifiers),
+    ).delete()
+
+    try:
+        if _sql_source_of_truth_enabled():
+            object_data_service.dual_write_delete(obj=obj, record_identifier=str(record_uid))
+            if row_exists:
+                object_data_service.run_secondary_file_write(
+                    write_callback=lambda: _write_dataframe(obj.data, data_obj, object_instance=obj),
+                    object_id=obj.id,
+                    record_uid=str(record_uid),
+                    op="api_delete",
+                )
+        else:
+            if not row_exists:
+                return _v1_error("NOT_FOUND", "Запись не найдена.", status=404)
+            _write_dataframe(obj.data, data_obj, object_instance=obj)
+            object_data_service.dual_write_delete(obj=obj, record_identifier=str(record_uid))
+    except Exception as exc:
+        logger.exception("v1 delete failed for object %s record %s.", obj.id, record_uid)
+        return _v1_error("SERVER_ERROR", "Не удалось удалить запись.", status=500, details={"exc": str(exc)})
+
+    return JsonResponse(
+        {
+            "api_version": "v1",
+            "object_id": obj.id,
+            "record_uid": str(record_uid),
+            "deleted": True,
+        }
+    )
+
 def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
     """
     Load a DataFrame and return, for each Parameter, the available values and
@@ -1576,27 +2259,20 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
         )
     if data_obj is None:
         return []
+    data_obj, _ = _ensure_record_uid_column(obj, data_obj, persist=False)
     row = None
     row_mask = None
+    parent_identifier_candidates = set()
     if param_ident_id is not None:
-        if 'id_to_connect' not in data_obj.columns:
-            logger.warning(
-                "Data frame for object %s missing 'id_to_connect' column when querying row %s.",
-                obj.pk,
-                param_ident_id,
-            )
-        else:
-            try:
-                row_mask = data_obj['id_to_connect'] == param_ident_id
-                row = data_obj.loc[row_mask]
-            except KeyError:
-                logger.exception(
-                    "Failed to locate row %s in object %s due to missing column.",
-                    param_ident_id,
-                    obj.pk,
-                )
-                row = None
-                row_mask = None
+        row_mask = _resolve_row_mask(data_obj, str(param_ident_id))
+        if row_mask is not None:
+            row = data_obj.loc[row_mask]
+        parent_identifier_candidates.add(str(param_ident_id))
+        sql_parent_record = object_data_service.sql_repo.get_record_by_uid_or_legacy(obj, str(param_ident_id))
+        if sql_parent_record is not None:
+            parent_identifier_candidates.add(sql_parent_record.record_uid)
+            if sql_parent_record.legacy_id_to_connect:
+                parent_identifier_candidates.add(str(sql_parent_record.legacy_id_to_connect))
     parameters_data = []
     for parameter in Parameter.objects.filter(object=obj):
         current_data = ""
@@ -1635,13 +2311,13 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
                     li.object_identificator
                     for li in ObjectLink_identificators.objects.filter(
                         object_link=link,
-                        parent_object_identificator=param_ident_id,
+                        parent_object_identificator__in=list(parent_identifier_candidates),
                     )
                 ]
             else:
                 li = ObjectLink_identificators.objects.filter(
                     object_link=link,
-                    parent_object_identificator=param_ident_id,
+                    parent_object_identificator__in=list(parent_identifier_candidates),
                 ).first()
                 selected_ids = [li.object_identificator] if li else []
             if not selected_ids and current_data:
@@ -1675,6 +2351,7 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
                 )
             data = []
             if child_df is not None:
+                child_df, _ = _ensure_record_uid_column(parameter.linked_object, child_df, persist=False)
                 ident_param = Parameter.objects.filter(object=parameter.linked_object, identificator=True).first()
                 if ident_param:
                     ident_column_key = _resolve_dataframe_column(child_df, ident_param.id)
@@ -1686,7 +2363,7 @@ def get_parameters_data_by_ident(obj: Object, param_ident_id) -> list:
                         )
                     else:
                         for _, row in child_df.iterrows():
-                            child_ident = row.get('id_to_connect')
+                            child_ident = row.get(_RECORD_UID_COLUMN) or row.get('id_to_connect')
                             ident_value = row.get(ident_column_key)
                             if pd.isna(child_ident) or pd.isna(ident_value):
                                 continue
@@ -1812,27 +2489,21 @@ def _apply_values_to_dataframe(
     """
     if row_identifier is None:
         return False
-    if 'id_to_connect' not in data_obj.columns:
-        logger.warning("DataFrame missing 'id_to_connect' column while updating row %s.", row_identifier)
-        return False
-    mask = data_obj['id_to_connect'].astype(str) == str(row_identifier)
-    if not mask.any():
+    mask = _resolve_row_mask(data_obj, row_identifier)
+    if mask is None:
         logger.warning("Row %s not found in dataframe during update.", row_identifier)
         return False
     updated = False
-    print(param_map)
     for param_id, parameter in param_map.items():
         if param_id not in posted_values:
             continue
         column_key = _ensure_dataframe_column(data_obj, parameter.id)
         if column_key is None:
-            print("Column for parameter %s is missing while updating row %s.", parameter.id, row_identifier)
             logger.warning("Column for parameter %s is missing while updating row %s.", parameter.id, row_identifier)
             continue
         formatted_value = _format_parameter_value(parameter, posted_values[param_id])
         data_obj.loc[mask, column_key] = formatted_value
         updated = True
-    print(updated)
     return updated
 
 
@@ -1847,6 +2518,10 @@ def _sync_linked_parameters(
     """
     if row_identifier is None:
         return
+    parent_record_uid = object_data_service.resolve_record_uid_from_identifier(
+        obj=obj,
+        identifier=str(row_identifier),
+    )
     for parameter in param_map.values():
         if not parameter.linked_object_id:
             continue
@@ -1862,16 +2537,20 @@ def _sync_linked_parameters(
         if parameter.data_type == 'ARRAY':
             ObjectLink_identificators.objects.filter(
                 object_link=link,
-                parent_object_identificator=row_identifier,
+                parent_object_identificator=parent_record_uid,
             ).delete()
             for value in values:
                 cleaned = value.strip()
                 if not cleaned:
                     continue
+                child_record_uid = object_data_service.resolve_record_uid_from_identifier(
+                    obj=parameter.linked_object,
+                    identifier=cleaned,
+                )
                 ObjectLink_identificators.objects.update_or_create(
                     object_link=link,
-                    parent_object_identificator=row_identifier,
-                    object_identificator=cleaned,
+                    parent_object_identificator=parent_record_uid,
+                    object_identificator=child_record_uid,
                 )
         else:
             choice = ''
@@ -1881,15 +2560,19 @@ def _sync_linked_parameters(
                     choice = cleaned
                     break
             if choice:
+                child_record_uid = object_data_service.resolve_record_uid_from_identifier(
+                    obj=parameter.linked_object,
+                    identifier=choice,
+                )
                 ObjectLink_identificators.objects.update_or_create(
                     object_link=link,
-                    parent_object_identificator=row_identifier,
-                    defaults={'object_identificator': choice},
+                    parent_object_identificator=parent_record_uid,
+                    defaults={'object_identificator': child_record_uid},
                 )
             else:
                 ObjectLink_identificators.objects.filter(
                     object_link=link,
-                    parent_object_identificator=row_identifier,
+                    parent_object_identificator=parent_record_uid,
                 ).delete()
 
 
@@ -1963,6 +2646,7 @@ def _collect_child_identifier_options(child_obj: Object):
         warnings.extend(child_warnings)
     ident_list: List[Tuple[str, str]] = []
     if child_df is not None:
+        child_df, _ = _ensure_record_uid_column(child_obj, child_df, persist=False)
         ident_param = Parameter.objects.filter(object=child_obj, identificator=True).first()
         if ident_param is None:
             warnings.append(f"У дочернего объекта {child_obj.id} не найден идентификаторный параметр.")
@@ -1974,7 +2658,7 @@ def _collect_child_identifier_options(child_obj: Object):
                 )
             else:
                 for _, row in child_df.iterrows():
-                    child_ident = row.get('id_to_connect')
+                    child_ident = row.get(_RECORD_UID_COLUMN) or row.get('id_to_connect')
                     ident_value = row.get(ident_column_key)
                     if pd.isna(child_ident) or pd.isna(ident_value):
                         continue
@@ -2001,9 +2685,8 @@ def update_element_to_object(request, pk):
         for warning in load_warnings:
             messages.warning(request, warning)
     if data_obj is None:
-        data_obj = pd.DataFrame({'id_to_connect': []})
-    if 'id_to_connect' not in data_obj.columns:
-        data_obj['id_to_connect'] = pd.NA
+        data_obj = pd.DataFrame({'id_to_connect': [], _RECORD_UID_COLUMN: []})
+    data_obj, _ = _ensure_record_uid_column(obj, data_obj, persist=False)
     param_ident_id = request.GET.get('id')
     row_identifier = str(param_ident_id) if param_ident_id not in (None, '') else None
     if request.method == 'POST':
@@ -2011,12 +2694,50 @@ def update_element_to_object(request, pk):
         param_qs = Parameter.objects.filter(object=obj, id__in=ordered_param_ids).select_related('linked_object')
         param_map = {param.id: param for param in param_qs}
         posted_values = _gather_posted_parameter_values(request, param_map)
-        print(posted_values)
         row_updated = _apply_values_to_dataframe(data_obj, row_identifier, param_map, posted_values)
+        row_data = None
+        record_uid = str(row_identifier or '')
+        legacy_id = str(row_identifier or '')
+        if row_identifier:
+            row_mask = _resolve_row_mask(data_obj, str(row_identifier))
+            row_series = data_obj.loc[row_mask] if row_mask is not None else pd.DataFrame()
+            if not row_series.empty:
+                row_data = row_series.iloc[0].to_dict()
+                record_uid = str(row_data.get(_RECORD_UID_COLUMN) or row_identifier)
+                legacy_id = str(row_data.get('id_to_connect') or row_identifier)
         if row_updated:
-            print('Начинаю запись в Dataframe')
-            _write_dataframe(obj.data, data_obj, object_instance=obj)
+            if _sql_source_of_truth_enabled():
+                if row_data is not None:
+                    object_data_service.dual_write_upsert(
+                        obj=obj,
+                        record_identifier=str(row_identifier),
+                        row_data=row_data,
+                        parameters=param_map.values(),
+                        op='update',
+                        record_uid=record_uid,
+                        legacy_id_to_connect=legacy_id,
+                    )
+                object_data_service.run_secondary_file_write(
+                    write_callback=lambda: _write_dataframe(obj.data, data_obj, object_instance=obj),
+                    object_id=obj.id,
+                    record_uid=record_uid,
+                    op='update',
+                )
+            else:
+                _write_dataframe(obj.data, data_obj, object_instance=obj)
+                if row_data is not None:
+                    object_data_service.dual_write_upsert(
+                        obj=obj,
+                        record_identifier=str(row_identifier),
+                        row_data=row_data,
+                        parameters=param_map.values(),
+                        op='update',
+                        record_uid=record_uid,
+                        legacy_id_to_connect=legacy_id,
+                    )
         _sync_linked_parameters(obj, row_identifier, param_map, posted_values)
+        if row_identifier:
+            object_link_service.sync_parent_row_links(parent_obj=obj, parent_identifier=str(row_identifier))
         redirect_url = reverse('get_object', args=[obj.id])
         if _is_api_request(request):
             return JsonResponse({'status': 'ok', 'redirect_url': redirect_url})
@@ -2035,9 +2756,15 @@ def update_element_to_object(request, pk):
             selected_ids: List[str] = []
             linked_row_id = None
         else:
+            parent_identifiers = {str(row_identifier)}
+            parent_record = object_data_service.sql_repo.get_record_by_uid_or_legacy(obj, str(row_identifier))
+            if parent_record is not None:
+                parent_identifiers.add(parent_record.record_uid)
+                if parent_record.legacy_id_to_connect:
+                    parent_identifiers.add(str(parent_record.legacy_id_to_connect))
             links_qs = ObjectLink_identificators.objects.filter(
                 object_link=relation,
-                parent_object_identificator=row_identifier,
+                parent_object_identificator__in=list(parent_identifiers),
             )
             if relation.link_type == 'multiple':
                 selected_ids = [str(item.object_identificator) for item in links_qs]
@@ -2098,34 +2825,32 @@ def delete_element_to_object(request, pk):
         )
     if data_obj is None:
         return HttpResponse(status=200)
+    data_obj, _ = _ensure_record_uid_column(obj, data_obj, persist=False)
     param_ident_id = request.GET.get('id')
     if not param_ident_id:
         logger.warning("Missing id parameter when deleting element from object %s.", obj.pk)
         return HttpResponseBadRequest("Missing id parameter.")
-    if 'id_to_connect' not in data_obj.columns:
-        logger.warning(
-            "Data frame for object %s missing 'id_to_connect' column during delete.",
-            obj.pk,
-        )
-        return HttpResponse(status=200)
-    try:
-        index = data_obj[data_obj['id_to_connect'] == param_ident_id].index
-    except KeyError:
-        logger.exception(
-            "Failed to locate row %s in object %s while deleting (missing column).",
-            param_ident_id,
-            obj.pk,
-        )
-        return HttpResponse(status=200)
-    if index.empty:
+    mask = _resolve_row_mask(data_obj, str(param_ident_id))
+    if mask is None or not mask.any():
         logger.warning(
             "Row %s not found in object %s during delete request.",
             param_ident_id,
             obj.pk,
         )
         return HttpResponse(status=204)
+    index = data_obj[mask].index
     data_obj.drop(index, inplace=True)
-    _write_dataframe(obj.data, data_obj, object_instance=obj)
+    if _sql_source_of_truth_enabled():
+        object_data_service.dual_write_delete(obj=obj, record_identifier=str(param_ident_id))
+        object_data_service.run_secondary_file_write(
+            write_callback=lambda: _write_dataframe(obj.data, data_obj, object_instance=obj),
+            object_id=obj.id,
+            record_uid=str(param_ident_id),
+            op='delete',
+        )
+    else:
+        _write_dataframe(obj.data, data_obj, object_instance=obj)
+        object_data_service.dual_write_delete(obj=obj, record_identifier=str(param_ident_id))
     return HttpResponse()
 
 
@@ -2140,29 +2865,171 @@ def update_csv(request, pk):
     """
     obj = get_object_or_404(Object, pk=pk)
     if request.method == 'POST':
-        _, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj)
+        old_df, load_warnings = _safe_load_dataframe(obj.data, object_id=obj.pk, object_instance=obj, allow_empty=True)
         if load_warnings:
             logger.warning(
                 "Warnings while loading existing data before CSV update (object %s): %s",
                 obj.pk,
                 "; ".join(load_warnings),
             )
+        if old_df is None:
+            old_df = pd.DataFrame({'id_to_connect': [], _RECORD_UID_COLUMN: []})
+        old_df, _ = _ensure_record_uid_column(obj, old_df, persist=False)
+
+        parameters = list(Parameter.objects.filter(object=obj).order_by('id'))
+        match_param_ids = [parameter.id for parameter in parameters if parameter.identificator]
+        if not match_param_ids:
+            raw_match_keys = getattr(obj, 'match_keys', None) or []
+            for raw_key in raw_match_keys:
+                try:
+                    key_int = int(raw_key)
+                except (TypeError, ValueError):
+                    continue
+                if any(parameter.id == key_int for parameter in parameters):
+                    match_param_ids.append(key_int)
+        if not match_param_ids:
+            logger.warning("Object %s has no identificator/match_keys; all CSV rows will be treated as new.", obj.pk)
+
+        def _build_match_key(row_dict: Dict[str, Any]) -> Optional[Tuple[str, ...]]:
+            if not match_param_ids:
+                return None
+            result = []
+            for param_id in match_param_ids:
+                value = row_dict.get(str(param_id), '')
+                if value is None:
+                    value = ''
+                result.append(str(value).strip())
+            return tuple(result)
+
+        old_key_to_row: Dict[Tuple[str, ...], Dict[str, Any]] = {}
+        duplicated_old_keys: set = set()
+        old_identifier_to_uid: Dict[str, str] = {}
+        for _, row in old_df.iterrows():
+            row_dict = row.to_dict()
+            old_uid = str(row_dict.get(_RECORD_UID_COLUMN) or '').strip()
+            old_legacy = str(row_dict.get('id_to_connect') or '').strip()
+            if old_uid:
+                old_identifier_to_uid[old_uid] = old_uid
+            if old_legacy and old_uid:
+                old_identifier_to_uid[old_legacy] = old_uid
+            key = _build_match_key(row_dict)
+            if key is None:
+                continue
+            if key in old_key_to_row:
+                duplicated_old_keys.add(key)
+                continue
+            old_key_to_row[key] = row_dict
+
         csv_file = request.FILES['csv_file']
-        df = pd.read_csv(csv_file, converters={i: str for i in range(100)})
+        incoming_df = pd.read_csv(csv_file, converters={i: str for i in range(100)})
         drop_column = request.POST.get('drop_column', '-1')
         if drop_column != '-1':
-            df.dropna(subset=[drop_column], inplace=True)
-        new_df = {}
-        for parameter in sorted(Parameter.objects.filter(object=obj), key=lambda x: x.id):
-            column_key = str(parameter.id)
-            csv_name = request.POST.get(f'csv_column_{parameter.id}', '')
-            if not csv_name or csv_name == '-1':
-                new_df[column_key] = pd.NA
-                continue
-            new_df[column_key] = df[csv_name].map(lambda x: str(x).strip()).tolist()
-        new_df['id_to_connect'] = [f"{_}_{uuid.uuid4().hex}" for _ in range(df.shape[0])]
-        new_df = pd.DataFrame(new_df)
+            incoming_df.dropna(subset=[drop_column], inplace=True)
+
+        mapped_rows: List[Dict[str, Any]] = []
+        matched_count = 0
+        new_count = 0
+        collision_count = 0
+        consumed_old_keys: set = set()
+        for _, csv_row in incoming_df.iterrows():
+            row_payload: Dict[str, Any] = {}
+            for parameter in parameters:
+                csv_name = request.POST.get(f'csv_column_{parameter.id}', '')
+                if not csv_name or csv_name == '-1':
+                    row_payload[str(parameter.id)] = ''
+                    continue
+                raw_value = csv_row.get(csv_name, '')
+                row_payload[str(parameter.id)] = '' if raw_value is None else str(raw_value).strip()
+            key = _build_match_key(row_payload)
+            matched_row = None
+            if key is not None:
+                if key in duplicated_old_keys or key in consumed_old_keys:
+                    collision_count += 1
+                else:
+                    matched_row = old_key_to_row.get(key)
+                    if matched_row is not None:
+                        consumed_old_keys.add(key)
+            if matched_row is not None:
+                record_uid = str(matched_row.get(_RECORD_UID_COLUMN) or '').strip()
+                legacy_id = str(matched_row.get('id_to_connect') or '').strip()
+                if not record_uid:
+                    record_uid = uuid.uuid4().hex
+                if not legacy_id:
+                    legacy_id = record_uid
+                matched_count += 1
+            else:
+                record_uid = uuid.uuid4().hex
+                legacy_id = record_uid
+                new_count += 1
+            row_payload[_RECORD_UID_COLUMN] = record_uid
+            row_payload['id_to_connect'] = legacy_id
+            mapped_rows.append(row_payload)
+
+        new_df = pd.DataFrame(mapped_rows)
+        if new_df.empty:
+            new_df = pd.DataFrame(columns=[str(parameter.id) for parameter in parameters] + [_RECORD_UID_COLUMN, 'id_to_connect'])
         _write_dataframe(obj.data, new_df, object_instance=obj)
+
+        record_uids = set(str(row.get(_RECORD_UID_COLUMN)) for row in mapped_rows if row.get(_RECORD_UID_COLUMN))
+        for row in mapped_rows:
+            object_data_service.dual_write_upsert(
+                obj=obj,
+                record_identifier=str(row.get('id_to_connect', '')),
+                row_data=row,
+                parameters=parameters,
+                op='update_csv',
+                record_uid=str(row.get(_RECORD_UID_COLUMN, '')),
+                legacy_id_to_connect=str(row.get('id_to_connect', '')),
+            )
+        if getattr(settings, 'DBM_DUAL_WRITE', False):
+            sql_records = object_data_service.sql_repo.list_records(obj)
+            for sql_record in sql_records:
+                if sql_record.record_uid not in record_uids:
+                    object_data_service.sql_repo.delete_links_for_parent_record(sql_record)
+                    object_data_service.sql_repo.delete_record(obj, sql_record.record_uid)
+
+        # Convert previously stored legacy link identifiers to record_uid.
+        for row_link in ObjectLink_identificators.objects.filter(object_link__parent_object=obj):
+            parent_uid = old_identifier_to_uid.get(str(row_link.parent_object_identificator), str(row_link.parent_object_identificator))
+            if parent_uid != row_link.parent_object_identificator:
+                row_link.parent_object_identificator = parent_uid
+                row_link.save(update_fields=['parent_object_identificator'])
+        for row_link in ObjectLink_identificators.objects.filter(object_link__object=obj):
+            child_uid = old_identifier_to_uid.get(str(row_link.object_identificator), str(row_link.object_identificator))
+            if child_uid != row_link.object_identificator:
+                row_link.object_identificator = child_uid
+                row_link.save(update_fields=['object_identificator'])
+
+        # Keep link table consistent with active rows after CSV replacement.
+        if record_uids:
+            ObjectLink_identificators.objects.filter(
+                object_link__parent_object=obj
+            ).exclude(parent_object_identificator__in=list(record_uids)).delete()
+            ObjectLink_identificators.objects.filter(
+                object_link__object=obj
+            ).exclude(object_identificator__in=list(record_uids)).delete()
+        if getattr(settings, 'DBM_DUAL_WRITE', False):
+            parent_ids_for_sync = ObjectLink_identificators.objects.filter(
+                object_link__parent_object=obj
+            ).values_list('parent_object_identificator', flat=True).distinct()
+            for parent_identifier in parent_ids_for_sync:
+                object_link_service.sync_parent_row_links(
+                    parent_obj=obj,
+                    parent_identifier=str(parent_identifier),
+                )
+
+        logger.warning(
+            "update_csv_match_stats %s",
+            json.dumps(
+                {
+                    "object_id": obj.id,
+                    "matched_count": matched_count,
+                    "new_count": new_count,
+                    "collision_count": collision_count,
+                },
+                ensure_ascii=False,
+            ),
+        )
         return HttpResponse(f'/database/get_object/{obj.id}')
     return render(request, 'database_manager/upload_csv.html')
 
@@ -2204,9 +3071,12 @@ def generate_excel_file(request, pk):
         raise Http404
     ident_column_key = _resolve_dataframe_column(df_object, ident_param.id)
     if ident_column_key is None:
-        ident_list = [f"**{row['id_to_connect']}" for _, row in df_object.iterrows()]
+        ident_list = [f"**{row.get(_RECORD_UID_COLUMN) or row.get('id_to_connect')}" for _, row in df_object.iterrows()]
     else:
-        ident_list = [f"{row[ident_column_key]}**{row['id_to_connect']}" for _, row in df_object.iterrows()]
+        ident_list = [
+            f"{row[ident_column_key]}**{row.get(_RECORD_UID_COLUMN) or row.get('id_to_connect')}"
+            for _, row in df_object.iterrows()
+        ]
     dict_to_df = {f'{ident_param.id}**{ident_param.object.id}**': ident_list}
     df = pd.DataFrame({**dict_to_df, **{doc: ['-'] * len(ident_list) for doc in doc_list}})
     temp_dir = os.path.join(settings.MEDIA_ROOT, 'generated_files')
@@ -2232,67 +3102,11 @@ def add_objects_links(request, pk):
     # Accept legacy key name 'child_object_idents[]' for backwards compatibility
     if not child_ids:
         return HttpResponseForbidden("No child object identifiers provided.")
-    links = []
-    for child_id_str in child_ids:
-        try:
-            child_id = int(child_id_str)
-        except ValueError:
-            continue
-        if child_id == parent_object.id:
-            continue  # skip linking an object to itself
-        child_obj = Object.objects.filter(id=child_id).first()
-        if not child_obj:
-            continue
-        # Use get_or_create to avoid duplicate links
-        link, created = Object_ParentObject.objects.get_or_create(parent_object=parent_object, object=child_obj)
-        param = None
-        if created:
-            # Auto-create a parameter for the link
-            data_type = 'ARRAY' if link.link_type == 'multiple' else 'TXTS'
-            param = Parameter.objects.create(
-                object=parent_object,
-                name=f'Связь с {child_obj.name}',
-                data_type=data_type,
-                linked_object=child_obj,
-                order=0
-            )
-            parent_df, parent_warnings = _safe_load_dataframe(
-                parent_object.data,
-                object_id=parent_object.id,
-                object_instance=parent_object,
-                allow_empty=True,
-            )
-            if parent_warnings:
-                logger.warning(
-                    "Warnings while loading parent data during link creation (parent %s -> child %s): %s",
-                    parent_object.id,
-                    child_obj.id,
-                    "; ".join(parent_warnings),
-                )
-            if parent_df is None:
-                parent_df = pd.DataFrame({'id_to_connect': []})
-            _ensure_dataframe_column(parent_df, param.id)
-            try:
-                _write_dataframe(parent_object.data, parent_df, object_instance=parent_object)
-            except Exception:
-                logger.exception(
-                    "Failed to persist column for new linked parameter %s on object %s",
-                    param.id,
-                    parent_object.id,
-                )
-        links.append({'link': link, 'param': param})
-    response_data = {'links': []}
-    for item in links:
-        link_data = {'id': item['link'].id, 'child_name': item['link'].object.name}
-        if item['param']:
-            link_data['param'] = {
-                'id': item['param'].id,
-                'name': item['param'].name,
-                'data_type': item['param'].data_type,
-                'linked_object_id': item['param'].linked_object.id
-            }
-        response_data['links'].append(link_data)
-    return HttpResponse(json.dumps(response_data))
+    response_data = object_schema_service.add_object_links(
+        parent_object=parent_object,
+        child_ids=child_ids,
+    )
+    return JsonResponse(response_data)
 
 
 def add_objects_link(object_id, object_child_id):
@@ -2330,11 +3144,23 @@ def save_row_link(request, object_link_id):
         message = "Both parent_ident_id and child_ident_id must be provided."
         logger.warning("Row link save rejected: %s (object_link_id=%s, user=%s)", message, object_link_id, request.user)
         return HttpResponseBadRequest(message)
+    parent_record_uid = object_data_service.resolve_record_uid_from_identifier(
+        obj=object_link.parent_object,
+        identifier=str(parent_ident_id),
+    )
+    child_record_uid = object_data_service.resolve_record_uid_from_identifier(
+        obj=object_link.object,
+        identifier=str(child_ident_id),
+    )
     # Update or create the row mapping
     ObjectLink_identificators.objects.update_or_create(
         object_link=object_link,
-        parent_object_identificator=parent_ident_id,
-        defaults={'object_identificator': child_ident_id},
+        parent_object_identificator=parent_record_uid,
+        defaults={'object_identificator': child_record_uid},
+    )
+    object_link_service.sync_parent_row_links(
+        parent_obj=object_link.parent_object,
+        parent_identifier=parent_record_uid,
     )
     return HttpResponse('')
 
@@ -2352,6 +3178,7 @@ def delete_object_link(request, pk):
     Parameter.objects.filter(object=link.parent_object, linked_object=link.object).delete()
     # Delete any row-level links referencing this object link
     ObjectLink_identificators.objects.filter(object_link=link).delete()
+    object_link_service.delete_object_link(link)
     link.delete()
     return HttpResponse('')
 

@@ -1,4 +1,4 @@
-from .WordAPI import *
+﻿from .WordAPI import *
 from abc import ABC, abstractmethod
 import re
 

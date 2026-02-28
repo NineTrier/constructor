@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 
 {% load static %}
 
@@ -7,6 +7,10 @@
 {% endblock %}
 
 
+{% block meta %}
+<meta name="object_id" content="{{ object.id }}">
+<meta name="csrf_token" content="{{ csrf_token }}">
+{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/database_manager/add_element.css' %}">
 <style>
@@ -48,6 +52,7 @@
 <div class="form-container">
 <h3>Создание записи в объекте</h3>
 <h4>{{ object.name }}</h4>
+<div id="dbm-form-alerts"></div>
 {% if error_message %}
 <div class="alert alert-danger" role="alert">{{ error_message }}</div>
 {% endif %}
@@ -174,186 +179,7 @@
 {% endblock %}
 
 {% block script %}
-<script>
-// JavaScript to fetch child row data and populate the preview fields
-$(document).ready(function() {
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-    // Fetch and populate preview fields for a child object
-    function fetchChildData(childObjId, selectedId) {
-        // Clear existing preview fields for this child
-        document.querySelectorAll('.child-param-field[data-child-object-id="' + childObjId + '"]').forEach(function(input) {
-            input.value = '';
-        });
-        if (!selectedId) return;
-        const formData = new FormData();
-        formData.append('param_ident_id', selectedId);
-        fetch(`/database/get_data_from_object/${childObjId}/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': csrfToken
-            },
-            body: formData
-        }).then(function(response) {
-            if (!response.ok) throw new Error('Network response was not ok');
-            return response.json();
-        }).then(function(data) {
-            if (!Array.isArray(data) || data.length === 0) return;
-            const record = data[0];
-            Object.keys(record).forEach(function(key) {
-                const valueObj = record[key];
-                let value = '';
-                if (typeof valueObj === 'object' && valueObj !== null) {
-                    if (Array.isArray(valueObj.value)) value = valueObj.value.join(', ');
-                    else value = valueObj.value;
-                } else {
-                    value = valueObj;
-                }
-                const field = document.querySelector('.child-param-field[data-child-object-id="' + childObjId + '"][data-param-id="' + key + '"]');
-                if (field) field.value = value;
-            });
-        }).catch(function(error) {
-            console.error('Error fetching child data:', error);
-        });
-    }
-
-    // Handle change on child link select (including Select2)
-    $(document).on('change', '.child-link-select', function() {
-        const $select = $(this);
-        const childObjId = $select.data('child-object-id');
-        const isMultiple = $select.prop('multiple');
-        const selectedValues = $select.val() || [];
-        if (isMultiple) {
-            // Update preview select options
-            const previewSelect = document.querySelector('.child-preview-select[data-child-object-id="' + childObjId + '"]');
-            if (!previewSelect) return;
-            // Clear existing options and add placeholder
-            previewSelect.innerHTML = '';
-            const placeholderOption = document.createElement('option');
-            placeholderOption.value = '';
-            placeholderOption.textContent = '-- Не выбрано --';
-            previewSelect.appendChild(placeholderOption);
-            // Add options for each selected value
-            selectedValues.forEach(function(val) {
-                let label = '';
-                const optElem = $select.find('option[value="' + val + '"]')[0];
-                if (optElem) {
-                    label = optElem.textContent;
-                } else {
-                    label = val;
-                }
-                const optionElem = document.createElement('option');
-                optionElem.value = val;
-                optionElem.textContent = label;
-                previewSelect.appendChild(optionElem);
-            });
-            // If any selected values, default to first and fetch data
-            if (selectedValues.length > 0) {
-                previewSelect.value = selectedValues[0];
-                fetchChildData(childObjId, selectedValues[0]);
-            } else {
-                fetchChildData(childObjId, null);
-            }
-            // Refresh Select2 if applied
-            if ($.fn.select2 && $(previewSelect).data('select2')) {
-                $(previewSelect).trigger('change.select2');
-            }
-        } else {
-            const selectedId = Array.isArray(selectedValues) ? selectedValues[0] : selectedValues;
-            fetchChildData(childObjId, selectedId);
-        }
-    });
-    // Handle change on preview select for multi links
-    $(document).on('change', '.child-preview-select', function() {
-        const childObjId = $(this).data('child-object-id');
-        const selectedId = $(this).val();
-        fetchChildData(childObjId, selectedId);
-    });
-});
-// Initialise Select2 on all select elements for searchable dropdowns
-$(document).ready(function() {
-    // Apply Select2 only if the library is loaded
-    if ($.fn.select2) {
-        $('select.form-select').each(function() {
-            var placeholder = $(this).find('option[value=""]').text() || '';
-            var options = {
-                width: '100%',
-                placeholder: placeholder,
-                allowClear: true,
-                language: 'ru'
-            };
-            if ($(this).hasClass('select2-tags')) {
-                options.tags = true;
-            }
-            $(this).select2(options);
-        });
-        // Add submit handler to enforce identifier requirement and show user-friendly message
-        const form = document.getElementById('form_add_data_to_object');
-        if (form) {
-            form.addEventListener('submit', function(e) {
-                const identField = document.querySelector('.identificator-field');
-                if (identField) {
-                    let value;
-                    if (identField.tagName.toLowerCase() === 'select') {
-                        // Use jQuery val() to handle Select2 and multiple values
-                        if (typeof $ !== 'undefined') {
-                            value = $(identField).val();
-                        } else {
-                            if (identField.multiple) {
-                                value = Array.from(identField.options).filter(opt => opt.selected).map(opt => opt.value);
-                            } else {
-                                value = identField.value;
-                            }
-                        }
-                    } else {
-                        value = identField.value;
-                    }
-                    // Normalize value: treat empty string or empty array as missing
-                    const isEmpty = !value || (Array.isArray(value) && value.length === 0) || (typeof value === 'string' && value.trim() === '');
-                    if (isEmpty) {
-                        e.preventDefault();
-                        alert('Пожалуйста, заполните идентификатор (обязательное поле).');
-                        return false;
-                    }
-                }
-            });
-        }
-    }
-});
-
-// Synchronization between linked parameter selects and child_link selects
-$(document).on('change', 'select[name^="col_value_"]', function() {
-    const $paramSelect = $(this);
-    const linkedObjId = $paramSelect.data('linked-object-id');
-    if (linkedObjId && !$paramSelect.data('syncing')) {
-        $paramSelect.data('syncing', true);
-        const $childSelect = $('.child-link-select[data-child-object-id="' + linkedObjId + '"]');
-        if ($childSelect.length) {
-            if ($paramSelect.prop('multiple')) {
-                const values = $paramSelect.val() || [];
-                $childSelect.val(values).trigger('change');
-            } else {
-                $childSelect.val($paramSelect.val()).trigger('change');
-            }
-        }
-        $paramSelect.data('syncing', false);
-    }
-});
-
-$(document).on('change', '.child-link-select', function() {
-    const $childSelect = $(this);
-    const childObjId = $childSelect.data('child-object-id');
-    const $paramSelect = $('select[name^="col_value_"][data-linked-object-id="' + childObjId + '"]');
-    if ($paramSelect.length && !$childSelect.data('syncing')) {
-        $childSelect.data('syncing', true);
-        if ($childSelect.prop('multiple')) {
-            const values = $childSelect.val() || [];
-            $paramSelect.val(values).trigger('change');
-        } else {
-            $paramSelect.val($childSelect.val()).trigger('change');
-        }
-        $childSelect.data('syncing', false);
-    }
-});
-</script>
+<script src="{% static 'js/dbm_api.js' %}"></script>
+<script src="{% static 'js/dbm_dto.js' %}"></script>
+<script src="{% static 'js/dbm_object_forms.js' %}"></script>
 {% endblock %}

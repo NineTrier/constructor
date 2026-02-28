@@ -1,4 +1,4 @@
-from .models import DocumentsPattern, DocType
+﻿from .models import DocumentsPattern, DocType
 from django import forms
 
 

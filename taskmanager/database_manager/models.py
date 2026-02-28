@@ -1,4 +1,4 @@
-"""
+﻿"""
 Modified models for the `database_manager` app.
 
 This version keeps the original intent of simplifying data storage for
@@ -21,6 +21,9 @@ class Object(models.Model):
     name = models.CharField(max_length=255)
     # FileField pointing at a pickled DataFrame in MEDIA_ROOT/dataframes/
     data = models.FileField(upload_to="dataframes/")
+    # Optional explicit parameter IDs used for deterministic CSV row matching
+    # when no identificator parameters are configured.
+    match_keys = models.JSONField(default=list, blank=True)
 
     class Meta:
         ordering = ["name"]
@@ -192,3 +195,114 @@ class ObjectLink_identificators(models.Model):
 
     def __str__(self) -> str:
         return f"{self.object_link}: {self.parent_object_identificator} -> {self.object_identificator}"
+
+
+class ObjectRecord(models.Model):
+    """
+    SQL storage for object rows.
+
+    `record_uid` is the stable row identifier used by the new API/services.
+    `legacy_id_to_connect` keeps backward compatibility during migration from
+    dataframe-based storage.
+    """
+
+    object = models.ForeignKey(
+        Object,
+        on_delete=models.CASCADE,
+        related_name="records",
+    )
+    record_uid = models.CharField(max_length=64)
+    legacy_id_to_connect = models.CharField(max_length=255, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(fields=["object", "record_uid"], name="uniq_object_record_uid"),
+            models.UniqueConstraint(
+                fields=["object", "legacy_id_to_connect"],
+                condition=~models.Q(legacy_id_to_connect=None),
+                name="uniq_object_legacy_id_to_connect",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["object", "record_uid"], name="idx_obj_record_uid"),
+            models.Index(fields=["object", "legacy_id_to_connect"], name="idx_obj_legacy_id"),
+            models.Index(fields=["object", "updated_at"], name="idx_obj_updated_at"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.object_id}:{self.record_uid}"
+
+
+class ParameterValue(models.Model):
+    """
+    Typed value of a parameter for a single SQL record.
+    """
+
+    record = models.ForeignKey(
+        ObjectRecord,
+        on_delete=models.CASCADE,
+        related_name="parameter_values",
+    )
+    parameter = models.ForeignKey(
+        Parameter,
+        on_delete=models.CASCADE,
+        related_name="record_values",
+    )
+    value_text = models.TextField(null=True, blank=True)
+    value_int = models.BigIntegerField(null=True, blank=True)
+    value_datetime = models.DateTimeField(null=True, blank=True)
+    value_json = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["record", "parameter"], name="uniq_record_parameter_value"),
+        ]
+        indexes = [
+            models.Index(fields=["parameter"], name="idx_param_value_param"),
+            models.Index(fields=["record"], name="idx_param_value_record"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.record_id}:{self.parameter_id}"
+
+
+class RecordLink(models.Model):
+    """
+    SQL row-level links between parent and child rows.
+    """
+
+    object_link = models.ForeignKey(
+        Object_ParentObject,
+        on_delete=models.CASCADE,
+        related_name="record_links",
+    )
+    parent_record = models.ForeignKey(
+        ObjectRecord,
+        on_delete=models.CASCADE,
+        related_name="outgoing_links",
+    )
+    child_record = models.ForeignKey(
+        ObjectRecord,
+        on_delete=models.CASCADE,
+        related_name="incoming_links",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["object_link", "parent_record", "child_record"],
+                name="uniq_record_link_tuple",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["object_link"], name="idx_record_link_link"),
+            models.Index(fields=["parent_record"], name="idx_record_link_parent"),
+            models.Index(fields=["child_record"], name="idx_record_link_child"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.object_link_id}:{self.parent_record_id}->{self.child_record_id}"
