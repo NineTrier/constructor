@@ -10,6 +10,14 @@
     <meta name="dbm_ui_v1_only" content="{% if DBM_UI_V1_ONLY %}1{% else %}0{% endif %}">
     <meta name="dbm_ui_use_api_for_mutations" content="{% if DBM_UI_USE_API_FOR_MUTATIONS %}1{% else %}0{% endif %}">
     <meta name="dbm_ui_legacy_fallback" content="{% if DBM_UI_LEGACY_FALLBACK %}1{% else %}0{% endif %}">
+    <meta name="dbm_links_meta_ui" content="{% if DBM_LINKS_META_UI %}1{% else %}0{% endif %}">
+    <meta name="document_link_tree_ui" content="{% if DOCUMENT_LINK_TREE_UI %}1{% else %}0{% endif %}">
+    <meta name="document_variables_tree_unified_ui" content="{% if DOCUMENT_VARIABLES_TREE_UNIFIED_UI %}1{% else %}0{% endif %}">
+    <meta name="document_link_tree_debug" content="{% if DOCUMENT_LINK_TREE_DEBUG %}1{% else %}0{% endif %}">
+    <meta name="document_event_driven_ui" content="{% if DOCUMENT_EVENT_DRIVEN_UI %}1{% else %}0{% endif %}">
+    <meta name="dbm_object_forms_debug" content="{% if DBM_OBJECT_FORMS_DEBUG %}1{% else %}0{% endif %}">
+    <meta name="dbm_disable_legacy_linked_params" content="{% if DBM_DISABLE_LEGACY_LINKED_PARAMS %}1{% else %}0{% endif %}">
+    <meta name="doc_token_human_strict" content="{% if DOC_TOKEN_HUMAN_STRICT %}1{% else %}0{% endif %}">
     <title>{% block title %}{% endblock %}</title>
 
     <script src="{% static 'js/jquery.min.js' %}"></script>
@@ -30,6 +38,14 @@
         window.DBM_UI_V1_ONLY = {% if DBM_UI_V1_ONLY %}true{% else %}false{% endif %};
         window.DBM_UI_USE_API_FOR_MUTATIONS = {% if DBM_UI_USE_API_FOR_MUTATIONS %}true{% else %}false{% endif %};
         window.DBM_UI_LEGACY_FALLBACK = {% if DBM_UI_LEGACY_FALLBACK %}true{% else %}false{% endif %};
+        window.DBM_LINKS_META_UI = {% if DBM_LINKS_META_UI %}true{% else %}false{% endif %};
+        window.DOCUMENT_LINK_TREE_UI = {% if DOCUMENT_LINK_TREE_UI %}true{% else %}false{% endif %};
+        window.DOCUMENT_VARIABLES_TREE_UNIFIED_UI = {% if DOCUMENT_VARIABLES_TREE_UNIFIED_UI %}true{% else %}false{% endif %};
+        window.DOCUMENT_LINK_TREE_DEBUG = {% if DOCUMENT_LINK_TREE_DEBUG %}true{% else %}false{% endif %};
+        window.DOCUMENT_EVENT_DRIVEN_UI = {% if DOCUMENT_EVENT_DRIVEN_UI %}true{% else %}false{% endif %};
+        window.DBM_OBJECT_FORMS_DEBUG = {% if DBM_OBJECT_FORMS_DEBUG %}true{% else %}false{% endif %};
+        window.DBM_DISABLE_LEGACY_LINKED_PARAMS = {% if DBM_DISABLE_LEGACY_LINKED_PARAMS %}true{% else %}false{% endif %};
+        window.DOC_TOKEN_HUMAN_STRICT = {% if DOC_TOKEN_HUMAN_STRICT %}true{% else %}false{% endif %};
         (function () {
             const originalFetch = window.fetch.bind(window);
             const safeMethods = /^(GET|HEAD|OPTIONS|TRACE)$/i;

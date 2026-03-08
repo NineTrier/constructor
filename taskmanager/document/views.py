@@ -6,7 +6,7 @@ import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import CreateView
 from .models import DocumentsPattern, DocumentPattern_Objects,Fonts, SavedElements, VariableBlock, DocType, Document_ParentDocument, Document_VariableBlock
-from database_manager.models import Object, Object_ParentObject, Parameter
+from database_manager.models import Object, ObjectLinkMeta, Object_ParentObject, Parameter
 from .forms import DocumentForm
 from django.core.files.storage import FileSystemStorage
 import os
@@ -22,9 +22,17 @@ from transliterate import translit
 from transliterate.decorators import transliterate_function
 from user_manager.models import Profile, user_directory_path
 from pathlib import Path, PurePosixPath
+from typing import Any, Dict, Optional, Tuple
 
 import logging
 logger = logging.getLogger(__name__)
+from .token_resolver import (
+    ExportFinalizeError,
+    TokenResolveError,
+    TokenResolverService,
+    build_doc_token_index,
+    finalize_document_json_for_export,
+)
 
 import pymorphy3
 from pymorphy3.shapes import restore_capitalization
@@ -147,6 +155,59 @@ def _copy_document_for_user(request, document_id):
     except Exception as exc:
         logger.exception("Failed to copy document %s for user %s", document_id, request.user)
         return False, None, str(exc)
+
+
+def _api_v1_error(code: str, message: str, *, status: int = 400, details: Optional[Dict[str, Any]] = None) -> JsonResponse:
+    return JsonResponse(
+        {
+            "error": {
+                "code": code,
+                "message": message,
+                "details": details or {},
+            }
+        },
+        status=status,
+    )
+
+
+def _parse_json_body(request) -> Optional[Dict[str, Any]]:
+    body = request.body.decode("utf-8").strip() if request.body else ""
+    if not body:
+        return {}
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return payload
+
+
+def _can_access_document(user, document: DocumentsPattern) -> bool:
+    owner_user = getattr(getattr(document, "owner", None), "user", None)
+    if owner_user is not None and owner_user == user:
+        return True
+    return bool(user.is_superuser or user.has_perm("document.change_documentspattern"))
+
+
+def _build_export_payload_for_docx(*, document: DocumentsPattern) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    source_json = document.json if isinstance(document.json, dict) else {}
+    if "elements" not in source_json or "sectPr" not in source_json:
+        raise ValueError("Document JSON is not ready for export finalization.")
+    resolver = TokenResolverService(logger=logger)
+    return finalize_document_json_for_export(
+        document_id=int(document.id),
+        document_json=source_json,
+        context=source_json.get("dbm_context") or source_json.get("context") or {},
+        options={
+            "maxDepth": 8,
+            "aggregationMode": "first",
+            "joiner": ", ",
+            "validateOnly": False,
+            "includeTrace": False,
+        },
+        resolver=resolver,
+    )
 
 
 # Класс, который помогает создавать новый записи в базу данных Documents
@@ -277,10 +338,54 @@ def SaveImage(request):
 def download(request):
     """Обработчик запроса для выгрузки документа"""
     document = DocumentsPattern.objects.filter(id=request.GET.get('id'))[0]
+    if not _can_access_document(request.user, document):
+        return HttpResponseForbidden()
     document.downloadsTimes = int(document.downloadsTimes) + 1
     document.save()
     filepath = document.file
     file_path = os.path.join(settings.MEDIA_ROOT, str(filepath))
+    source_json = document.json if isinstance(document.json, dict) else {}
+    if "elements" in source_json and "sectPr" in source_json:
+        try:
+            export_payload, resolve_result = _build_export_payload_for_docx(document=document)
+            document_export = Document()
+            document_export.from_json(export_payload)
+            document_export.save(file_path)
+            summary = resolve_result.get("summary", {})
+            logger.info(
+                "docx_export_resolved document_id=%s tokens=%s ok=%s errors=%s warnings=%s",
+                document.id,
+                summary.get("tokens_total", 0),
+                summary.get("ok", 0),
+                summary.get("errors", 0),
+                summary.get("warnings", 0),
+            )
+        except ExportFinalizeError as exc:
+            logger.warning("DOCX export blocked for document %s: %s", document.id, str(exc))
+            return JsonResponse(
+                {
+                    "error": {
+                        "code": "TOKEN_RESOLVE_FAILED",
+                        "message": str(exc),
+                        "details": {
+                            "results": exc.results,
+                        },
+                    }
+                },
+                status=400,
+            )
+        except Exception as exc:
+            logger.exception("DOCX export failed for document %s", document.id)
+            return JsonResponse(
+                {
+                    "error": {
+                        "code": "SERVER_ERROR",
+                        "message": "Не удалось подготовить DOCX для выгрузки.",
+                        "details": {"exc": str(exc)},
+                    }
+                },
+                status=500,
+            )
     if os.path.exists(file_path):
         with open(file_path, 'rb') as fh:
             response = HttpResponse(fh.read(), content_type="application/vnd.ms-word")
@@ -453,6 +558,154 @@ def toggle_document_organisation(request):
         return HttpResponseNotModified()
 
 
+@login_required
+@require_POST
+def api_v1_resolve_tokens(request):
+    payload = _parse_json_body(request)
+    if payload is None:
+        return _api_v1_error("VALIDATION_ERROR", "Ожидался JSON payload.", details={"field": "body"})
+
+    document_id_raw = payload.get("document_id")
+    if document_id_raw in (None, ""):
+        return _api_v1_error("VALIDATION_ERROR", "Не указан document_id.", details={"field": "document_id"})
+    try:
+        document_id = int(document_id_raw)
+    except (TypeError, ValueError):
+        return _api_v1_error("VALIDATION_ERROR", "Некорректный document_id.", details={"field": "document_id"})
+
+    document = DocumentsPattern.objects.filter(id=document_id).first()
+    if document is None:
+        return _api_v1_error("NOT_FOUND", "Документ не найден.", status=404)
+    if not _can_access_document(request.user, document):
+        return _api_v1_error("PERMISSION_DENIED", "Недостаточно прав для доступа к документу.", status=403)
+
+    tokens = payload.get("tokens", [])
+    if not isinstance(tokens, list):
+        return _api_v1_error("VALIDATION_ERROR", "Поле tokens должно быть массивом.", details={"field": "tokens"})
+    tokens_list = [str(item or "").strip() for item in tokens if str(item or "").strip()]
+    if len(tokens_list) > 500:
+        return _api_v1_error(
+            "VALIDATION_ERROR",
+            "Превышен лимит токенов в одном запросе (максимум 500).",
+            details={"tokens_limit": 500},
+        )
+
+    context = payload.get("context", {})
+    if context is None:
+        context = {}
+    if not isinstance(context, dict):
+        return _api_v1_error("VALIDATION_ERROR", "Поле context должно быть объектом.", details={"field": "context"})
+
+    options = payload.get("options", {})
+    if options is None:
+        options = {}
+    if not isinstance(options, dict):
+        return _api_v1_error("VALIDATION_ERROR", "Поле options должно быть объектом.", details={"field": "options"})
+
+    include_trace = bool(options.get("includeTrace", False))
+    resolver = TokenResolverService(logger=logger)
+    try:
+        result = resolver.resolve_tokens(
+            document_id=document_id,
+            context=context,
+            tokens=tokens_list,
+            options=options,
+            include_trace=include_trace,
+        )
+    except TokenResolveError as exc:
+        return _api_v1_error(exc.code, exc.message, details=exc.details)
+    except Exception as exc:
+        logger.exception("resolve_tokens API failed for document %s", document_id)
+        return _api_v1_error(
+            "SERVER_ERROR",
+            "Не удалось выполнить резолв токенов.",
+            status=500,
+            details={"exc": str(exc)},
+        )
+
+    return JsonResponse(result)
+
+
+@login_required
+@require_POST
+def api_v1_prefetch_graph(request):
+    payload = _parse_json_body(request)
+    if payload is None:
+        return _api_v1_error("VALIDATION_ERROR", "Ожидался JSON payload.", details={"field": "body"})
+
+    document_id_raw = payload.get("document_id")
+    if document_id_raw in (None, ""):
+        return _api_v1_error("VALIDATION_ERROR", "Не указан document_id.", details={"field": "document_id"})
+    try:
+        document_id = int(document_id_raw)
+    except (TypeError, ValueError):
+        return _api_v1_error("VALIDATION_ERROR", "Некорректный document_id.", details={"field": "document_id"})
+
+    document = DocumentsPattern.objects.filter(id=document_id).first()
+    if document is None:
+        return _api_v1_error("NOT_FOUND", "Документ не найден.", status=404)
+    if not _can_access_document(request.user, document):
+        return _api_v1_error("PERMISSION_DENIED", "Недостаточно прав для доступа к документу.", status=403)
+
+    tokens = payload.get("tokens", [])
+    if not isinstance(tokens, list):
+        return _api_v1_error("VALIDATION_ERROR", "Поле tokens должно быть массивом.", details={"field": "tokens"})
+    tokens_list = [str(item or "").strip() for item in tokens if str(item or "").strip()]
+    if len(tokens_list) > 500:
+        return _api_v1_error(
+            "VALIDATION_ERROR",
+            "Превышен лимит токенов в одном запросе (максимум 500).",
+            details={"tokens_limit": 500},
+        )
+
+    context = payload.get("context", {})
+    if context is None:
+        context = {}
+    if not isinstance(context, dict):
+        return _api_v1_error("VALIDATION_ERROR", "Поле context должно быть объектом.", details={"field": "context"})
+
+    options = payload.get("options", {})
+    if options is None:
+        options = {}
+    if not isinstance(options, dict):
+        return _api_v1_error("VALIDATION_ERROR", "Поле options должно быть объектом.", details={"field": "options"})
+
+    max_depth_raw = options.get("maxDepth", 8)
+    try:
+        max_depth = int(max_depth_raw)
+    except (TypeError, ValueError):
+        return _api_v1_error("VALIDATION_ERROR", "Поле options.maxDepth должно быть числом.", details={"field": "options.maxDepth"})
+    if max_depth > 8:
+        return _api_v1_error(
+            "VALIDATION_ERROR",
+            "Максимальная глубина prefetch_graph ограничена 8.",
+            details={"field": "options.maxDepth", "max_allowed": 8},
+        )
+    options["maxDepth"] = max_depth
+
+    include_trace = bool(options.get("includeTrace", False))
+    resolver = TokenResolverService(logger=logger)
+    try:
+        result = resolver.prefetch_graph(
+            document_id=document_id,
+            context=context,
+            tokens=tokens_list,
+            options=options,
+            include_trace=include_trace,
+        )
+    except TokenResolveError as exc:
+        return _api_v1_error(exc.code, exc.message, details=exc.details)
+    except Exception as exc:
+        logger.exception("prefetch_graph API failed for document %s", document_id)
+        return _api_v1_error(
+            "SERVER_ERROR",
+            "Не удалось выполнить prefetch графа токенов.",
+            status=500,
+            details={"exc": str(exc)},
+        )
+    return JsonResponse(result)
+
+
 
 @csrf_exempt
 def AddDocumentToUser(request, id=None):
@@ -541,6 +794,7 @@ def replace_last(source_string, replace_what, replace_with):
     head, _sep, tail = source_string.rpartition(replace_what)
     return head + replace_with + tail
 
+@login_required
 def ViewDocument(request):
     """Обработчик запроса для просмотра документа"""
     fileid = request.GET.get('id')
@@ -555,32 +809,85 @@ def ViewDocument(request):
             return HttpResponseBadRequest(message)
         return redirect(f'/document/view?id={cloned_doc.id}')
     parent_document = Document_ParentDocument.objects.filter(document=Doc.id)
+    hide_legacy_linked_params = bool(getattr(settings, "DBM_DISABLE_LEGACY_LINKED_PARAMS", False))
     objects = []
-    for obj in DocumentPattern_Objects.objects.filter(document=Doc.id):
-        params = list(sorted(Parameter.objects.filter(object=obj.object), key=lambda x: x.id))
-        for param in params[:]:
-            if hasattr(param, 'linked_object') and param.linked_object:
-                print(type(params[params.index(param)]))
-                link_type = Object_ParentObject.objects.filter(parent_object=param.object, object=param.linked_object)[0].link_type
-                print(param.name, link_type)
-                linked_params = Parameter.objects.filter(object=param.linked_object)
-                for lp in linked_params:
-                    class PseudoParam:
-                        def __init__(self, original, prefix, linked_obj, parent_id=None):
-                            self.id = original.id
-                            self.name = f"{prefix}.{original.name}"
-                            self.identificator = False
-                            if link_type == "single":
-                                self.data_type = original.data_type
-                            elif link_type == "multiple":
-                                self.data_type = "ARRAY"
-                            self.linked_object = linked_obj
-                            self.isChild = True
-                            self.parent_id = parent_id
-                    pseudo = PseudoParam(lp, param.name, param.linked_object, param.id)
+    document_object_rows = list(
+        DocumentPattern_Objects.objects.filter(document=Doc.id).select_related("object")
+    )
+    for doc_object in document_object_rows:
+        base_object = doc_object.object
+        base_params = list(sorted(Parameter.objects.filter(object=base_object), key=lambda x: x.id))
+        if hide_legacy_linked_params:
+            base_params = [
+                parameter
+                for parameter in base_params
+                if not (
+                    getattr(parameter, "linked_object_id", None)
+                    and not getattr(parameter, "link_meta_id", None)
+                    and not bool(getattr(parameter, "is_managed_link_param", False))
+                )
+            ]
+        params = list(base_params)
+        for param in base_params:
+            if not hasattr(param, "linked_object") or not param.linked_object:
+                continue
+            relation = Object_ParentObject.objects.filter(
+                parent_object=base_object,
+                object=param.linked_object,
+            ).first()
+            if relation is None:
+                continue
+            link_metas = list(
+                ObjectLinkMeta.objects.filter(
+                    parent_object=base_object,
+                    child_object=param.linked_object,
+                ).order_by("order", "id")
+            )
+            if not link_metas:
+                link_metas = [None]
+            linked_params = list(Parameter.objects.filter(object=param.linked_object).order_by("id"))
+
+            class PseudoParam:
+                def __init__(
+                    self,
+                    original,
+                    prefix,
+                    linked_obj,
+                    *,
+                    link_type_value,
+                    parent_id=None,
+                    link_meta_id=None,
+                ):
+                    self.id = original.id
+                    self.name = f"{prefix}.{original.name}"
+                    self.identificator = False
+                    if link_type_value == "single":
+                        self.data_type = original.data_type
+                    elif link_type_value == "multiple":
+                        self.data_type = "ARRAY"
+                    else:
+                        self.data_type = original.data_type
+                    self.linked_object = linked_obj
+                    self.isChild = True
+                    self.parent_id = parent_id
+                    self.link_meta_id = link_meta_id
+
+            for link_meta in link_metas:
+                prefix = (link_meta.display_name if link_meta is not None else param.name) or param.name
+                link_type_value = (link_meta.link_type if link_meta is not None else relation.link_type) or relation.link_type
+                for linked_param in linked_params:
+                    pseudo = PseudoParam(
+                        linked_param,
+                        prefix,
+                        param.linked_object,
+                        link_type_value=link_type_value,
+                        parent_id=param.id,
+                        link_meta_id=(link_meta.id if link_meta is not None else None),
+                    )
                     params.append(pseudo)
-        objects.append({'object': obj.object, 'params': params})
-    print(objects)
+        objects.append({"object": base_object, "params": params})
+
+    doc_token_index = build_doc_token_index(Doc.id)
     context = {
         'title': 'Просмотр документа',
         'Doc': Doc,
@@ -588,6 +895,7 @@ def ViewDocument(request):
         'variable': json.dumps({var.variable.id: f"{var.variable.name}:{var.variable.meaning}" for var in Document_VariableBlock.objects.filter(document=Doc.id)}),
         'document_json': json.dumps(Doc.json),
         'objects': objects,
+        'doc_token_index_json': json.dumps(doc_token_index, ensure_ascii=False),
     }
     if request.user.is_authenticated:
         context['profile'] = Profile.for_user(request.user)
@@ -619,8 +927,23 @@ def ViewDocumentAndCreateDocument(request):
             return HttpResponseBadRequest(message)
         return redirect(f'/document/view?id={cloned_doc.id}')
     parent_document = Document_ParentDocument.objects.filter(document=Doc.id)
-    objects = [{'object': obj.object, 'params':[parameter for parameter in Parameter.objects.filter(object=obj.object)]} for obj in DocumentPattern_Objects.objects.filter(document=Doc.id)]
+    hide_legacy_linked_params = bool(getattr(settings, "DBM_DISABLE_LEGACY_LINKED_PARAMS", False))
+    objects = []
+    for doc_object in DocumentPattern_Objects.objects.filter(document=Doc.id):
+        params = list(Parameter.objects.filter(object=doc_object.object))
+        if hide_legacy_linked_params:
+            params = [
+                parameter
+                for parameter in params
+                if not (
+                    getattr(parameter, "linked_object_id", None)
+                    and not getattr(parameter, "link_meta_id", None)
+                    and not bool(getattr(parameter, "is_managed_link_param", False))
+                )
+            ]
+        objects.append({'object': doc_object.object, 'params': params})
     print(objects)
+    doc_token_index = build_doc_token_index(Doc.id)
     context = {
         'title': 'Просмотр документа',
         'Doc': Doc,
@@ -629,6 +952,7 @@ def ViewDocumentAndCreateDocument(request):
         'document_json': json.dumps(Doc.json),
         'objects': objects,
         'create_document': True,
+        'doc_token_index_json': json.dumps(doc_token_index, ensure_ascii=False),
     }
     if request.user.is_authenticated:
         context['profile'] = Profile.for_user(request.user)
@@ -679,18 +1003,42 @@ def UpdateDocument(request):
 @csrf_exempt
 def AcceptFilters(request):
     request_data = request.body
-    stroke = json.loads(request_data)
-    print(stroke)
+    try:
+        stroke = json.loads(request_data)
+    except Exception:
+        stroke = {}
+    if not isinstance(stroke, dict):
+        stroke = {}
     result = {}
     for key, value in stroke.items():
-        for filter in value['filters']:
+        if not isinstance(value, dict):
+            result[key] = ""
+            continue
+
+        phrase = value.get('phrase')
+        if phrase is None:
+            phrase = value.get('data-invis')
+        if phrase is None:
+            phrase = value.get('textContent')
+        payload = dict(value)
+        payload['phrase'] = '' if phrase is None else str(phrase)
+
+        filters_raw = value.get('filters')
+        if isinstance(filters_raw, dict):
+            filters_iter = list(filters_raw.keys())
+        elif isinstance(filters_raw, (list, tuple, set)):
+            filters_iter = list(filters_raw)
+        else:
+            filters_iter = []
+
+        for filter in filters_iter:
             if filter == 'Raskrit':
-                value['phrase'] = Raskritie(value)
+                payload['phrase'] = Raskritie(payload)
             if filter == 'ChangeCattle':
-                value['phrase'] = ChangeCattle(value)
+                payload['phrase'] = ChangeCattle(payload)
             if filter == 'ChangeCase':
-                value['phrase'] = UpperCase(value)
-        result[key] = str(value['phrase']).replace('ё', 'е').replace('Ё', 'Е')
+                payload['phrase'] = UpperCase(payload)
+        result[key] = str(payload.get('phrase', '')).replace('ё', 'е').replace('Ё', 'Е')
     response = HttpResponse()
     response.content = json.dumps(result)
     response.charset = 'utf-8'

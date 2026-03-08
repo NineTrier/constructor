@@ -65,50 +65,7 @@
         }
     }
 
-    function findIdentParamId(schema) {
-        const params = schema && schema.parameters ? schema.parameters : {};
-        const keys = Object.keys(params);
-        for (let i = 0; i < keys.length; i += 1) {
-            const key = keys[i];
-            if (params[key] && params[key].identificator) {
-                return key;
-            }
-        }
-        return null;
-    }
-
-    function renderRecords(payload) {
-        const container = document.querySelector('.identsContainer');
-        if (!container) {
-            return;
-        }
-        const normalised = window.dbmDto.normaliseListPayload(payload);
-        const schema = normalised.schema || { parameters: {} };
-        const identParamId = findIdentParamId(schema);
-        container.innerHTML = '';
-        (normalised.records || []).forEach(function (record) {
-            const card = document.createElement('div');
-            card.className = 'ident col';
-            const uid = String(record.record_uid || '');
-            card.addEventListener('click', function (evt) {
-                clickToIdent(evt, uid);
-            });
-            let identValue = '';
-            if (identParamId && record.fields && record.fields[identParamId]) {
-                identValue = record.fields[identParamId].value;
-            }
-            if (!identValue && record._legacy_ident) {
-                identValue = record._legacy_ident;
-            }
-            if (!identValue) {
-                identValue = uid;
-            }
-            const span = document.createElement('span');
-            span.textContent = String(identValue);
-            card.appendChild(span);
-            container.appendChild(card);
-        });
-    }
+    let recordsPicker = null;
 
     function fillSelectFromEntries(select, entries, selectFirst) {
         if (!select) {
@@ -127,18 +84,11 @@
         });
     }
 
-    function showCreateDocumentsModal(payload, documents) {
-        const normalised = window.dbmDto.normaliseListPayload(payload);
-        const schema = normalised.schema || { parameters: {} };
-        const identParamId = findIdentParamId(schema);
-        const idents = (normalised.records || []).map(function (record) {
-            let label = '';
-            if (identParamId && record.fields && record.fields[identParamId]) {
-                label = record.fields[identParamId].value;
-            }
+    function showCreateDocumentsModal(records, documents) {
+        const idents = (records || []).map(function (record) {
             return {
                 value: record.record_uid,
-                label: label || record.record_uid,
+                label: record.identificator || record.record_uid,
             };
         });
         const selectIdents = document.querySelector('select[name="object_idents[]"]');
@@ -282,29 +232,66 @@
         }
     }
 
-    function loadRecords() {
+    function initRecordsPicker() {
         const objectId = getObjectId();
-        if (!objectId || !window.dbmApi || !window.dbmDto) {
+        const container = document.querySelector('.identsContainer');
+        if (!objectId || !container || !window.dbmRecordPicker || !window.dbmApi) {
+            return;
+        }
+        if (recordsPicker && typeof recordsPicker.destroy === 'function') {
+            recordsPicker.destroy();
+        }
+        recordsPicker = window.dbmRecordPicker.createRecordPicker({
+            objectId: objectId,
+            containerEl: container,
+            mode: 'single',
+            order: 'identificator',
+            pageSize: 50,
+            pageSizeOptions: [5, 10, 15, 25, 50, 100, 200],
+            persistKey: 'dbm:get_object:' + objectId,
+            onSelect: function (recordUid) {
+                window.currentIdentId = recordUid;
+                updateObjectElement();
+            },
+            onEscape: function () {},
+        });
+    }
+
+    async function fetchAllRecords(objectId) {
+        const all = [];
+        let offset = 0;
+        const limit = 100;
+        while (true) {
+            const payload = await window.dbmApi.listRecords(objectId, {
+                limit: limit,
+                offset: offset,
+                order: 'identificator',
+                include_schema: 0,
+                includeTotal: false,
+            });
+            const chunk = Array.isArray(payload.records) ? payload.records : [];
+            all.push.apply(all, chunk);
+            if (!payload.has_more || chunk.length === 0) {
+                break;
+            }
+            offset += limit;
+            if (offset > 10000) {
+                break;
+            }
+        }
+        return all;
+    }
+
+    function loadRecords() {
+        if (!window.dbmApi || !window.dbmRecordPicker) {
             return;
         }
         setLoading(true);
-        window.dbmApi
-            .listRecords(objectId, {
-                limit: 500,
-                offset: 0,
-                order: 'identificator',
-                include_schema: 1,
-            })
-            .then(function (payload) {
-                renderRecords(payload);
-            })
-            .catch(function (error) {
-                console.error(error);
-                showAlert(error.message || 'Не удалось загрузить список записей.');
-            })
-            .finally(function () {
-                setLoading(false);
-            });
+        try {
+            initRecordsPicker();
+        } finally {
+            setLoading(false);
+        }
     }
 
     function updateObjectElement() {
@@ -402,15 +389,9 @@
             return;
         }
         const docs = getDocumentsFromPage();
-        window.dbmApi
-            .listRecords(objectId, {
-                limit: 500,
-                offset: 0,
-                order: 'identificator',
-                include_schema: 1,
-            })
-            .then(function (payload) {
-                showCreateDocumentsModal(payload, docs);
+        fetchAllRecords(objectId)
+            .then(function (records) {
+                showCreateDocumentsModal(records, docs);
             })
             .catch(function (error) {
                 console.error(error);

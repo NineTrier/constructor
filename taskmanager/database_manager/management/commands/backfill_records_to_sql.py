@@ -11,7 +11,7 @@ from django.utils.dateparse import parse_datetime
 from ...application.services import ObjectDataService
 from ...domain.normalize import schema_from_parameters
 from ...infrastructure.repositories import FileRecordRepository, SqlRecordRepository
-from ...models import Object, ObjectLink_identificators, Object_ParentObject, Parameter, RecordLink
+from ...models import Object, ObjectLinkMeta, ObjectLink_identificators, Object_ParentObject, Parameter, RecordLink
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ class Command(BaseCommand):
             if object_id is not None:
                 link_qs = link_qs.filter(parent_object_id=object_id)
             for meta_link in link_qs:
-                row_links = ObjectLink_identificators.objects.filter(object_link=meta_link)
+                row_links = ObjectLink_identificators.objects.filter(object_link=meta_link).select_related("object_link_meta")
                 for row_link in row_links:
                     parent_identifier = str(row_link.parent_object_identificator)
                     child_identifier = str(row_link.object_identificator)
@@ -138,7 +138,12 @@ class Command(BaseCommand):
                         fields={},
                         legacy_id_to_connect=child_identifier,
                     )
-                    sql_repo.upsert_link(meta_link, parent_record, child_record)
+                    sql_repo.upsert_link(
+                        meta_link,
+                        parent_record,
+                        child_record,
+                        object_link_meta=row_link.object_link_meta,
+                    )
                     processed_links += 1
 
         for obj in objects:
@@ -258,23 +263,36 @@ class Command(BaseCommand):
         mismatches = 0
         relations = Object_ParentObject.objects.filter(parent_object=obj).select_related("object")
         for relation in relations:
-            file_pairs: Set[Tuple[str, str]] = set()
-            row_links = ObjectLink_identificators.objects.filter(object_link=relation)
-            for row_link in row_links:
-                parent_uid = data_service.resolve_record_uid_from_identifier(
-                    obj=relation.parent_object,
-                    identifier=str(row_link.parent_object_identificator),
-                )
-                child_uid = data_service.resolve_record_uid_from_identifier(
-                    obj=relation.object,
-                    identifier=str(row_link.object_identificator),
-                )
-                file_pairs.add((parent_uid, child_uid))
+            relation_metas = list(ObjectLinkMeta.objects.filter(object_link=relation).order_by("order", "id"))
+            if not relation_metas:
+                relation_metas = [None]
+            for relation_meta in relation_metas:
+                file_pairs: Set[Tuple[str, str]] = set()
+                row_links = ObjectLink_identificators.objects.filter(object_link=relation)
+                if relation_meta is None:
+                    row_links = row_links.filter(object_link_meta__isnull=True)
+                else:
+                    row_links = row_links.filter(object_link_meta=relation_meta)
+                for row_link in row_links:
+                    parent_uid = data_service.resolve_record_uid_from_identifier(
+                        obj=relation.parent_object,
+                        identifier=str(row_link.parent_object_identificator),
+                    )
+                    child_uid = data_service.resolve_record_uid_from_identifier(
+                        obj=relation.object,
+                        identifier=str(row_link.object_identificator),
+                    )
+                    file_pairs.add((parent_uid, child_uid))
 
-            sql_pairs: Set[Tuple[str, str]] = set()
-            sql_links = RecordLink.objects.filter(object_link=relation).select_related("parent_record", "child_record")
-            for sql_link in sql_links:
-                sql_pairs.add((sql_link.parent_record.record_uid, sql_link.child_record.record_uid))
-            if file_pairs != sql_pairs:
-                mismatches += 1
+                sql_pairs: Set[Tuple[str, str]] = set()
+                sql_links = RecordLink.objects.filter(object_link=relation)
+                if relation_meta is None:
+                    sql_links = sql_links.filter(object_link_meta__isnull=True)
+                else:
+                    sql_links = sql_links.filter(object_link_meta=relation_meta)
+                sql_links = sql_links.select_related("parent_record", "child_record")
+                for sql_link in sql_links:
+                    sql_pairs.add((sql_link.parent_record.record_uid, sql_link.child_record.record_uid))
+                if file_pairs != sql_pairs:
+                    mismatches += 1
         return mismatches

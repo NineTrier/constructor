@@ -11,12 +11,24 @@
         <meta name="dbm_ui_v1_only" content="{% if DBM_UI_V1_ONLY %}1{% else %}0{% endif %}">
         <meta name="dbm_ui_use_api_for_mutations" content="{% if DBM_UI_USE_API_FOR_MUTATIONS %}1{% else %}0{% endif %}">
         <meta name="dbm_ui_legacy_fallback" content="{% if DBM_UI_LEGACY_FALLBACK %}1{% else %}0{% endif %}">
+        <meta name="document_link_tree_ui" content="{% if DOCUMENT_LINK_TREE_UI %}1{% else %}0{% endif %}">
+        <meta name="document_variables_tree_unified_ui" content="{% if DOCUMENT_VARIABLES_TREE_UNIFIED_UI %}1{% else %}0{% endif %}">
+        <meta name="document_link_tree_debug" content="{% if DOCUMENT_LINK_TREE_DEBUG %}1{% else %}0{% endif %}">
+        <meta name="document_event_driven_ui" content="{% if DOCUMENT_EVENT_DRIVEN_UI %}1{% else %}0{% endif %}">
+        <meta name="dbm_disable_legacy_linked_params" content="{% if DBM_DISABLE_LEGACY_LINKED_PARAMS %}1{% else %}0{% endif %}">
+        <meta name="doc_token_human_strict" content="{% if DOC_TOKEN_HUMAN_STRICT %}1{% else %}0{% endif %}">
         <title>{{ Doc.name }}</title>
         {% load static %}
         <script>
             window.DBM_UI_V1_ONLY = {% if DBM_UI_V1_ONLY %}true{% else %}false{% endif %};
             window.DBM_UI_USE_API_FOR_MUTATIONS = {% if DBM_UI_USE_API_FOR_MUTATIONS %}true{% else %}false{% endif %};
             window.DBM_UI_LEGACY_FALLBACK = {% if DBM_UI_LEGACY_FALLBACK %}true{% else %}false{% endif %};
+            window.DOCUMENT_LINK_TREE_UI = {% if DOCUMENT_LINK_TREE_UI %}true{% else %}false{% endif %};
+            window.DOCUMENT_VARIABLES_TREE_UNIFIED_UI = {% if DOCUMENT_VARIABLES_TREE_UNIFIED_UI %}true{% else %}false{% endif %};
+            window.DOCUMENT_LINK_TREE_DEBUG = {% if DOCUMENT_LINK_TREE_DEBUG %}true{% else %}false{% endif %};
+            window.DOCUMENT_EVENT_DRIVEN_UI = {% if DOCUMENT_EVENT_DRIVEN_UI %}true{% else %}false{% endif %};
+            window.DBM_DISABLE_LEGACY_LINKED_PARAMS = {% if DBM_DISABLE_LEGACY_LINKED_PARAMS %}true{% else %}false{% endif %};
+            window.DOC_TOKEN_HUMAN_STRICT = {% if DOC_TOKEN_HUMAN_STRICT %}true{% else %}false{% endif %};
         </script>
         <script src="{% static 'js/jquery.min.js' %}"></script>
         <link rel="stylesheet" href="{% static 'css/select2.min.css' %}">
@@ -322,17 +334,12 @@
                             <div class="header-bar mt-2">
                                 <h1 id="objectFindDataModalName">Объект</h1>
                             </div>
-                            <div class="d-flex flex-row row mb-5">
-                                <span>Идентификатор:</span>
+                            <div class="d-none">
                                 <input id="filter-input" class="form-control" type="text" list="idents_list" oninput="onFilterInputInput(event)">
+                                <datalist id="idents_list"></datalist>
                             </div>
-                            <datalist id="idents_list"></datalist>
-                            <div class="d-flex flex-row row">
-                                <div class="d-flex flex-column col">
-                                    <div class="objectFindDataModalContainer row">
-                                    </div>
-                                </div>
-                            </div>
+                            <div id="objectFindRecentRecords" class="d-none mb-3"></div>
+                            <div id="objectFindRecordPicker" class="objectFindDataModalContainer"></div>
                         </div>
                         <div class="modal-footer">
                             <button class="btn btn-success" onclick="addObjects();">Добавить объекты</button>
@@ -467,11 +474,60 @@
                                                 <a class="btn btn-labeled" onclick="deleteObjectFromDocument({{ obj.object.id }})"><i class="fa-solid fa-trash" style="color: red;"></i></a>
                                             </div>
                                             <div class="object_body">
+                                                {% if DOCUMENT_VARIABLES_TREE_UNIFIED_UI and DOCUMENT_LINK_TREE_UI %}
+                                                <div class="dbm-tree-unified mt-2" data-dbmtree-object="{{ obj.object.id }}">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <span class="fw-semibold">Связи и параметры</span>
+                                                        <small class="text-muted">Depth-N</small>
+                                                    </div>
+                                                    <div class="dbm-tree-host mt-2" id="dbm_tree_{{ obj.object.id }}"></div>
+                                                </div>
+                                                {% endif %}
+                                                {% if DOCUMENT_VARIABLES_TREE_UNIFIED_UI %}
+                                                <div class="accordion mt-2" id="object_params_acc_{{ obj.object.id }}">
+                                                    <div class="accordion-item">
+                                                        <h2 class="accordion-header" id="object_params_heading_{{ obj.object.id }}">
+                                                            <button class="accordion-button collapsed py-2 px-3" type="button" data-bs-toggle="collapse" data-bs-target="#object_params_collapse_{{ obj.object.id }}" aria-expanded="false" aria-controls="object_params_collapse_{{ obj.object.id }}">
+                                                                Параметры и ввод значений
+                                                            </button>
+                                                        </h2>
+                                                        <div id="object_params_collapse_{{ obj.object.id }}" class="accordion-collapse collapse">
+                                                            <div class="accordion-body p-2">
+                                                                <div class="objectParametersContainer">
+                                                                    <form id="object_form_{{  obj.object.id }}">
+                                                                        <input type="hidden" name="param_ident_id">
+                                                                    {% for parameter in obj.params %}
+                                                                    <div class="obj_parameter row{% if parameter.isChild %} legacy-linked-pseudo{% endif %}{% if parameter.isChild and DOCUMENT_LINK_TREE_UI or parameter.isChild and DBM_DISABLE_LEGACY_LINKED_PARAMS %} d-none{% endif %}" data-is-child="{% if parameter.isChild %}1{% else %}0{% endif %}" data-idParam="{{ parameter.id }}" data-paramName="{{ obj.object.name }}.{{ parameter.name }}">
+                                                                        {% if parameter.identificator %}
+                                                                            <div class="col-4">
+                                                                                <i class="fa-solid fa-star"></i>
+                                                                                <span class="identificator obj_parameter_name">{% if parameter.linked_object %} <i class="fa-solid fa-link"></i>{% endif %}{{ parameter.name }}</span>
+                                                                            </div>
+                                                                            <input type="text" class="form-control identificator col obj_parameter_value" data-id="{{ parameter.id }}" name="{{ parameter.id}}" {% if not parameter.linked_object %}onclick="getObjectData(event, '{{ obj.object.id }}')"{% endif %} onchange="onChangeVariableMean(event);" {% if parameter.linked_object %}data-linked="true"{% endif %}>
+                                                                        {% else %}
+                                                                            <span class="col-4 obj_parameter_name">{% if parameter.linked_object %} <i class="fa-solid fa-link"></i>{% endif %}{{ parameter.name }}</span>
+                                                                            {% if parameter.data_type == 'TXT' or parameter.data_type == 'TXTS' %}
+                                                                            <input type="text" class="form-control col obj_parameter_value {% if parameter.linked_object %}linked_parameter{% endif %}" data-id="{{ parameter.id }}" data-linked_object_id="{% if parameter.linked_object %}{{ parameter.linked_object.id }}{% endif %}" name="{{ parameter.id}}" onchange="onChangeVariableMean(event);{% if parameter.linked_object and not parameter.isChild %}linkedParentElementChanged(event){% endif %}" readonly>
+                                                                            {% elif parameter.data_type == 'DATE' %}
+                                                                            <input type="text" class="form-control col obj_parameter_value {% if parameter.linked_object %}linked_parameter{% endif %}" data-id="{{ parameter.id }}" data-linked_object_id="{% if parameter.linked_object %}{{ parameter.linked_object.id }}{% endif %}" name="{{ parameter.id}}" onchange="onChangeVariableMean(event);" readonly>
+                                                                            {% elif parameter.data_type == 'ARRAY' %}
+                                                                            <div class="col array_data_container obj_parameter_value {% if parameter.linked_object %}linked_parameter{% endif %}" data-linked_object_id="{% if parameter.linked_object %}{{ parameter.linked_object.id }}{% endif %}"></div>
+                                                                            {% endif %}
+                                                                        {% endif %}
+                                                                    </div>
+                                                                    {% endfor %}
+                                                                    </form>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {% else %}
                                                 <div class="objectParametersContainer">
                                                     <form id="object_form_{{  obj.object.id }}">
                                                         <input type="hidden" name="param_ident_id">
                                                     {% for parameter in obj.params %}
-                                                    <div class="obj_parameter row" data-idParam="{{ parameter.id }}" data-paramName="{{ obj.object.name }}.{{ parameter.name }}">
+                                                    <div class="obj_parameter row{% if parameter.isChild %} legacy-linked-pseudo{% endif %}{% if parameter.isChild and DOCUMENT_LINK_TREE_UI or parameter.isChild and DBM_DISABLE_LEGACY_LINKED_PARAMS %} d-none{% endif %}" data-is-child="{% if parameter.isChild %}1{% else %}0{% endif %}" data-idParam="{{ parameter.id }}" data-paramName="{{ obj.object.name }}.{{ parameter.name }}">
                                                         {% if parameter.identificator %}
                                                             <div class="col-4">
                                                                 <i class="fa-solid fa-star"></i>
@@ -493,6 +549,16 @@
                                                     {% endfor %}
                                                     </form>
                                                 </div>
+                                                {% if DOCUMENT_LINK_TREE_UI %}
+                                                <div class="dbm-tree-card mt-2" data-dbmtree-object="{{ obj.object.id }}">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <span class="fw-semibold">Связи и параметры</span>
+                                                        <small class="text-muted">Depth-N</small>
+                                                    </div>
+                                                    <div class="dbm-tree-host mt-2" id="dbm_tree_{{ obj.object.id }}"></div>
+                                                </div>
+                                                {% endif %}
+                                                {% endif %}
                                             </div>
                                         </div>
                                     {% endfor %}
@@ -1039,6 +1105,33 @@
                 span.textContent = child['text'];
                 span.setAttribute('data-invis', child['data-invis']);
                 span.setAttribute('data-name', child['data-name']);
+                if(child['data-token']){
+                    span.setAttribute('data-token', child['data-token']);
+                }
+                if(child['data-token-version']){
+                    span.setAttribute('data-token-version', child['data-token-version']);
+                }
+                if(child['data-human-token']){
+                    span.setAttribute('data-human-token', child['data-human-token']);
+                }
+                if(child['data-token-error']){
+                    span.setAttribute('data-token-error', child['data-token-error']);
+                }
+                if(child['data-idVar']){
+                    span.setAttribute('data-idVar', child['data-idVar']);
+                }
+                if(child['data-idObjParam']){
+                    span.setAttribute('data-idObjParam', child['data-idObjParam']);
+                }
+                if(child['reference_to_data'] || child['data-token'] || child['data-human-token']){
+                    span.classList.add('reference_to_data');
+                }
+                if(child['variable_ref']){
+                    span.classList.add('variable_ref');
+                }
+                if(child['object_param_ref']){
+                    span.classList.add('object_param_ref');
+                }
                 if(!child['data-idRadioGroup'])
                     child['data-idRadioGroup'] = "radioGroup-1"
                 span.setAttribute('data-idRadioGroup', child['data-idRadioGroup']);
@@ -2878,6 +2971,15 @@
                 return JSON.stringify({'text': changeQuotes(addSpaceIfNecessary(elem)), 
                 'data-invis': elem.getAttribute('data-invis'), 
                 'data-name': elem.getAttribute('data-name'), 
+                'data-token': elem.getAttribute('data-token'),
+                'data-token-version': elem.getAttribute('data-token-version'),
+                'data-human-token': elem.getAttribute('data-human-token'),
+                'data-token-error': elem.getAttribute('data-token-error'),
+                'data-idVar': elem.getAttribute('data-idVar'),
+                'data-idObjParam': elem.getAttribute('data-idObjParam'),
+                'reference_to_data': elem.classList.contains('reference_to_data'),
+                'variable_ref': elem.classList.contains('variable_ref'),
+                'object_param_ref': elem.classList.contains('object_param_ref'),
                 'data-idRadioGroup': elem.getAttribute('data-idRadioGroup'), 
                 'class': elem.classList[0], 
                 'id': elem.id, 'style': o , 'attrib': elem.id, 'hidden': elem.hidden, 'userCanSee': elem.classList.contains('userCanSeeInTree')});
@@ -3025,6 +3127,7 @@
                 jsondict['filters'] = filterManager.FilterHashTable
                 jsondict['events'] = eventManager.eventHashTable
                 jsondict['cycles'] = cycleManager.CycleHashTable
+                jsondict['dbm_context'] = Object.assign({}, selectedIdent || {})
                 return jsondict;
             }
 
@@ -3526,11 +3629,29 @@
             // События на изменение текста в поле изменения текста
             span_value.oninput = function(event){
                 var span =  document.querySelector('.selectedRun');
+                if(!span){
+                    return;
+                }
                 if(!span.classList.contains('reference_to_data')){
                     span.textContent = span_value.value;
                     span.setAttribute('data-invis', span_value.value);
                 }
                 CheckOnVariableInSpan(span);
+                emitDocUiEvent('doc:span-changed', {
+                    elementId: span.id || null,
+                    dataInvis: String(span.getAttribute('data-invis') || ''),
+                });
+                try{
+                    if(window.documentDbmIntegration && typeof window.documentDbmIntegration.resolveAllTokenSpansFromDataInvisDebounced === 'function'){
+                        var rawToken = String(span.getAttribute('data-invis') || '').trim();
+                        if(rawToken.indexOf('{:') !== -1 && rawToken.indexOf(':}') !== -1){
+                            window.documentDbmIntegration.resolveAllTokenSpansFromDataInvisDebounced(200);
+                        }
+                    }
+                }
+                catch(_error){
+                    // no-op
+                }
             }
 
             // Функция оповещает пользователя, что сохранение прошло успешно
@@ -3711,24 +3832,519 @@
                 }
             }
 
-            // Обновление списка быстрого доступа к переменным
-            function UpdateVariableList(){
-                variable_list.innerHTML = "";
-                var variables = document.querySelectorAll('.variable')
-                var objects_params = document.querySelectorAll('.obj_parameter')
+            var VARIABLE_LIST_MAX_DEPTH = 3;
+            var VARIABLE_LIST_LIMIT_TOTAL_OPTIONS = 1500;
+            var VARIABLE_LIST_LIMIT_PER_ROLE = 50;
+            var variableListRebuildTimer = null;
+            var variableListRebuildRunId = 0;
+            var variableListLastStableOptions = [];
+
+            function buildBaseVariableListOptions(){
+                var seen = {};
+                var options = [];
+                var pushOption = function(value, className){
+                    var token = String(value || '').trim();
+                    if(!token || seen[token]){
+                        return;
+                    }
+                    seen[token] = true;
+                    options.push({
+                        value: token,
+                        className: className || 'option_variable_list'
+                    });
+                };
+
+                var variables = document.querySelectorAll('.variable');
+                var objects_params = document.querySelectorAll('.obj_parameter');
                 for(let vari of variables){
-                    var opt = document.createElement('option');
-                    opt.value = '{: ' + vari.querySelector('.variable_name').textContent + ' :}';
-                    opt.classList.add('option_variable_list');
-                    variable_list.appendChild(opt);
+                    var variableNameNode = vari.querySelector('.variable_name');
+                    var variableName = variableNameNode ? String(variableNameNode.textContent || '').trim() : '';
+                    if(!variableName){
+                        continue;
+                    }
+                    pushOption('{: ' + variableName + ' :}', 'option_variable_list');
                 }
                 for(let objects_param of objects_params){
+                    if(String(objects_param.getAttribute('data-is-child') || '') === '1'){
+                        continue;
+                    }
+                    var paramName = String(objects_param.getAttribute('data-paramName') || '').trim();
+                    if(!paramName){
+                        continue;
+                    }
+                    pushOption('{: ' + paramName + ' :}', 'option_objects_param_list');
+                }
+                return options;
+            }
+
+            function getVariableListTokenIndex(){
+                var node = document.getElementById('doc-token-index');
+                if(!node){
+                    return {};
+                }
+                try{
+                    var payload = JSON.parse(node.textContent || '{}');
+                    return payload && typeof payload === 'object' ? payload : {};
+                }
+                catch(_error){
+                    return {};
+                }
+            }
+
+            function getVariableListObjectNameById(tokenIndex){
+                var objectsByName = (tokenIndex && tokenIndex.objects_by_name) ? tokenIndex.objects_by_name : {};
+                var byId = {};
+                for(const [name, objectId] of Object.entries(objectsByName)){
+                    var oid = Number(objectId || 0);
+                    if(!oid){
+                        continue;
+                    }
+                    if(!byId[oid]){
+                        byId[oid] = String(name || '').trim();
+                    }
+                }
+                return byId;
+            }
+
+            function getVariableListSelectedContext(){
+                var contextMap = {};
+                var roots = [];
+                var objectNodes = document.querySelectorAll('.object[id^="object_"]');
+                for(let objectNode of objectNodes){
+                    var rawObjectId = String(objectNode.id || '').replace('object_', '');
+                    var objectId = Number(rawObjectId || 0);
+                    if(!objectId){
+                        continue;
+                    }
+                    var selectedUid = '';
+                    if(typeof selectedIdent === 'object' && selectedIdent && selectedIdent[objectId]){
+                        selectedUid = String(selectedIdent[objectId] || '').trim();
+                    }
+                    if(!selectedUid){
+                        var hiddenInput = objectNode.querySelector('input[name="param_ident_id"]');
+                        selectedUid = hiddenInput ? String(hiddenInput.value || '').trim() : '';
+                    }
+                    if(!selectedUid){
+                        continue;
+                    }
+                    contextMap[String(objectId)] = selectedUid;
+                    roots.push({
+                        objectId: objectId,
+                        recordUid: selectedUid
+                    });
+                }
+                return {
+                    contextMap: contextMap,
+                    roots: roots
+                };
+            }
+
+            function buildVariableListMetaMap(tokenIndex){
+                var byId = (tokenIndex && tokenIndex.links_meta_by_id) ? tokenIndex.links_meta_by_id : {};
+                var map = {};
+                for(const [metaId, rawMeta] of Object.entries(byId)){
+                    var meta = rawMeta || {};
+                    var parentObjectId = Number(meta.parent_object_id || 0);
+                    var childObjectId = Number(meta.child_object_id || 0);
+                    var mid = Number(metaId || 0);
+                    if(!parentObjectId || !childObjectId || !mid){
+                        continue;
+                    }
+                    if(!map[parentObjectId]){
+                        map[parentObjectId] = [];
+                    }
+                    map[parentObjectId].push({
+                        id: mid,
+                        parent_object_id: parentObjectId,
+                        child_object_id: childObjectId,
+                        display_name: String(meta.display_name || meta.code || ('META_' + mid)).trim(),
+                        link_type: String(meta.link_type || 'single').toLowerCase(),
+                        order: Number(meta.order || 0)
+                    });
+                }
+                for(const parentKey of Object.keys(map)){
+                    map[parentKey].sort(function(a, b){
+                        if(a.order !== b.order){
+                            return a.order - b.order;
+                        }
+                        return a.id - b.id;
+                    });
+                }
+                return map;
+            }
+
+            async function enrichVariableListMetaMapFromApi(metaMap, parentObjectIds){
+                if(!window.dbmApi || typeof window.dbmApi.listLinksMeta !== 'function'){
+                    return metaMap;
+                }
+                var uniqueParentIds = Array.from(new Set((parentObjectIds || []).map(function(item){
+                    return Number(item || 0);
+                }).filter(Boolean)));
+                for(let parentObjectId of uniqueParentIds){
+                    try{
+                        var payload = await window.dbmApi.listLinksMeta(parentObjectId);
+                        var linksMeta = Array.isArray(payload && payload.links_meta) ? payload.links_meta : [];
+                        if(!metaMap[parentObjectId]){
+                            metaMap[parentObjectId] = [];
+                        }
+                        var existingIds = new Set(metaMap[parentObjectId].map(function(item){
+                            return Number(item.id);
+                        }));
+                        for(let meta of linksMeta){
+                            var mid = Number(meta && meta.id || 0);
+                            var childObjectId = Number(meta && meta.child_object_id || 0);
+                            if(!mid || !childObjectId){
+                                continue;
+                            }
+                            if(existingIds.has(mid)){
+                                continue;
+                            }
+                            metaMap[parentObjectId].push({
+                                id: mid,
+                                parent_object_id: parentObjectId,
+                                child_object_id: childObjectId,
+                                display_name: String((meta && meta.display_name) || (meta && meta.code) || ('META_' + mid)).trim(),
+                                link_type: String((meta && meta.link_type) || 'single').toLowerCase(),
+                                order: Number((meta && meta.order) || 0)
+                            });
+                            existingIds.add(mid);
+                        }
+                        metaMap[parentObjectId].sort(function(a, b){
+                            if(a.order !== b.order){
+                                return a.order - b.order;
+                            }
+                            return a.id - b.id;
+                        });
+                    }
+                    catch(_error){
+                        // best-effort enrichment
+                    }
+                }
+                return metaMap;
+            }
+
+            function getFirstParamIdForObject(tokenIndex, objectId){
+                var objectParams = ((tokenIndex && tokenIndex.params_by_object_and_name) || {})[String(objectId)] || {};
+                var paramIds = Object.values(objectParams).map(function(value){
+                    return Number(value || 0);
+                }).filter(Boolean).sort(function(a, b){ return a - b; });
+                return paramIds.length ? paramIds[0] : null;
+            }
+
+            function buildCanonicalTokenByChain(rootObjectId, chain, paramId){
+                var token = '{:obj(' + Number(rootObjectId) + ')';
+                for(let step of chain){
+                    token += '.link(' + Number(step.metaId) + ')';
+                    if(step.selector === 'all'){
+                        token += '[*]';
+                    }
+                    else if(step.selector === 'index'){
+                        token += '[0]';
+                    }
+                }
+                token += '.param(' + Number(paramId) + '):}';
+                return token;
+            }
+
+            function buildSeedTokensForRoot(rootObjectId, tokenIndex, metaMap){
+                var seed = new Set();
+                var rootParamId = getFirstParamIdForObject(tokenIndex, rootObjectId);
+                if(rootParamId){
+                    seed.add(buildCanonicalTokenByChain(rootObjectId, [], rootParamId));
+                }
+
+                var walk = function(currentObjectId, depth, chain, visitedObjects){
+                    if(depth >= VARIABLE_LIST_MAX_DEPTH){
+                        return;
+                    }
+                    var metas = metaMap[currentObjectId] || [];
+                    for(let meta of metas){
+                        var childObjectId = Number(meta.child_object_id || 0);
+                        if(!childObjectId){
+                            continue;
+                        }
+                        var visitedKey = String(childObjectId);
+                        if(visitedObjects[visitedKey]){
+                            continue;
+                        }
+                        var nextVisited = Object.assign({}, visitedObjects);
+                        nextVisited[visitedKey] = true;
+                        var nextChain = chain.concat([{
+                            metaId: Number(meta.id),
+                            selector: (meta.link_type === 'multiple' ? 'all' : 'first')
+                        }]);
+                        var childParamId = getFirstParamIdForObject(tokenIndex, childObjectId);
+                        if(childParamId){
+                            seed.add(buildCanonicalTokenByChain(rootObjectId, nextChain, childParamId));
+                        }
+                        walk(childObjectId, depth + 1, nextChain, nextVisited);
+                    }
+                };
+
+                var visited = {};
+                visited[String(rootObjectId)] = true;
+                walk(rootObjectId, 0, [], visited);
+                return Array.from(seed);
+            }
+
+            function buildVariableListGraphIndex(prefetchPayload){
+                var graph = prefetchPayload && prefetchPayload.graph ? prefetchPayload.graph : {};
+                var links = Array.isArray(graph.links) ? graph.links : [];
+                var lookup = {};
+                for(let link of links){
+                    var parentObjectId = Number(link && link.parent_object_id || 0);
+                    var parentUid = String(link && link.parent_record_uid || '').trim();
+                    var linkMetaId = Number(link && link.link_meta_id || 0);
+                    var childUid = String(link && link.child_record_uid || '').trim();
+                    if(!parentObjectId || !parentUid || !linkMetaId || !childUid){
+                        continue;
+                    }
+                    var key = parentObjectId + ':' + parentUid + ':' + linkMetaId;
+                    if(!lookup[key]){
+                        lookup[key] = [];
+                    }
+                    lookup[key].push(childUid);
+                }
+                for(const key of Object.keys(lookup)){
+                    lookup[key] = Array.from(new Set(lookup[key])).sort();
+                }
+                return lookup;
+            }
+
+            function renderVariableListOptions(options){
+                variable_list.innerHTML = '';
+                var finalOptions = Array.isArray(options) ? options : [];
+                for(let optionData of finalOptions){
+                    var tokenValue = String(optionData && optionData.value || '').trim();
+                    if(!tokenValue){
+                        continue;
+                    }
                     var opt = document.createElement('option');
-                    opt.value = '{: ' + objects_param.getAttribute('data-paramName') + ' :}';
-                    opt.classList.add('option_objects_param_list');
+                    opt.value = tokenValue;
+                    opt.classList.add(String(optionData && optionData.className || 'option_variable_list'));
                     variable_list.appendChild(opt);
                 }
             }
+
+            async function buildVariableListOptions(){
+                var options = buildBaseVariableListOptions();
+                var seen = new Set(options.map(function(item){ return String(item.value || '').trim(); }));
+                var pushOption = function(value, className){
+                    var token = String(value || '').trim();
+                    if(!token || seen.has(token)){
+                        return false;
+                    }
+                    if(options.length >= VARIABLE_LIST_LIMIT_TOTAL_OPTIONS){
+                        return false;
+                    }
+                    seen.add(token);
+                    options.push({
+                        value: token,
+                        className: className || 'option_objects_param_list'
+                    });
+                    return true;
+                };
+
+                if(!window.dbmApi || typeof window.dbmApi.prefetchGraph !== 'function'){
+                    return options;
+                }
+
+                var tokenIndex = getVariableListTokenIndex();
+                var selectedContext = getVariableListSelectedContext();
+                if(!selectedContext.roots.length){
+                    return options;
+                }
+
+                var docIdNode = document.querySelector('meta[name="doc_id"]');
+                var documentId = docIdNode ? Number(docIdNode.getAttribute('content') || 0) : 0;
+                if(!documentId){
+                    return options;
+                }
+
+                var metaMap = buildVariableListMetaMap(tokenIndex);
+                await enrichVariableListMetaMapFromApi(
+                    metaMap,
+                    selectedContext.roots.map(function(root){ return root.objectId; })
+                );
+
+                var seedTokens = [];
+                for(let root of selectedContext.roots){
+                    seedTokens = seedTokens.concat(buildSeedTokensForRoot(root.objectId, tokenIndex, metaMap));
+                }
+                seedTokens = Array.from(new Set(seedTokens)).slice(0, VARIABLE_LIST_LIMIT_TOTAL_OPTIONS);
+                if(!seedTokens.length){
+                    return options;
+                }
+
+                var prefetchPayload = null;
+                try{
+                    prefetchPayload = await window.dbmApi.prefetchGraph(
+                        documentId,
+                        selectedContext.contextMap,
+                        seedTokens,
+                        { maxDepth: VARIABLE_LIST_MAX_DEPTH, includeTrace: false }
+                    );
+                }
+                catch(_error){
+                    return options;
+                }
+
+                var graphIndex = buildVariableListGraphIndex(prefetchPayload);
+                var objectNameById = getVariableListObjectNameById(tokenIndex);
+                var paramsByObject = (tokenIndex && tokenIndex.params_by_object_and_name) ? tokenIndex.params_by_object_and_name : {};
+                var sortedParamEntries = {};
+                for(const [objectIdKey, paramMapRaw] of Object.entries(paramsByObject)){
+                    var paramMap = paramMapRaw || {};
+                    sortedParamEntries[objectIdKey] = Object.entries(paramMap)
+                        .map(function(entry){
+                            return {
+                                name: String(entry[0] || '').trim(),
+                                id: Number(entry[1] || 0)
+                            };
+                        })
+                        .filter(function(entry){ return entry.name && entry.id; })
+                        .sort(function(a, b){
+                            return a.name.localeCompare(b.name, 'ru');
+                        });
+                }
+
+                var buildHumanToken = function(rootName, roleSegments, paramName){
+                    var segments = [String(rootName || '').trim()].concat(roleSegments || []).concat([String(paramName || '').trim()]);
+                    return '{: ' + segments.join('.') + ' :}';
+                };
+
+                var traverse = function(root, state){
+                    if(options.length >= VARIABLE_LIST_LIMIT_TOTAL_OPTIONS){
+                        return;
+                    }
+                    var objectKey = String(state.objectId);
+                    var params = sortedParamEntries[objectKey] || [];
+                    for(let paramEntry of params){
+                        if(!pushOption(
+                            buildHumanToken(root.rootName, state.roleSegments, paramEntry.name),
+                            'option_objects_param_list'
+                        )){
+                            if(options.length >= VARIABLE_LIST_LIMIT_TOTAL_OPTIONS){
+                                return;
+                            }
+                        }
+                    }
+
+                    if(state.depth >= VARIABLE_LIST_MAX_DEPTH){
+                        return;
+                    }
+                    var metas = metaMap[state.objectId] || [];
+                    for(let meta of metas){
+                        if(options.length >= VARIABLE_LIST_LIMIT_TOTAL_OPTIONS){
+                            return;
+                        }
+                        var linkKey = state.objectId + ':' + state.recordUid + ':' + Number(meta.id);
+                        var children = Array.isArray(graphIndex[linkKey]) ? graphIndex[linkKey] : [];
+                        if(!children.length){
+                            continue;
+                        }
+                        children = children.slice(0, VARIABLE_LIST_LIMIT_PER_ROLE);
+                        var roleName = String(meta.display_name || ('META_' + meta.id)).trim();
+                        var childObjectId = Number(meta.child_object_id || 0);
+                        if(!childObjectId){
+                            continue;
+                        }
+
+                        var visitChild = function(childUid, roleSegment){
+                            var childRecordUid = String(childUid || '').trim();
+                            if(!childRecordUid){
+                                return;
+                            }
+                            var visitKey = childObjectId + ':' + childRecordUid;
+                            if(state.visited[visitKey]){
+                                return;
+                            }
+                            var nextVisited = Object.assign({}, state.visited);
+                            nextVisited[visitKey] = true;
+                            traverse(root, {
+                                objectId: childObjectId,
+                                recordUid: childRecordUid,
+                                depth: state.depth + 1,
+                                roleSegments: state.roleSegments.concat([roleSegment]),
+                                visited: nextVisited
+                            });
+                        };
+
+                        if(String(meta.link_type || '').toLowerCase() === 'multiple'){
+                            if(children.length){
+                                visitChild(children[0], roleName + '[0]');
+                            }
+                            for(let childUid of children){
+                                visitChild(childUid, roleName + '[*]');
+                            }
+                        }
+                        else{
+                            visitChild(children[0], roleName);
+                        }
+                    }
+                };
+
+                for(let root of selectedContext.roots){
+                    if(options.length >= VARIABLE_LIST_LIMIT_TOTAL_OPTIONS){
+                        break;
+                    }
+                    var rootObjectName = objectNameById[root.objectId] || ('Объект ' + root.objectId);
+                    var rootVisited = {};
+                    rootVisited[root.objectId + ':' + root.recordUid] = true;
+                    traverse(
+                        { rootName: rootObjectName },
+                        {
+                            objectId: root.objectId,
+                            recordUid: root.recordUid,
+                            depth: 0,
+                            roleSegments: [],
+                            visited: rootVisited
+                        }
+                    );
+                }
+                return options.slice(0, VARIABLE_LIST_LIMIT_TOTAL_OPTIONS);
+            }
+
+            function scheduleVariableListRebuild(){
+                if(variableListRebuildTimer){
+                    clearTimeout(variableListRebuildTimer);
+                }
+                variableListRebuildTimer = setTimeout(function(){
+                    UpdateVariableList();
+                }, 200);
+            }
+
+            // Обновление списка быстрого доступа к переменным
+            function UpdateVariableList(){
+                var runId = ++variableListRebuildRunId;
+                buildVariableListOptions()
+                    .then(function(options){
+                        if(runId !== variableListRebuildRunId){
+                            return;
+                        }
+                        variableListLastStableOptions = Array.isArray(options) ? options : [];
+                        renderVariableListOptions(variableListLastStableOptions);
+                    })
+                    .catch(function(_error){
+                        if(runId !== variableListRebuildRunId){
+                            return;
+                        }
+                        var fallback = variableListLastStableOptions.length
+                            ? variableListLastStableOptions
+                            : buildBaseVariableListOptions();
+                        renderVariableListOptions(fallback);
+                    });
+            }
+
+            document.addEventListener('dbm:record-selected', function(event){
+                scheduleVariableListRebuild();
+                const detail = event && event.detail ? event.detail : {};
+                emitDocUiEvent('doc:variables-changed', {
+                    reason: 'record-selected',
+                    objectId: detail.objectId || null,
+                    recordUid: detail.recordUid || null,
+                });
+            });
 
             // Получаем переменные из JSON
             function VariableFromJSON(data) {
@@ -3739,7 +4355,8 @@
             }
 
             function onInputVariableName(event){
-                UpdateVariableList();
+                scheduleVariableListRebuild();
+                emitDocUiEvent('doc:variables-changed', { reason: 'variable-name' });
                 var spans = document_main.getElementsByClassName('runs');
                 for(let span of spans){
                     CheckOnVariableInSpan(span);
@@ -3757,6 +4374,10 @@
                     let variable_in_tree = document.querySelector('.variable_in_tree[data-idVar="'+ original_variable.getAttribute('data-idVar') +'_tree"]');
                     variable_in_tree.querySelector('.variable_mean').value = event.target.value;
                 }
+                emitDocUiEvent('doc:variables-changed', {
+                    reason: 'variable-value',
+                    variableId: event.target.closest('.variable') ? event.target.closest('.variable').getAttribute('data-idVar') : null,
+                });
             }
 
             async function onChangeVariableOriginal(event){
@@ -3764,6 +4385,10 @@
                 let original_variable = document.querySelector('.variable[data-idVar="'+ variable_in_tree.getAttribute('data-idVar').split('_tree')[0] +'"]');
                 original_variable.querySelector('.variable_mean').value = event.target.value;
                 original_variable.querySelector('.variable_mean').dispatchEvent(new Event('change'));
+                emitDocUiEvent('doc:variables-changed', {
+                    reason: 'variable-value-tree',
+                    variableId: original_variable ? original_variable.getAttribute('data-idVar') : null,
+                });
             }
 
             // Функция создаёт элемент переменной и добавляет в список
@@ -4158,6 +4783,12 @@
                     filterManager.deleteFilter(tempElement.id, filter)
                 else
                     filterManager.addFilter(tempElement.id, filter, cattle)
+                emitDocUiEvent('doc:filters-changed', {
+                    reason: 'context-menu',
+                    filter: filter,
+                    value: cattle,
+                    elementId: tempElement ? tempElement.id : null,
+                });
             }
 
             function radioButtonFilterChanged(evt){
@@ -4178,6 +4809,12 @@
                     default:
                         break;
                 }
+                emitDocUiEvent('doc:filters-changed', {
+                    reason: 'radio',
+                    filterName: filter ? filter.name : null,
+                    value: filter ? filter.value : null,
+                    elementId: element.id || null,
+                });
             }
 
             function ConnectNewObject(evt){
@@ -4342,6 +4979,7 @@
                     input_fast.querySelector('input').value = value
                 input.dispatchEvent(new Event('change'))
                 selectedIdent[object_id] = param_ident_id
+                scheduleVariableListRebuild();
                 getDataFromObject(object_id, object.querySelector('form'))
             }
 
@@ -4737,10 +5375,43 @@
 
             function setDateToday(){
                 let DateTodayVariable = document.querySelector('div[data-idVar="system;date_today"] .variable_mean')
+                if(!DateTodayVariable){
+                    return;
+                }
                 DateTodayVariable.value = new Date().toISOString().split('T')[0]
                 for(let span of document.querySelectorAll('.runs[data-idVar="system;date_today"]')){
                     CheckOnVariableInSpan(span);
                 }
+                emitDocUiEvent('doc:variables-changed', { reason: 'system-date-today' });
+            }
+
+            let dateTodayTickTimer = null;
+            let lastDateTodayIso = '';
+
+            function refreshDateTodayIfChanged(force){
+                const currentIso = new Date().toISOString().split('T')[0];
+                if(force || lastDateTodayIso !== currentIso){
+                    lastDateTodayIso = currentIso;
+                    setDateToday();
+                }
+            }
+
+            function scheduleNextMidnightTick(){
+                if(dateTodayTickTimer){
+                    clearTimeout(dateTodayTickTimer);
+                    dateTodayTickTimer = null;
+                }
+                const now = new Date();
+                const next = new Date(now.getTime());
+                next.setHours(24, 0, 0, 0);
+                let delay = next.getTime() - now.getTime();
+                if(!Number.isFinite(delay) || delay < 1000){
+                    delay = 1000;
+                }
+                dateTodayTickTimer = setTimeout(function(){
+                    refreshDateTodayIfChanged(true);
+                    scheduleNextMidnightTick();
+                }, delay);
             }
 
             class FilterManager{
@@ -4759,10 +5430,30 @@
                         this.FilterHashTable[textElement] = {}
                         this.FilterHashTable[textElement][filter] = cattle
                     }
+                    emitDocUiEvent('doc:filters-changed', {
+                        reason: 'manager-add',
+                        elementId: textElement,
+                        filter: filter,
+                        value: cattle,
+                    });
                 }
 
                 acceptAllFilters(){
                     return new Promise((resolve, reject) => {
+                        const applyFilterResultToElement = (targetElement, responseValue) => {
+                            if (!targetElement) {
+                                return;
+                            }
+                            const responseText = responseValue === undefined || responseValue === null ? '' : String(responseValue);
+                            if (targetElement.classList.contains('reference_to_data')) {
+                                targetElement.textContent = responseText;
+                                return;
+                            }
+                            if (responseText.length > 0) {
+                                targetElement.textContent = responseText;
+                            }
+                        };
+
                         let dataBig = {}
                         for(let[key, value] of Object.entries(filterManager.FilterHashTable)){
                             let dataSmall = {}
@@ -4778,10 +5469,26 @@
                                 } 
                             }
                             dataSmall['filters'] = value
-                            if(!element.classList.contains('reference_to_data'))
-                                dataSmall['phrase'] = element.getAttribute('data-invis')
-                            else
-                                dataSmall['phrase'] = getDataFromReference(element)
+                            let phraseValue = ''
+                            if(element.classList.contains('reference_to_data')){
+                                phraseValue = element.dataset ? element.dataset.rawValue : ''
+                                if(phraseValue === undefined || phraseValue === null || String(phraseValue).trim() === ''){
+                                    phraseValue = getDataFromReference(element)
+                                }
+                                if(phraseValue === undefined || phraseValue === null || String(phraseValue).trim() === ''){
+                                    phraseValue = element.textContent
+                                }
+                                if(element.dataset && (phraseValue !== undefined && phraseValue !== null)){
+                                    element.dataset.rawValue = String(phraseValue)
+                                }
+                            }
+                            else{
+                                phraseValue = element.getAttribute('data-invis')
+                                if(phraseValue === undefined || phraseValue === null || String(phraseValue).trim() === ''){
+                                    phraseValue = element.textContent
+                                }
+                            }
+                            dataSmall['phrase'] = phraseValue === undefined || phraseValue === null ? '' : String(phraseValue)
                             dataBig[key] = dataSmall
                         }
                         fetch('/document/acceptFilters', {
@@ -4798,9 +5505,11 @@
                             }
                         }).then(data => {
                             for (let [key, value] of Object.entries(data)) {
-                                if (String(value).length > 0) {
-                                    document.getElementById(key).textContent = value;
+                                let targetElement = document.getElementById(key);
+                                if (!targetElement) {
+                                    continue;
                                 }
+                                applyFilterResultToElement(targetElement, value);
                             }
                             resolve();
                         }).catch(error => {
@@ -4812,6 +5521,11 @@
                 deleteFilter(element, filter){
                     try {
                         delete this.FilterHashTable[element][filter]
+                        emitDocUiEvent('doc:filters-changed', {
+                            reason: 'manager-delete',
+                            elementId: element,
+                            filter: filter,
+                        });
                         return true
                     } catch (error) {
                         return false
@@ -4904,6 +5618,46 @@
 
             var tempElement;
 
+            const DOCUMENT_EVENT_DRIVEN_UI = !!window.DOCUMENT_EVENT_DRIVEN_UI;
+            window.docUiEvents = window.docUiEvents || new EventTarget();
+
+            function emitDocUiEvent(name, detail){
+                const eventName = String(name || '').trim();
+                if(!eventName){
+                    return;
+                }
+                const payload = detail && typeof detail === 'object' ? detail : {};
+                try{
+                    window.docUiEvents.dispatchEvent(new CustomEvent(eventName, { detail: payload }));
+                }
+                catch(_error){
+                    // no-op
+                }
+                try{
+                    document.dispatchEvent(new CustomEvent(eventName, { detail: payload }));
+                }
+                catch(_error){
+                    // no-op
+                }
+            }
+            window.emitDocEvent = emitDocUiEvent;
+
+            function debounce(fn, waitMs){
+                let timer = null;
+                return function(){
+                    const args = arguments;
+                    const ctx = this;
+                    const delay = Number(waitMs || 0);
+                    if(timer){
+                        clearTimeout(timer);
+                    }
+                    timer = setTimeout(function(){
+                        timer = null;
+                        fn.apply(ctx, args);
+                    }, delay > 0 ? delay : 0);
+                };
+            }
+
             DocFromJSON("{{ document_json|escapejs }}")
             
             filterManager.fromJSON("{{ document_json|escapejs }}")
@@ -4929,6 +5683,7 @@
             FillReceivers()
 
             onChangeVariableMean('');
+            emitDocUiEvent('doc:loaded', { documentId: "{{ Doc.id }}" });
 
             // Trigger change for linked parameters that have values to populate nested params
             $('.obj_parameter_value[data-linked="true"]').each(function(){
@@ -5137,45 +5892,112 @@
                 evt.preventDefault();
             }, false);
 
-        
-            // setInterval(
-            //     () => UpdateFile(), 600000
-            // );
-            setInterval(
-                () => {
-                    eventManager.dispatchNotCalledEvent()
-                }, 1000
-            );
-            setInterval(
-                () => {
-                    filterManager.acceptAllFilters();
-                }, 5000
-            );      
-
-            setInterval(()=>{
-                setDateToday()
-                }, 1000
-            );
-            // setInterval(
-            //     () => {
-            //         let sender = document.getElementById('EventCallerID').value
-            //         FillReceivers(sender)
-            //     }, 1000
-            // );
-
             // Обработчик для обновления стрелок зависимостей при изменении видимости элементов
             document.addEventListener('change', async function(e){
                 if(e.target.classList.contains('hideCheckbox')){
                     await refreshDependenceDisplay();
                 }
             });
+
+            if(DOCUMENT_EVENT_DRIVEN_UI){
+                const acceptAllFiltersDebounced = debounce(function(){
+                    filterManager.acceptAllFilters().catch(function(error){
+                        console.error('acceptAllFilters failed', error);
+                    });
+                }, 300);
+                const dispatchNotCalledEventDebounced = debounce(function(){
+                    eventManager.dispatchNotCalledEvent().catch(function(error){
+                        console.error('dispatchNotCalledEvent failed', error);
+                    });
+                }, 300);
+                const resolveTokensDebounced = debounce(function(){
+                    if (window.documentDbmIntegration && typeof window.documentDbmIntegration.resolveAllTokenSpansFromDataInvisDebounced === 'function') {
+                        window.documentDbmIntegration.resolveAllTokenSpansFromDataInvisDebounced(200);
+                        return;
+                    }
+                    if (window.documentDbmIntegration && typeof window.documentDbmIntegration.resolveDocumentTokensAsync === 'function') {
+                        window.documentDbmIntegration.resolveDocumentTokensAsync();
+                    }
+                }, 200);
+
+                const triggerFilterRefresh = function(){
+                    acceptAllFiltersDebounced();
+                };
+                const triggerDependenciesRefresh = function(){
+                    dispatchNotCalledEventDebounced();
+                };
+                const triggerTokenResolve = function(){
+                    resolveTokensDebounced();
+                };
+                const subscribeNames = ['doc:loaded', 'doc:filters-changed', 'doc:variables-changed', 'doc:span-changed', 'dbm:tokens-resolved', 'dbm:links-changed'];
+                subscribeNames.forEach(function(name){
+                    window.docUiEvents.addEventListener(name, triggerFilterRefresh);
+                });
+                ['doc:loaded', 'doc:span-changed', 'doc:variables-changed', 'dbm:links-changed', 'doc:filters-changed'].forEach(function(name){
+                    window.docUiEvents.addEventListener(name, triggerDependenciesRefresh);
+                });
+                ['doc:loaded', 'doc:span-changed', 'doc:variables-changed', 'dbm:links-changed', 'dbm:tokens-migrated'].forEach(function(name){
+                    window.docUiEvents.addEventListener(name, triggerTokenResolve);
+                });
+
+                document_main.addEventListener('input', function(evt){
+                    const target = evt && evt.target;
+                    if(target && target.classList && target.classList.contains('runs')){
+                        emitDocUiEvent('doc:span-changed', {
+                            elementId: target.id || null,
+                            dataInvis: String(target.getAttribute('data-invis') || ''),
+                        });
+                    }
+                });
+
+                document.addEventListener('visibilitychange', function(){
+                    if(!document.hidden){
+                        refreshDateTodayIfChanged(false);
+                    }
+                });
+                refreshDateTodayIfChanged(true);
+                scheduleNextMidnightTick();
+            }
+            else{
+                // setInterval(
+                //     () => UpdateFile(), 600000
+                // );
+                setInterval(
+                    () => {
+                        eventManager.dispatchNotCalledEvent()
+                    }, 1000
+                );
+                setInterval(
+                    () => {
+                        filterManager.acceptAllFilters();
+                    }, 5000
+                );      
+
+                setInterval(()=>{
+                    setDateToday()
+                    }, 1000
+                );
+                // setInterval(
+                //     () => {
+                //         let sender = document.getElementById('EventCallerID').value
+                //         FillReceivers(sender)
+                //     }, 1000
+                // );
+            }
         });
     </script>
+    <script id="doc-token-index" type="application/json">{{ doc_token_index_json|default:"{}"|safe }}</script>
     <script src="{% static 'js/dbm_api.js' %}"></script>
     <script src="{% static 'js/dbm_dto.js' %}"></script>
+    <script src="{% static 'js/record_picker.js' %}"></script>
+    <script src="{% static 'js/doc_token_parser.js' %}"></script>
     <script src="{% static 'js/document_dbm_integration.js' %}"></script>
+    <script src="{% static 'js/document_dbm_tree.js' %}"></script>
     <script>
         if (!window.DBM_UI_LEGACY_FALLBACK && window.documentDbmIntegration) {
+            if (typeof window.documentDbmIntegration.ensureCanonicalTokens === 'function') {
+                window.documentDbmIntegration.ensureCanonicalTokens();
+            }
             window.linkedParentElementChanged = window.documentDbmIntegration.linkedParentElementChanged;
             window.getLinkedObjectData = window.documentDbmIntegration.getLinkedObjectData;
             window.ConnectNewObject = window.documentDbmIntegration.ConnectNewObject;

@@ -7,6 +7,7 @@ import pandas as pd
 
 from ..models import (
     Object,
+    ObjectLinkMeta,
     ObjectRecord,
     Parameter,
     ParameterValue,
@@ -138,11 +139,25 @@ class SqlRecordRepository:
         object_link: Object_ParentObject,
         parent_record: ObjectRecord,
         child_record: ObjectRecord,
+        *,
+        object_link_meta: Optional[ObjectLinkMeta] = None,
     ) -> RecordLink:
+        lookup: Dict[str, Any] = {
+            "parent_record": parent_record,
+            "child_record": child_record,
+        }
+        defaults: Dict[str, Any] = {
+            "object_link": object_link,
+            "object_link_meta": object_link_meta,
+        }
+        if object_link_meta is None:
+            lookup["object_link"] = object_link
+            lookup["object_link_meta"] = None
+        else:
+            lookup["object_link_meta"] = object_link_meta
         link, _ = RecordLink.objects.update_or_create(
-            object_link=object_link,
-            parent_record=parent_record,
-            child_record=child_record,
+            **lookup,
+            defaults=defaults,
         )
         return link
 

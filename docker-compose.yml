@@ -1,16 +1,15 @@
-version: "3.9"
-
 services:
   web:
     build: .
+    image: constructor-web:latest
     env_file: .env
     ports:
       - "8000:8000"
     depends_on:
       - db
     volumes:
-      - static_volume:/app/staticfiles
-      - media_volume:/app/media
+      - ${HOST_STATIC_PATH:-C:/constructor/static}:/app/staticfiles
+      - ${HOST_MEDIA_PATH:-C:/constructor/media}:/app/media
     restart: unless-stopped
 
   db:
@@ -23,7 +22,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres17_data:/var/lib/postgresql/data
+      - ${HOST_POSTGRES_PATH:-C:/constructor/postgres}:/var/lib/postgresql/data
     restart: unless-stopped
 
   pgadmin:
@@ -37,11 +36,23 @@ services:
     depends_on:
       - db
     volumes:
-      - pgadmin_data:/var/lib/pgadmin
+      - ${HOST_PGADMIN_PATH:-C:/constructor/pgadmin}:/var/lib/pgadmin
     restart: unless-stopped
 
-volumes:
-  postgres17_data:
-  static_volume:
-  media_volume:
-  pgadmin_data:
+  db_backup:
+    image: postgres:17
+    env_file: .env
+    depends_on:
+      - db
+    environment:
+      POSTGRES_HOST: ${BACKUP_POSTGRES_HOST:-db}
+      POSTGRES_PORT: ${BACKUP_POSTGRES_PORT:-5432}
+      BACKUP_BASE_DIR: /backups/database
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      BACKUP_RUN_ON_START: ${BACKUP_RUN_ON_START:-1}
+    volumes:
+      - ${HOST_BACKUP_PATH:-C:/constructor/backup}:/backups
+      - ./docker/db_backup.sh:/usr/local/bin/db_backup.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/db_backup.sh"]
+    restart: unless-stopped

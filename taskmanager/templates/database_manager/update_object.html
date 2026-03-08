@@ -1,4 +1,5 @@
 ﻿{% extends 'base.html' %}
+{% load static %}
 
 {% block title %}
 Изменить объект
@@ -84,6 +85,7 @@
                         </div>
                         <button type="button" class="btn btn-secondary my-2" onclick="add_param_row()">Добавить параметр</button>
                         <hr>
+                        {% if not DBM_LINKS_META_UI %}
                         <div class="mt-4">
                             <h6>Связанные объекты</h6>
                             {% if object_links %}
@@ -116,6 +118,32 @@
                             </div>
                             <button type="button" class="btn btn-outline-primary" onclick="addObjectsLinks()">Добавить связь</button>
                         </div>
+                        {% endif %}
+                        <div class="mt-4 border rounded p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0">Связи (роли)</h6>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="link-meta-create-open">Добавить связь (роль)</button>
+                            </div>
+                            <div id="link-meta-alerts"></div>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-striped align-middle" id="link-meta-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 80px;">Порядок</th>
+                                            <th>Название (RU)</th>
+                                            <th>Код</th>
+                                            <th>Дочерний объект</th>
+                                            <th style="width: 160px;">Тип</th>
+                                            <th>Параметр связи</th>
+                                            <th style="width: 200px;">Действия</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="link-meta-table-body">
+                                        <tr><td colspan="7" class="text-muted">Загрузка...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                         <hr>
                         <div class="d-flex justify-content-end">
                             <button type="submit" class="btn btn-primary">Сохранить объект</button>
@@ -136,9 +164,57 @@
     <option value="MM/DD/YYYY"></option>    
     <option value="DD MMMM YYYY года в HH часов MM минут"></option>
 </datalist> 
+<div class="modal fade" id="linkMetaCreateModal" tabindex="-1" aria-hidden="true" aria-labelledby="linkMetaCreateModalLabel">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="linkMetaCreateModalLabel">Добавить связь (роль)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2">
+                    <label class="form-label" for="link-meta-display-name">Название (RU)</label>
+                    <input type="text" class="form-control" id="link-meta-display-name" maxlength="120" placeholder="Например, Заявитель">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label" for="link-meta-code">Код</label>
+                    <input type="text" class="form-control" id="link-meta-code" maxlength="120" placeholder="APPLICANT">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label" for="link-meta-child-object">Дочерний объект</label>
+                    <select class="form-select" id="link-meta-child-object">
+                        <option value="">-- Выберите объект --</option>
+                        {% for o in objects %}
+                            {% if o.id != object.id %}
+                                <option value="{{ o.id }}">{{ o.name }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label" for="link-meta-link-type">Тип связи</label>
+                    <select class="form-select" id="link-meta-link-type">
+                        <option value="single">single</option>
+                        <option value="multiple">multiple</option>
+                    </select>
+                </div>
+                <div class="mb-0">
+                    <label class="form-label" for="link-meta-order">Порядок</label>
+                    <input type="number" class="form-control" id="link-meta-order" value="0">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="link-meta-create-submit">Создать</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block script %}
+<script src="{% static 'js/dbm_api.js' %}"></script>
+<script src="{% static 'js/dbm_object_schema.js' %}"></script>
 <script>
 // Validate parameter names to avoid duplicates. Highlights duplicates and disables submit.
 function validateParamNames() {
@@ -234,6 +310,7 @@ document.addEventListener('click', function(e) {
             validateParamNames();
         }
     }
+    {% if not DBM_LINKS_META_UI %}
     // Delete linked object
     if (e.target.classList.contains('delete-link-btn')) {
         const linkId = e.target.getAttribute('data-link-id');
@@ -280,6 +357,7 @@ document.addEventListener('click', function(e) {
             });
         }
     }
+    {% endif %}
 });
 
 // CSRF token helper (Django sets this in the form)
@@ -345,6 +423,7 @@ function addParameterRow(param) {
     if (existingNames) existingNames.push(param.name);
 }
 
+{% if not DBM_LINKS_META_UI %}
 // Send selected object links to the server. Posts to /database/add_objects_links/<objectId>/
 function addObjectsLinks() {
     const select = document.getElementById('child_object_select');
@@ -398,8 +477,12 @@ function addObjectsLinks() {
         });
         // Clear select
         select.selectedIndex = -1;
+        if (window.dbmObjectSchema && typeof window.dbmObjectSchema.reloadLinkMeta === 'function') {
+            window.dbmObjectSchema.reloadLinkMeta();
+        }
     });
 }
+{% endif %}
 
 // Add new parameter row into the table
 function add_param_row() {

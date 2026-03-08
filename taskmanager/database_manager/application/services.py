@@ -1,13 +1,24 @@
 ﻿import json
+import re
 import uuid
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from django.conf import settings
-from django.db.models import Q
+from django.db.models import Q, CharField, Max, OuterRef, Subquery, Value
+from django.db.models.functions import Cast, Coalesce, Lower
 
 from ..domain.normalize import canonicalize_record, canonicalize_value, schema_from_parameters
 from ..infrastructure.repositories import FileRecordRepository, SqlRecordRepository
-from ..models import Object, ObjectLink_identificators, Object_ParentObject, Parameter, RecordLink
+from ..models import (
+    Object,
+    ObjectLinkMeta,
+    ObjectLink_identificators,
+    Object_ParentObject,
+    ObjectRecord,
+    Parameter,
+    ParameterValue,
+    RecordLink,
+)
 from ..presentation.dto import legacy_record_to_dto, serialise_record_dto
 
 
@@ -33,6 +44,14 @@ def _looks_like_uid(value: str) -> bool:
         return True
     except ValueError:
         return False
+
+
+def _legacy_linked_params_disabled() -> bool:
+    return bool(getattr(settings, "DBM_DISABLE_LEGACY_LINKED_PARAMS", False))
+
+
+def _legacy_link_meta_bridge_enabled() -> bool:
+    return bool(getattr(settings, "DBM_UI_LEGACY_FALLBACK", False))
 
 
 class ObjectDataService:
@@ -296,11 +315,12 @@ class ObjectDataService:
         offset: int = 0,
         order: str = "updated_at",
         q: str = "",
+        include_total: bool = False,
     ) -> Dict[str, Any]:
         safe_limit = max(int(limit or 50), 0)
         safe_offset = max(int(offset or 0), 0)
         safe_order = (order or "updated_at").strip().lower()
-        query = (q or "").strip().lower()
+        query = (q or "").strip()
         can_fallback = self._file_fallback_read_enabled()
         params_list = list(parameters)
         ident_param = next((param for param in params_list if param.identificator), None)
@@ -309,65 +329,98 @@ class ObjectDataService:
             try:
                 sql_result = self._list_records_v1_from_sql(
                     obj=obj,
-                    parameters=params_list,
                     ident_param=ident_param,
                     limit=safe_limit,
                     offset=safe_offset,
                     order=safe_order,
                     query=query,
+                    include_total=include_total,
                 )
-                if sql_result["total"] > 0:
+                sql_rows_total = self.sql_repo.count_records(obj)
+                if sql_rows_total > 0:
                     return sql_result
                 self._log_event("sql_miss", object_id=obj.id, op="list_records_v1")
                 if not can_fallback:
-                    return {"records": [], "total": 0, "source": "sql"}
+                    return {"records": [], "total": 0 if include_total else None, "has_more": False, "source": "sql"}
             except Exception as exc:
                 self._log_event("sql_miss", object_id=obj.id, op="list_records_v1", exc=str(exc))
                 if not can_fallback:
-                    return {"records": [], "total": 0, "source": "sql"}
+                    return {"records": [], "total": 0 if include_total else None, "has_more": False, "source": "sql"}
         return self._list_records_v1_from_file(
             obj=obj,
-            parameters=params_list,
             ident_param=ident_param,
             limit=safe_limit,
             offset=safe_offset,
             order=safe_order,
             query=query,
+            include_total=include_total,
         )
 
     def _list_records_v1_from_sql(
         self,
         *,
         obj: Object,
-        parameters: List[Parameter],
         ident_param: Optional[Parameter],
         limit: int,
         offset: int,
         order: str,
         query: str,
+        include_total: bool,
     ) -> Dict[str, Any]:
-        order_by = "-updated_at"
-        if order == "record_uid":
-            order_by = "record_uid"
-        schema_map = self._schema_from_parameters(parameters)
-        queryset = list(self.sql_repo.list_records(obj, order_by=order_by))
-        prepared: List[Tuple[str, Dict[str, Any]]] = []
-        for record in queryset:
-            legacy_record = self.sql_repo.serialise_record_to_legacy(record, parameters)
-            if query and not self._record_matches_query(legacy_record, parameters, ident_param, query):
-                continue
-            dto_payload = serialise_record_dto(
-                legacy_record_to_dto(legacy_record, schema=schema_map, canonicalize=True)
+        queryset = ObjectRecord.objects.filter(object=obj)
+        if ident_param is not None:
+            ident_subquery = (
+                ParameterValue.objects.filter(record_id=OuterRef("pk"), parameter=ident_param)
+                .annotate(
+                    ident_text=Coalesce(
+                        Cast("value_text", CharField()),
+                        Cast("value_int", CharField()),
+                        Cast("value_datetime", CharField()),
+                        Value(""),
+                        output_field=CharField(),
+                    )
+                )
+                .values("ident_text")[:1]
             )
-            ident_value = self._extract_ident_value(legacy_record, ident_param)
-            prepared.append((ident_value, dto_payload))
+            queryset = queryset.annotate(
+                _identificator=Coalesce(Subquery(ident_subquery), Value(""), output_field=CharField()),
+            )
+        else:
+            queryset = queryset.annotate(_identificator=Value("", output_field=CharField()))
+
+        if query:
+            # TODO: add pg_trgm index to speed up ILIKE by identificator for large datasets.
+            queryset = queryset.filter(_identificator__icontains=query)
+
         if order == "identificator":
-            prepared = sorted(prepared, key=lambda item: item[0])
-        total = len(prepared)
-        paged = prepared[offset: offset + limit] if limit else prepared[offset:]
+            queryset = queryset.order_by(Lower("_identificator"), "record_uid")
+        elif order == "record_uid":
+            queryset = queryset.order_by("record_uid")
+        else:
+            queryset = queryset.order_by("-updated_at", "record_uid")
+
+        total: Optional[int] = None
+        if include_total:
+            total = int(queryset.count())
+
+        if limit <= 0:
+            rows = []
+            has_more = False
+        else:
+            window = list(queryset.values("record_uid", "_identificator")[offset : offset + limit + 1])
+            has_more = len(window) > limit
+            rows = window[:limit]
+
         return {
-            "records": [payload for _, payload in paged],
+            "records": [
+                {
+                    "record_uid": str(row.get("record_uid") or ""),
+                    "identificator": str(row.get("_identificator") or ""),
+                }
+                for row in rows
+            ],
             "total": total,
+            "has_more": has_more,
             "source": "sql",
         }
 
@@ -375,48 +428,66 @@ class ObjectDataService:
         self,
         *,
         obj: Object,
-        parameters: List[Parameter],
         ident_param: Optional[Parameter],
         limit: int,
         offset: int,
         order: str,
         query: str,
+        include_total: bool,
     ) -> Dict[str, Any]:
         rows, warnings = self.file_repo.list_raw_rows(obj, allow_empty=True, ensure_record_uid=True, persist=False)
         if warnings:
             self._log_event("file_load_warning", object_id=obj.id, warnings=warnings)
-        schema_map = self._schema_from_parameters(parameters)
-        prepared: List[Tuple[str, Dict[str, Any]]] = []
-        for row in rows:
+        ident_key = str(ident_param.id) if ident_param is not None else None
+        prepared: List[Tuple[int, str, Dict[str, Any]]] = []
+        lowered_query = query.lower()
+        for index, row in enumerate(rows):
             record_uid = str(row.get("record_uid") or row.get("id_to_connect") or "").strip()
             if not record_uid:
                 continue
-            legacy_record: Dict[str, Any] = {"id_to_connect": record_uid}
-            for parameter in parameters:
-                column_key = str(parameter.id)
-                raw_value = row.get(column_key, "")
-                legacy_record[column_key] = {
-                    "data_type": parameter.data_type,
-                    "value": self._normalise_field_value(parameter, raw_value),
-                }
-            if query and not self._record_matches_query(legacy_record, parameters, ident_param, query):
+            identificator = ""
+            if ident_key is not None:
+                raw_ident = row.get(ident_key, "")
+                canonical_ident = canonicalize_value(
+                    ident_param.data_type,
+                    raw_ident,
+                    array_separator=ident_param.array_separator,
+                    date_format=ident_param.date_format,
+                )
+                identificator = "" if canonical_ident in (None, []) else str(canonical_ident)
+            if lowered_query and lowered_query not in identificator.lower():
                 continue
-            dto_payload = serialise_record_dto(
-                legacy_record_to_dto(legacy_record, schema=schema_map, canonicalize=True)
+            prepared.append(
+                (
+                    index,
+                    identificator,
+                    {
+                        "record_uid": record_uid,
+                        "identificator": identificator,
+                    },
+                )
             )
-            ident_value = self._extract_ident_value(legacy_record, ident_param)
-            prepared.append((ident_value, dto_payload))
+
         if order == "identificator":
-            prepared = sorted(prepared, key=lambda item: item[0])
+            prepared = sorted(prepared, key=lambda item: (item[1].lower(), item[2]["record_uid"]))
         elif order == "record_uid":
-            prepared = sorted(prepared, key=lambda item: item[1].get("record_uid", ""))
+            prepared = sorted(prepared, key=lambda item: item[2]["record_uid"])
         else:
-            prepared = list(reversed(prepared))
-        total = len(prepared)
-        paged = prepared[offset: offset + limit] if limit else prepared[offset:]
+            prepared = sorted(prepared, key=lambda item: (-item[0], item[2]["record_uid"]))
+
+        total: Optional[int] = int(len(prepared)) if include_total else None
+        if limit <= 0:
+            rows_page: List[Dict[str, Any]] = []
+            has_more = False
+        else:
+            window = prepared[offset : offset + limit + 1]
+            has_more = len(window) > limit
+            rows_page = [item[2] for item in window[:limit]]
+
         return {
-            "records": [payload for _, payload in paged],
+            "records": rows_page,
             "total": total,
+            "has_more": has_more,
             "source": "file",
         }
 
@@ -545,31 +616,6 @@ class ObjectDataService:
             value = raw
         return "" if value is None else str(value)
 
-    @staticmethod
-    def _record_matches_query(
-        legacy_record: Mapping[str, Any],
-        parameters: Iterable[Parameter],
-        ident_param: Optional[Parameter],
-        query: str,
-    ) -> bool:
-        if not query:
-            return True
-        ident_value = ObjectDataService._extract_ident_value(legacy_record, ident_param).lower()
-        if query in ident_value:
-            return True
-        for parameter in parameters:
-            key = str(parameter.id)
-            raw = legacy_record.get(key, {})
-            value = raw.get("value", "") if isinstance(raw, Mapping) else raw
-            if isinstance(value, list):
-                candidate = " ".join(str(item) for item in value).lower()
-            else:
-                candidate = str(value or "").lower()
-            if query in candidate:
-                return True
-        return False
-
-
 class ObjectSchemaService:
     """
     Application service for object schema and relation management.
@@ -647,6 +693,409 @@ class ObjectSchemaService:
             "child_params": child_params,
         }
 
+    @staticmethod
+    def _normalise_meta_code(raw_code: str) -> str:
+        code = str(raw_code or "").strip().upper()
+        code = re.sub(r"[^A-Z0-9_]+", "_", code)
+        code = re.sub(r"_+", "_", code).strip("_")
+        return code or "LINK"
+
+    @staticmethod
+    def _next_unique_code(*, parent_object: Object, base_code: str, exclude_meta_id: Optional[int] = None) -> str:
+        existing_qs = ObjectLinkMeta.objects.filter(parent_object=parent_object)
+        if exclude_meta_id is not None:
+            existing_qs = existing_qs.exclude(id=exclude_meta_id)
+        existing_codes = set(existing_qs.values_list("code", flat=True))
+        candidate = base_code
+        suffix = 2
+        while candidate in existing_codes:
+            candidate = f"{base_code}_{suffix}"
+            suffix += 1
+        return candidate
+
+    @staticmethod
+    def _next_unique_display_name(
+        *,
+        parent_object: Object,
+        base_display: str,
+        exclude_meta_id: Optional[int] = None,
+    ) -> str:
+        existing_qs = ObjectLinkMeta.objects.filter(parent_object=parent_object)
+        if exclude_meta_id is not None:
+            existing_qs = existing_qs.exclude(id=exclude_meta_id)
+        existing_display = set(existing_qs.values_list("display_name", flat=True))
+        candidate = str(base_display or "").strip() or "Связь"
+        suffix = 2
+        while candidate in existing_display:
+            candidate = f"{base_display} ({suffix})"
+            suffix += 1
+        return candidate
+
+    @staticmethod
+    def _build_relation(parent_object: Object, child_object: Object, *, link_type: str) -> Object_ParentObject:
+        relation, relation_created = Object_ParentObject.objects.get_or_create(
+            parent_object=parent_object,
+            object=child_object,
+            defaults={"link_type": link_type},
+        )
+        if not relation_created and relation.link_type != link_type:
+            relation.link_type = link_type
+            relation.save(update_fields=["link_type"])
+        return relation
+
+    @staticmethod
+    def _link_parameter_name(display_name: str) -> str:
+        cleaned = str(display_name or "").strip()
+        return f"Связь: {cleaned or 'Связь'}"
+
+    @staticmethod
+    def _link_parameter_type(link_type: str) -> str:
+        return "ARRAY" if str(link_type or "single").strip().lower() == "multiple" else "TXTS"
+
+    @staticmethod
+    def _normalise_text(value: Any) -> str:
+        return str(value or "").strip().lower()
+
+    def _find_legacy_link_parameter_candidate(
+        self,
+        *,
+        parent_object: Object,
+        child_object: Object,
+        display_name: str,
+        exclude_link_meta_id: Optional[int] = None,
+    ) -> Optional[Parameter]:
+        if _legacy_linked_params_disabled():
+            return None
+        queryset = Parameter.objects.filter(
+            object=parent_object,
+            link_meta__isnull=True,
+        )
+        if exclude_link_meta_id is not None:
+            queryset = queryset.exclude(link_meta_id=exclude_link_meta_id)
+        by_linked_object = list(queryset.filter(linked_object=child_object).order_by("id"))
+        if len(by_linked_object) == 1:
+            return by_linked_object[0]
+        child_name_norm = self._normalise_text(getattr(child_object, "name", ""))
+        display_norm = self._normalise_text(display_name)
+        heuristic: List[Parameter] = []
+        for parameter in queryset.order_by("id"):
+            name_norm = self._normalise_text(parameter.name)
+            if not name_norm:
+                continue
+            is_legacy_link = name_norm.startswith("связь с ")
+            if name_norm == display_norm:
+                heuristic.append(parameter)
+                continue
+            if name_norm == self._normalise_text(self._link_parameter_name(display_name)):
+                heuristic.append(parameter)
+                continue
+            if child_name_norm and child_name_norm in name_norm and (is_legacy_link or "связ" in name_norm):
+                heuristic.append(parameter)
+        if len(heuristic) == 1:
+            return heuristic[0]
+        return None
+
+    def _parameter_has_multiple_values(self, *, parameter: Parameter) -> bool:
+        for value_json in ParameterValue.objects.filter(parameter=parameter).values_list("value_json", flat=True):
+            if isinstance(value_json, list) and len([item for item in value_json if str(item).strip()]) > 1:
+                return True
+        rows, _warnings = self.file_repo.list_raw_rows(parameter.object, allow_empty=True, ensure_record_uid=True, persist=False)
+        key = str(parameter.id)
+        separator = parameter.array_separator or " "
+        for row in rows:
+            raw_value = row.get(key, "")
+            if isinstance(raw_value, list):
+                if len([item for item in raw_value if str(item).strip()]) > 1:
+                    return True
+                continue
+            text_value = str(raw_value or "").strip()
+            if not text_value:
+                continue
+            parts = [item.strip() for item in text_value.split(separator) if item and item.strip()]
+            if len(parts) > 1:
+                return True
+        return False
+
+    def _sync_sql_parameter_values_for_type(self, *, parameter: Parameter, old_type: str, new_type: str) -> None:
+        old_type_norm = str(old_type or "").strip().upper()
+        new_type_norm = str(new_type or "").strip().upper()
+        if old_type_norm == new_type_norm:
+            return
+        values_qs = ParameterValue.objects.filter(parameter=parameter)
+        if old_type_norm == "TXTS" and new_type_norm == "ARRAY":
+            for value in values_qs:
+                raw_text = str(value.value_text or "").strip()
+                value.value_json = [raw_text] if raw_text else []
+                value.value_text = None
+                value.value_int = None
+                value.value_datetime = None
+                value.save(update_fields=["value_json", "value_text", "value_int", "value_datetime"])
+            return
+        if old_type_norm == "ARRAY" and new_type_norm == "TXTS":
+            for value in values_qs:
+                data = value.value_json
+                if isinstance(data, list):
+                    first = ""
+                    for item in data:
+                        text = str(item or "").strip()
+                        if text:
+                            first = text
+                            break
+                    value.value_text = first
+                else:
+                    value.value_text = ""
+                value.value_json = None
+                value.value_int = None
+                value.value_datetime = None
+                value.save(update_fields=["value_json", "value_text", "value_int", "value_datetime"])
+
+    def _ensure_link_parameter_for_meta(
+        self,
+        *,
+        meta: ObjectLinkMeta,
+    ) -> Parameter:
+        managed = (
+            Parameter.objects.filter(link_meta=meta)
+            .order_by("-is_managed_link_param", "id")
+            .first()
+        )
+        was_bound_to_meta = managed is not None
+        desired_name = self._link_parameter_name(meta.display_name)
+        desired_type = self._link_parameter_type(meta.link_type)
+        if managed is None:
+            managed = self._find_legacy_link_parameter_candidate(
+                parent_object=meta.parent_object,
+                child_object=meta.child_object,
+                display_name=meta.display_name,
+                exclude_link_meta_id=meta.id,
+            )
+            if managed is None:
+                max_order = (
+                    Parameter.objects.filter(object=meta.parent_object)
+                    .aggregate(max_order=Max("order"))
+                    .get("max_order")
+                ) or 0
+                managed = Parameter.objects.create(
+                    object=meta.parent_object,
+                    name=desired_name,
+                    data_type=desired_type,
+                    identificator=False,
+                    array_separator=" ",
+                    linked_object=meta.child_object,
+                    order=int(max_order) + 1,
+                    category=None,
+                    link_meta=meta,
+                    is_managed_link_param=True,
+                )
+                self._ensure_parent_dataframe_column(meta.parent_object, managed.id)
+                return managed
+
+        if was_bound_to_meta and not managed.is_managed_link_param:
+            managed.link_meta = meta
+            managed.linked_object = meta.child_object
+            managed.save(update_fields=["link_meta", "linked_object"])
+            self._ensure_parent_dataframe_column(meta.parent_object, managed.id)
+            return managed
+
+        old_type = managed.data_type
+        managed.link_meta = meta
+        managed.linked_object = meta.child_object
+        managed.is_managed_link_param = True
+        managed.data_type = desired_type
+        managed.array_separator = managed.array_separator or " "
+        managed.name = desired_name
+        managed.save(
+            update_fields=[
+                "link_meta",
+                "linked_object",
+                "is_managed_link_param",
+                "data_type",
+                "array_separator",
+                "name",
+            ]
+        )
+        self._ensure_parent_dataframe_column(meta.parent_object, managed.id)
+        self._sync_sql_parameter_values_for_type(
+            parameter=managed,
+            old_type=old_type,
+            new_type=managed.data_type,
+        )
+        return managed
+
+    def _graph_has_cycle(
+        self,
+        *,
+        parent_object_id: int,
+        child_object_id: int,
+        exclude_meta_id: Optional[int] = None,
+    ) -> bool:
+        if parent_object_id == child_object_id:
+            return True
+        adjacency: Dict[int, set[int]] = {}
+        for from_id, to_id in Object_ParentObject.objects.values_list("parent_object_id", "object_id"):
+            adjacency.setdefault(int(from_id), set()).add(int(to_id))
+        meta_qs = ObjectLinkMeta.objects.all()
+        if exclude_meta_id is not None:
+            meta_qs = meta_qs.exclude(id=exclude_meta_id)
+        for from_id, to_id in meta_qs.values_list("parent_object_id", "child_object_id"):
+            adjacency.setdefault(int(from_id), set()).add(int(to_id))
+
+        visited: set[int] = set()
+        stack: List[int] = [int(child_object_id)]
+        target = int(parent_object_id)
+        while stack:
+            node = stack.pop()
+            if node == target:
+                return True
+            if node in visited:
+                continue
+            visited.add(node)
+            for next_node in adjacency.get(node, set()):
+                if next_node not in visited:
+                    stack.append(next_node)
+        return False
+
+    def list_link_meta(self, *, parent_object: Object) -> List[ObjectLinkMeta]:
+        return list(
+            ObjectLinkMeta.objects.filter(parent_object=parent_object)
+            .select_related("child_object", "object_link")
+            .order_by("order", "id")
+        )
+
+    def create_link_meta(
+        self,
+        *,
+        parent_object: Object,
+        child_object_id: int,
+        code: str,
+        display_name: str,
+        link_type: str = "single",
+        order: int = 0,
+    ) -> ObjectLinkMeta:
+        child_object = Object.objects.filter(id=int(child_object_id)).first()
+        if child_object is None:
+            raise ValueError("Child object not found.")
+        link_type_value = str(link_type or "single").strip().lower()
+        if link_type_value not in {"single", "multiple"}:
+            raise ValueError("Invalid link_type. Allowed values: single, multiple.")
+        if self._graph_has_cycle(
+            parent_object_id=parent_object.id,
+            child_object_id=child_object.id,
+        ):
+            raise ValueError("Schema cycle detected for the requested link.")
+
+        normalised_code = self._normalise_meta_code(code)
+        normalised_code = self._next_unique_code(parent_object=parent_object, base_code=normalised_code)
+        normalised_display = self._next_unique_display_name(
+            parent_object=parent_object,
+            base_display=str(display_name or "").strip() or f"Связь с {child_object.name}",
+        )
+        relation = self._build_relation(parent_object, child_object, link_type=link_type_value)
+        meta = ObjectLinkMeta.objects.create(
+            parent_object=parent_object,
+            child_object=child_object,
+            object_link=relation,
+            code=normalised_code,
+            display_name=normalised_display,
+            link_type=link_type_value,
+            order=int(order or 0),
+        )
+        self._ensure_link_parameter_for_meta(meta=meta)
+        return meta
+
+    def update_link_meta(
+        self,
+        *,
+        parent_object: Object,
+        meta: ObjectLinkMeta,
+        code: Optional[str] = None,
+        display_name: Optional[str] = None,
+        child_object_id: Optional[int] = None,
+        link_type: Optional[str] = None,
+        order: Optional[int] = None,
+    ) -> ObjectLinkMeta:
+        if meta.parent_object_id != parent_object.id:
+            raise ValueError("Link meta does not belong to this parent object.")
+        if child_object_id is not None:
+            child_object = Object.objects.filter(id=int(child_object_id)).first()
+            if child_object is None:
+                raise ValueError("Child object not found.")
+        else:
+            child_object = meta.child_object
+
+        link_type_value = (link_type or meta.link_type or "single").strip().lower()
+        if link_type_value not in {"single", "multiple"}:
+            raise ValueError("Invalid link_type. Allowed values: single, multiple.")
+        if self._graph_has_cycle(
+            parent_object_id=parent_object.id,
+            child_object_id=child_object.id,
+            exclude_meta_id=meta.id,
+        ):
+            raise ValueError("Schema cycle detected for the requested link.")
+
+        next_code = meta.code
+        if code is not None:
+            next_code = self._next_unique_code(
+                parent_object=parent_object,
+                base_code=self._normalise_meta_code(code),
+                exclude_meta_id=meta.id,
+            )
+        next_display_name = meta.display_name
+        if display_name is not None:
+            next_display_name = self._next_unique_display_name(
+                parent_object=parent_object,
+                base_display=str(display_name or "").strip() or meta.display_name,
+                exclude_meta_id=meta.id,
+            )
+        if meta.link_type == "multiple" and link_type_value == "single":
+            parameter = Parameter.objects.filter(link_meta=meta, is_managed_link_param=True).first()
+            if parameter is not None and self._parameter_has_multiple_values(parameter=parameter):
+                raise ValueError(
+                    "Нельзя изменить тип связи multiple->single: найдены записи с несколькими значениями."
+                )
+        relation = self._build_relation(parent_object, child_object, link_type=link_type_value)
+        meta.child_object = child_object
+        meta.object_link = relation
+        meta.code = next_code
+        meta.display_name = next_display_name
+        meta.link_type = link_type_value
+        if order is not None:
+            meta.order = int(order)
+        meta.save(
+            update_fields=[
+                "child_object",
+                "object_link",
+                "code",
+                "display_name",
+                "link_type",
+                "order",
+                "updated_at",
+            ]
+        )
+        self._ensure_link_parameter_for_meta(meta=meta)
+        return meta
+
+    @staticmethod
+    def delete_link_meta(*, parent_object: Object, meta: ObjectLinkMeta) -> Dict[str, Any]:
+        if meta.parent_object_id != parent_object.id:
+            raise ValueError("Link meta does not belong to this parent object.")
+        usage_count_legacy = ObjectLink_identificators.objects.filter(object_link_meta=meta).count()
+        usage_count_sql = RecordLink.objects.filter(object_link_meta=meta).count()
+        usage_count = int(usage_count_legacy + usage_count_sql)
+        Parameter.objects.filter(link_meta=meta).update(
+            link_meta=None,
+            is_managed_link_param=False,
+        )
+        ObjectLink_identificators.objects.filter(object_link_meta=meta).delete()
+        RecordLink.objects.filter(object_link_meta=meta).delete()
+        deleted, _ = ObjectLinkMeta.objects.filter(id=meta.id, parent_object=parent_object).delete()
+        return {
+            "deleted": int(deleted),
+            "usage_count": usage_count,
+            "cleaned_legacy_links": int(usage_count_legacy),
+            "cleaned_sql_links": int(usage_count_sql),
+        }
+
     def add_object_links(self, *, parent_object: Object, child_ids: Iterable[str]) -> Dict[str, Any]:
         links_payload: List[Dict[str, Any]] = []
         for child_id_str in child_ids:
@@ -659,26 +1108,56 @@ class ObjectSchemaService:
             child_obj = Object.objects.filter(id=child_id).first()
             if child_obj is None:
                 continue
+            if self._graph_has_cycle(parent_object_id=parent_object.id, child_object_id=child_obj.id):
+                continue
             link, created = Object_ParentObject.objects.get_or_create(parent_object=parent_object, object=child_obj)
             created_param = None
-            if created:
-                data_type = "ARRAY" if link.link_type == "multiple" else "TXTS"
-                created_param = Parameter.objects.create(
-                    object=parent_object,
-                    name=f"Связь с {child_obj.name}",
-                    data_type=data_type,
-                    linked_object=child_obj,
-                    order=0,
-                    category=None,
+            default_code = self._next_unique_code(
+                parent_object=parent_object,
+                base_code=self._normalise_meta_code(f"LINK_{child_obj.id}"),
+            )
+            default_display = self._next_unique_display_name(
+                parent_object=parent_object,
+                base_display=f"Связь с {child_obj.name}",
+            )
+            link_meta = (
+                ObjectLinkMeta.objects.filter(
+                    parent_object=parent_object,
+                    object_link=link,
+                    child_object=child_obj,
                 )
-                self._ensure_parent_dataframe_column(parent_object, created_param.id)
-            payload = {"id": link.id, "child_name": link.object.name}
-            if created_param is not None:
+                .order_by("order", "id")
+                .first()
+            )
+            if link_meta is None:
+                link_meta = ObjectLinkMeta.objects.create(
+                    parent_object=parent_object,
+                    object_link=link,
+                    child_object=child_obj,
+                    code=default_code,
+                    display_name=default_display,
+                    link_type=link.link_type,
+                    order=0,
+                )
+            link_param = self._ensure_link_parameter_for_meta(meta=link_meta)
+            if created:
+                created_param = link_param
+            payload = {
+                "id": link.id,
+                "link_meta_id": link_meta.id,
+                "link_meta_code": link_meta.code,
+                "link_meta_display_name": link_meta.display_name,
+                "child_name": link.object.name,
+                "link_parameter_id": link_param.id,
+            }
+            if link_param is not None:
                 payload["param"] = {
-                    "id": created_param.id,
-                    "name": created_param.name,
-                    "data_type": created_param.data_type,
-                    "linked_object_id": created_param.linked_object_id,
+                    "id": link_param.id,
+                    "name": link_param.name,
+                    "data_type": link_param.data_type,
+                    "linked_object_id": link_param.linked_object_id,
+                    "link_meta_id": link_param.link_meta_id,
+                    "is_managed_link_param": bool(link_param.is_managed_link_param),
                 }
             links_payload.append(payload)
         return {"links": links_payload}
@@ -718,6 +1197,162 @@ class ObjectLinkService:
         self.data_service = data_service or ObjectDataService()
         self.sql_repo = self.data_service.sql_repo
 
+    @staticmethod
+    def _default_meta_for_relation(relation: Object_ParentObject) -> Optional[ObjectLinkMeta]:
+        return (
+            ObjectLinkMeta.objects.filter(object_link=relation)
+            .order_by("order", "id")
+            .first()
+        )
+
+    def _ensure_meta_for_relation(self, relation: Object_ParentObject) -> ObjectLinkMeta:
+        existing = self._default_meta_for_relation(relation)
+        if existing is not None:
+            ObjectSchemaService(data_service=self.data_service)._ensure_link_parameter_for_meta(meta=existing)
+            return existing
+        if not _legacy_link_meta_bridge_enabled():
+            self.data_service._log_event(
+                "legacy_link_meta_bridge_disabled",
+                parent_object_id=relation.parent_object_id,
+                child_object_id=relation.object_id,
+                relation_id=relation.id,
+            )
+            raise ValueError("Legacy relation->meta bridge disabled by DBM_UI_LEGACY_FALLBACK=0.")
+        # TODO(dbm-cutover): remove legacy auto-bootstrap once all relations
+        # are managed only through explicit ObjectLinkMeta CRUD.
+        self.data_service._log_event(
+            "legacy_link_meta_fallback_hit",
+            parent_object_id=relation.parent_object_id,
+            child_object_id=relation.object_id,
+            relation_id=relation.id,
+        )
+        base_code = f"LINK_{relation.object_id}"
+        code = base_code
+        suffix = 2
+        existing_codes = set(
+            ObjectLinkMeta.objects.filter(parent_object_id=relation.parent_object_id).values_list("code", flat=True)
+        )
+        while code in existing_codes:
+            code = f"{base_code}_{suffix}"
+            suffix += 1
+        base_display = f"Связь с {relation.object.name}"
+        display_name = base_display
+        suffix = 2
+        existing_display = set(
+            ObjectLinkMeta.objects.filter(parent_object_id=relation.parent_object_id).values_list("display_name", flat=True)
+        )
+        while display_name in existing_display:
+            display_name = f"{base_display} ({suffix})"
+            suffix += 1
+        created = ObjectLinkMeta.objects.create(
+            parent_object=relation.parent_object,
+            child_object=relation.object,
+            object_link=relation,
+            code=code,
+            display_name=display_name,
+            link_type=relation.link_type,
+            order=0,
+        )
+        ObjectSchemaService(data_service=self.data_service)._ensure_link_parameter_for_meta(meta=created)
+        return created
+
+    def _resolve_link_meta_for_parent(self, *, parent_obj: Object, link_meta_id: int) -> ObjectLinkMeta:
+        meta = (
+            ObjectLinkMeta.objects.filter(id=int(link_meta_id))
+            .select_related("child_object", "object_link", "parent_object")
+            .first()
+        )
+        if meta is None:
+            raise ValueError("Связь-мета не найдена.")
+        if meta.parent_object_id != parent_obj.id:
+            raise ValueError("Указанная связь-мета не принадлежит текущему родительскому объекту.")
+        return meta
+
+    def create_row_link(
+        self,
+        *,
+        parent_obj: Object,
+        parent_identifier: str,
+        link_meta_id: int,
+        child_identifier: str,
+    ) -> Dict[str, Any]:
+        meta = self._resolve_link_meta_for_parent(parent_obj=parent_obj, link_meta_id=int(link_meta_id))
+        parent_uid = self.data_service.resolve_record_uid_from_identifier(
+            obj=parent_obj,
+            identifier=str(parent_identifier),
+        )
+        child_uid = self.data_service.resolve_record_uid_from_identifier(
+            obj=meta.child_object,
+            identifier=str(child_identifier),
+        )
+        if meta.link_type == "single":
+            ObjectLink_identificators.objects.update_or_create(
+                object_link=meta.object_link,
+                object_link_meta=meta,
+                parent_object_identificator=parent_uid,
+                defaults={"object_identificator": child_uid},
+            )
+        else:
+            ObjectLink_identificators.objects.update_or_create(
+                object_link=meta.object_link,
+                object_link_meta=meta,
+                parent_object_identificator=parent_uid,
+                object_identificator=child_uid,
+            )
+        self.sync_parent_row_links(parent_obj=parent_obj, parent_identifier=parent_uid)
+        return {
+            "parent_uid": parent_uid,
+            "child_uid": child_uid,
+            "link_meta_id": meta.id,
+        }
+
+    def delete_row_link(
+        self,
+        *,
+        parent_obj: Object,
+        parent_identifier: str,
+        link_meta_id: int,
+        child_identifier: str,
+    ) -> Dict[str, Any]:
+        meta = self._resolve_link_meta_for_parent(parent_obj=parent_obj, link_meta_id=int(link_meta_id))
+        parent_uid = self.data_service.resolve_record_uid_from_identifier(
+            obj=parent_obj,
+            identifier=str(parent_identifier),
+        )
+        child_uid = self.data_service.resolve_record_uid_from_identifier(
+            obj=meta.child_object,
+            identifier=str(child_identifier),
+        )
+        deleted, _ = ObjectLink_identificators.objects.filter(
+            object_link=meta.object_link,
+            object_link_meta=meta,
+            parent_object_identificator=parent_uid,
+            object_identificator=child_uid,
+        ).delete()
+        self.sync_parent_row_links(parent_obj=parent_obj, parent_identifier=parent_uid)
+        return {
+            "deleted": int(deleted),
+            "parent_uid": parent_uid,
+            "child_uid": child_uid,
+            "link_meta_id": meta.id,
+        }
+
+    def _row_links_for_meta(
+        self,
+        *,
+        meta: ObjectLinkMeta,
+        parent_ident_candidates: Iterable[str],
+    ):
+        candidate_list = [str(item) for item in parent_ident_candidates]
+        queryset = ObjectLink_identificators.objects.filter(
+            object_link=meta.object_link,
+            parent_object_identificator__in=candidate_list,
+        )
+        default_meta = self._default_meta_for_relation(meta.object_link)
+        if default_meta is not None and default_meta.id == meta.id:
+            return queryset.filter(Q(object_link_meta=meta) | Q(object_link_meta__isnull=True))
+        return queryset.filter(object_link_meta=meta)
+
     def sync_parent_row_links(self, *, parent_obj: Object, parent_identifier: str) -> None:
         if not self.data_service._sql_write_enabled():
             return
@@ -739,25 +1374,46 @@ class ObjectLinkService:
             if parent_record.legacy_id_to_connect:
                 parent_ident_candidates.add(str(parent_record.legacy_id_to_connect))
             self.sql_repo.delete_links_for_parent_record(parent_record)
-            relations = Object_ParentObject.objects.filter(parent_object=parent_obj).select_related("object")
-            for relation in relations:
-                row_links = ObjectLink_identificators.objects.filter(
-                    Q(object_link=relation)
-                    & Q(parent_object_identificator__in=list(parent_ident_candidates))
+            metas = (
+                ObjectLinkMeta.objects.filter(parent_object=parent_obj)
+                .select_related("child_object", "object_link")
+                .order_by("order", "id")
+            )
+            if not metas.exists() and _legacy_link_meta_bridge_enabled():
+                relations = Object_ParentObject.objects.filter(parent_object=parent_obj).select_related("object")
+                for relation in relations:
+                    try:
+                        self._ensure_meta_for_relation(relation)
+                    except ValueError:
+                        continue
+                metas = (
+                    ObjectLinkMeta.objects.filter(parent_object=parent_obj)
+                    .select_related("child_object", "object_link")
+                    .order_by("order", "id")
+                )
+            for meta in metas:
+                row_links = self._row_links_for_meta(
+                    meta=meta,
+                    parent_ident_candidates=parent_ident_candidates,
                 )
                 for row_link in row_links:
                     child_identifier = str(row_link.object_identificator)
                     child_uid = self.data_service.resolve_record_uid_from_identifier(
-                        obj=relation.object,
+                        obj=meta.child_object,
                         identifier=child_identifier,
                     )
                     child_record = self.sql_repo.upsert_record(
-                        obj=relation.object,
+                        obj=meta.child_object,
                         record_uid=child_uid,
                         fields={},
                         legacy_id_to_connect=child_identifier,
                     )
-                    self.sql_repo.upsert_link(relation, parent_record, child_record)
+                    self.sql_repo.upsert_link(
+                        meta.object_link,
+                        parent_record,
+                        child_record,
+                        object_link_meta=meta,
+                    )
         except Exception as exc:
             self.data_service._log_event(
                 "sql_write_primary_failed" if sql_primary else "dual_write_failed",
@@ -784,20 +1440,39 @@ class ObjectLinkService:
         if parent_record is not None and parent_record.legacy_id_to_connect:
             parent_identifiers.add(str(parent_record.legacy_id_to_connect))
         payload: List[Dict[str, Any]] = []
-        for link in Object_ParentObject.objects.filter(parent_object=parent_obj):
-            child_ids = list(
-                ObjectLink_identificators.objects.filter(
-                    object_link=link,
-                    parent_object_identificator__in=list(parent_identifiers),
-                ).values_list("object_identificator", flat=True)
+        metas = (
+            ObjectLinkMeta.objects.filter(parent_object=parent_obj)
+            .select_related("child_object", "object_link")
+            .order_by("order", "id")
+        )
+        if not metas.exists() and _legacy_link_meta_bridge_enabled():
+            relations = Object_ParentObject.objects.filter(parent_object=parent_obj).select_related("object")
+            for relation in relations:
+                try:
+                    self._ensure_meta_for_relation(relation)
+                except ValueError:
+                    continue
+            metas = (
+                ObjectLinkMeta.objects.filter(parent_object=parent_obj)
+                .select_related("child_object", "object_link")
+                .order_by("order", "id")
             )
+        for meta in metas:
+            child_ids = sorted(set(str(item) for item in list(
+                self._row_links_for_meta(
+                    meta=meta,
+                    parent_ident_candidates=parent_identifiers,
+                ).values_list("object_identificator", flat=True)
+            )))
             payload.append(
                 {
-                    "child_object_id": link.object.id,
-                    "child_object_name": link.object.name,
-                    "link_type": link.link_type,
+                    "child_object_id": meta.child_object.id,
+                    "child_object_name": meta.child_object.name,
+                    "link_type": meta.link_type,
                     "child_ident_ids": child_ids,
-                    "link_id": link.id,
+                    "link_id": meta.id,
+                    "link_code": meta.code,
+                    "link_display_name": meta.display_name,
                 }
             )
         return payload

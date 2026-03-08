@@ -7,7 +7,7 @@ from django.db.models import Q
 
 from ...application.services import ObjectDataService
 from ...infrastructure.repositories import FileRecordRepository
-from ...models import Object, ObjectLink_identificators, Object_ParentObject
+from ...models import Object, ObjectLinkMeta, ObjectLink_identificators, Object_ParentObject
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,7 @@ class Command(BaseCommand):
 
         links_qs = ObjectLink_identificators.objects.select_related(
             "object_link",
+            "object_link_meta",
             "object_link__parent_object",
             "object_link__object",
         ).order_by("id")
@@ -81,14 +82,30 @@ class Command(BaseCommand):
                     row_link.delete()
                 continue
 
-            if parent_uid == parent_identifier and child_uid == child_identifier:
+            default_meta = row_link.object_link_meta
+            if default_meta is None:
+                default_meta = (
+                    ObjectLinkMeta.objects.filter(object_link=relation).order_by("order", "id").first()
+                )
+
+            if (
+                parent_uid == parent_identifier
+                and child_uid == child_identifier
+                and (default_meta is None or row_link.object_link_meta_id == default_meta.id)
+            ):
                 continue
 
             fixed += 1
             if not dry_run:
                 row_link.parent_object_identificator = parent_uid
                 row_link.object_identificator = child_uid
-                row_link.save(update_fields=["parent_object_identificator", "object_identificator"])
+                if default_meta is not None:
+                    row_link.object_link_meta = default_meta
+                    row_link.save(
+                        update_fields=["parent_object_identificator", "object_identificator", "object_link_meta"]
+                    )
+                else:
+                    row_link.save(update_fields=["parent_object_identificator", "object_identificator"])
 
         payload = {
             "processed": processed,

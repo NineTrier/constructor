@@ -80,7 +80,7 @@
                         {% if pair.0.data_type == 'TXT' %}
                         <input type="text" class="form-control{% if pair.0.identificator %} identificator-field{% endif %}" name="col_value_{{ pair.0.id }}[]" value="" {% if pair.0.identificator %}required{% endif %}>
                         {% elif pair.0.data_type == 'TXTS' %}
-                            <select class="form-select select2-tags{% if pair.0.identificator %} identificator-field{% endif %}" name="col_value_{{ pair.0.id }}[]" {% if pair.0.identificator %}required{% endif %} {% if pair.0.linked_object %}data-linked-object-id="{{ pair.0.linked_object.id }}"{% endif %}>
+                            <select class="form-select select2-tags{% if pair.0.identificator %} identificator-field{% endif %}" name="col_value_{{ pair.0.id }}[]" {% if pair.0.identificator %}required{% endif %} {% if pair.0.linked_object %}data-linked-object-id="{{ pair.0.linked_object.id }}"{% endif %}{% if pair.0.link_meta_id %} data-link-meta-id="{{ pair.0.link_meta_id }}"{% endif %}>
                                 <option value="">-- Выберите --</option>
                                 {% for opt in pair.1 %}
                                     {% if opt|length == 2 %}
@@ -95,7 +95,7 @@
                         {% elif pair.0.data_type == 'DATE' %}
                             <input type="datetime-local" class="form-control{% if pair.0.identificator %} identificator-field{% endif %}" name="col_value_{{ pair.0.id }}[]" value="" {% if pair.0.identificator %}required{% endif %}>
                         {% elif pair.0.data_type == 'ARRAY' %}
-                            <select multiple class="form-select select2-tags{% if pair.0.identificator %} identificator-field{% endif %}" name="col_value_{{ pair.0.id }}[]" {% if pair.0.identificator %}required{% endif %} {% if pair.0.linked_object %}data-linked-object-id="{{ pair.0.linked_object.id }}"{% endif %}>
+                            <select multiple class="form-select select2-tags{% if pair.0.identificator %} identificator-field{% endif %}" name="col_value_{{ pair.0.id }}[]" {% if pair.0.identificator %}required{% endif %} {% if pair.0.linked_object %}data-linked-object-id="{{ pair.0.linked_object.id }}"{% endif %}{% if pair.0.link_meta_id %} data-link-meta-id="{{ pair.0.link_meta_id }}"{% endif %}>
                                 {% for opt in pair.1 %}
                                     {% if opt|length == 2 %}
                                         <option value="{{ opt.0 }}">{{ opt.1 }}</option>
@@ -117,25 +117,33 @@
         <ul class="nav nav-tabs" id="childObjTabs" role="tablist">
             {% for child in child_objects_data %}
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link {% if child.active %}active{% endif %}" id="tab-{{ child.object.id }}"
-                        data-bs-toggle="tab" data-bs-target="#content-{{ child.object.id }}" type="button"
-                        role="tab" aria-controls="content-{{ child.object.id }}" aria-selected="{% if child.active %}true{% else %}false{% endif %}">
-                        {{ child.object.name }}
+                    <button class="nav-link {% if child.active %}active{% endif %}" id="tab-link-{{ child.link_meta_id }}"
+                        data-bs-toggle="tab" data-bs-target="#content-link-{{ child.link_meta_id }}" type="button"
+                        role="tab" aria-controls="content-link-{{ child.link_meta_id }}" aria-selected="{% if child.active %}true{% else %}false{% endif %}">
+                        {{ child.link_display_name|default:child.object.name }}
                     </button>
                 </li>
             {% endfor %}
         </ul>
         <div class="tab-content" id="childObjTabContent">
             {% for child in child_objects_data %}
-                <div class="tab-pane fade {% if child.active %}show active{% endif %}" id="content-{{ child.object.id }}"
-                     role="tabpanel" aria-labelledby="tab-{{ child.object.id }}">
+                <div class="tab-pane fade {% if child.active %}show active{% endif %}" id="content-link-{{ child.link_meta_id }}"
+                     role="tabpanel" aria-labelledby="tab-link-{{ child.link_meta_id }}">
                     
                     <div class="my-3">
-                        <label class="form-label">{{ child.object.name }} (идентификатор):</label>
-                        <select class="form-select child-link-select"
-                                name="child_link_{{ child.link_id }}"
+                        <label class="form-label">{{ child.link_display_name|default:child.object.name }} (идентификатор):</label>
+                        <button type="button"
+                                class="btn btn-sm btn-outline-secondary ms-2 child-record-picker-open"
                                 data-child-object-id="{{ child.object.id }}"
-                                data-link-id="{{ child.link_id }}"
+                                data-child-link-name="child_link_{{ child.link_meta_id }}">
+                            Найти...
+                        </button>
+                        <select class="form-select child-link-select"
+                                name="child_link_{{ child.link_meta_id }}"
+                                data-child-object-id="{{ child.object.id }}"
+                                data-link-id="{{ child.link_meta_id }}"
+                                data-link-meta-id="{{ child.link_meta_id }}"
+                                {% if child.link_parameter_id %}data-linked-param-id="{{ child.link_parameter_id }}"{% endif %}
                                 {% if child.link_type == 'multiple' %}multiple{% endif %}>
                             <option value="">-- Не выбрано --</option>
                             {% for id_to_connect, label in child.ident_list %}
@@ -146,7 +154,7 @@
                     {% if child.link_type == 'multiple' %}
                     <div class="my-3 child-preview-container" data-child-object-id="{{ child.object.id }}">
                         <label class="form-label">Просмотреть выбранный элемент:</label>
-                        <select class="form-select child-preview-select" data-child-object-id="{{ child.object.id }}">
+                        <select class="form-select child-preview-select" data-child-object-id="{{ child.object.id }}" data-link-meta-id="{{ child.link_meta_id }}">
                             <!-- Options will be populated dynamically based on selected identifiers -->
                         </select>
                     </div>
@@ -162,6 +170,7 @@
                                         <label class="form-label">{{ pair.0.name }}:</label>
                                         <input type="text" class="form-control child-param-field"
                                                data-child-object-id="{{ child.object.id }}"
+                                               data-link-meta-id="{{ child.link_meta_id }}"
                                                data-param-id="{{ pair.0.id }}"
                                                value="" disabled>
                                     </div>
@@ -174,6 +183,20 @@
         </div>
     {% endif %}
 </form>
+
+<div class="modal fade" id="childRecordPickerModal" tabindex="-1" aria-hidden="true" aria-labelledby="childRecordPickerModalLabel">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="childRecordPickerModalLabel">Выбор связанной записи</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body">
+                <div id="child-record-picker-container"></div>
+            </div>
+        </div>
+    </div>
+</div>
 </div>
 
 {% endblock %}
@@ -181,5 +204,6 @@
 {% block script %}
 <script src="{% static 'js/dbm_api.js' %}"></script>
 <script src="{% static 'js/dbm_dto.js' %}"></script>
+<script src="{% static 'js/record_picker.js' %}"></script>
 <script src="{% static 'js/dbm_object_forms.js' %}"></script>
 {% endblock %}

@@ -9,7 +9,7 @@ from django.core.management.base import BaseCommand
 from ...application.services import ObjectDataService
 from ...domain.normalize import canonicalize_record, is_empty_like, schema_from_parameters
 from ...infrastructure.repositories import FileRecordRepository, SqlRecordRepository
-from ...models import Object, ObjectLink_identificators, Object_ParentObject, Parameter, RecordLink
+from ...models import Object, ObjectLinkMeta, ObjectLink_identificators, Object_ParentObject, Parameter, RecordLink
 from ...presentation.dto import legacy_record_to_dto, serialise_record_dto
 
 logger = logging.getLogger(__name__)
@@ -407,34 +407,50 @@ class Command(BaseCommand):
         details: List[Dict[str, Any]] = []
         relations = Object_ParentObject.objects.filter(parent_object=obj).select_related("object")
         for relation in relations:
-            file_pairs: Set[Tuple[str, str]] = set()
-            row_links = ObjectLink_identificators.objects.filter(object_link=relation)
-            for row_link in row_links:
-                parent_uid = data_service.resolve_record_uid_from_identifier(
-                    obj=relation.parent_object,
-                    identifier=str(row_link.parent_object_identificator),
-                )
-                child_uid = data_service.resolve_record_uid_from_identifier(
-                    obj=relation.object,
-                    identifier=str(row_link.object_identificator),
-                )
-                file_pairs.add((parent_uid, child_uid))
+            relation_metas = list(
+                ObjectLinkMeta.objects.filter(object_link=relation).order_by("order", "id")
+            )
+            if not relation_metas:
+                relation_metas = [None]
+            for relation_meta in relation_metas:
+                file_pairs: Set[Tuple[str, str]] = set()
+                row_links = ObjectLink_identificators.objects.filter(object_link=relation)
+                if relation_meta is None:
+                    row_links = row_links.filter(object_link_meta__isnull=True)
+                else:
+                    row_links = row_links.filter(object_link_meta=relation_meta)
+                for row_link in row_links:
+                    parent_uid = data_service.resolve_record_uid_from_identifier(
+                        obj=relation.parent_object,
+                        identifier=str(row_link.parent_object_identificator),
+                    )
+                    child_uid = data_service.resolve_record_uid_from_identifier(
+                        obj=relation.object,
+                        identifier=str(row_link.object_identificator),
+                    )
+                    file_pairs.add((parent_uid, child_uid))
 
-            sql_pairs: Set[Tuple[str, str]] = set()
-            sql_links = RecordLink.objects.filter(object_link=relation).select_related("parent_record", "child_record")
-            for sql_link in sql_links:
-                sql_pairs.add((sql_link.parent_record.record_uid, sql_link.child_record.record_uid))
+                sql_pairs: Set[Tuple[str, str]] = set()
+                sql_links = RecordLink.objects.filter(object_link=relation)
+                if relation_meta is None:
+                    sql_links = sql_links.filter(object_link_meta__isnull=True)
+                else:
+                    sql_links = sql_links.filter(object_link_meta=relation_meta)
+                sql_links = sql_links.select_related("parent_record", "child_record")
+                for sql_link in sql_links:
+                    sql_pairs.add((sql_link.parent_record.record_uid, sql_link.child_record.record_uid))
 
-            if file_pairs != sql_pairs:
-                mismatch_count += 1
-                details.append(
-                    {
-                        "link_meta_id": relation.id,
-                        "child_object_id": relation.object_id,
-                        "file_pairs_count": len(file_pairs),
-                        "sql_pairs_count": len(sql_pairs),
-                        "missing_in_sql_count": len(file_pairs - sql_pairs),
-                        "missing_in_file_count": len(sql_pairs - file_pairs),
-                    }
-                )
+                if file_pairs != sql_pairs:
+                    mismatch_count += 1
+                    details.append(
+                        {
+                            "link_meta_id": relation_meta.id if relation_meta is not None else None,
+                            "legacy_relation_id": relation.id,
+                            "child_object_id": relation.object_id,
+                            "file_pairs_count": len(file_pairs),
+                            "sql_pairs_count": len(sql_pairs),
+                            "missing_in_sql_count": len(file_pairs - sql_pairs),
+                            "missing_in_file_count": len(sql_pairs - file_pairs),
+                        }
+                    )
         return mismatch_count, details

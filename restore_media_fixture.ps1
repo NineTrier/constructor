@@ -133,7 +133,6 @@ if ($mediaArchive -and -not $SkipMedia.IsPresent) {
     Write-Log "Media restore skipped." 'Yellow'
 }
 
-if ($LoadFixture.IsPresent) {
     if (-not $fixtureFile) {
         Write-Log "fixture_*.json not found in backup; skipping loaddata." 'Yellow'
     } else {
@@ -150,8 +149,4 @@ if ($LoadFixture.IsPresent) {
         }
         Write-Log "Fixture loaded." 'Green'
     }
-} else {
-    Write-Log "Fixture load skipped." 'Yellow'
-}
-
 Write-Log "Restore complete." 'Yellow'

@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.test import Client
 
-from ...models import Object_ParentObject, Parameter
+from ...models import ObjectLinkMeta, Object_ParentObject, Parameter
 
 
 class Command(BaseCommand):
@@ -147,6 +147,14 @@ class Command(BaseCommand):
         if relation is None:
             self._step(report, name="v1_links", status=200, expected={200}, details={"skipped": "no_relation"})
             return
+        relation_meta = (
+            ObjectLinkMeta.objects.filter(parent_object_id=object_id, object_link=relation)
+            .order_by("order", "id")
+            .first()
+        )
+        if relation_meta is None:
+            self._step(report, name="v1_links", status=200, expected={200}, details={"skipped": "no_link_meta"})
+            return
         child_records_resp = client.get(
             f"/database/api/v1/objects/{relation.object_id}/records/",
             {"limit": 1, "offset": 0, "include_schema": 0},
@@ -172,7 +180,7 @@ class Command(BaseCommand):
         links_path = f"/database/api/v1/objects/{object_id}/records/{parent_uid}/links/"
         create_link_resp = client.post(
             links_path,
-            data=json.dumps({"link_meta_id": relation.id, "child_record_uid": child_uid}),
+            data=json.dumps({"link_meta_id": relation_meta.id, "child_record_uid": child_uid}),
             content_type="application/json",
             HTTP_X_API_VERSION="v1",
         )
@@ -183,7 +191,7 @@ class Command(BaseCommand):
 
         delete_link_resp = client.delete(
             links_path,
-            data=json.dumps({"link_meta_id": relation.id, "child_record_uid": child_uid}),
+            data=json.dumps({"link_meta_id": relation_meta.id, "child_record_uid": child_uid}),
             content_type="application/json",
             HTTP_X_API_VERSION="v1",
         )

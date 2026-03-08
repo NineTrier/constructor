@@ -84,6 +84,18 @@ class Parameter(models.Model):
     order = models.IntegerField(default=0)
     # optional link to a child object for parameters that represent object links
     linked_object = models.ForeignKey(Object, on_delete=models.SET_NULL, null=True, blank=True, related_name='link_parameters')
+    # optional explicit role binding for link parameters managed by ObjectLinkMeta
+    link_meta = models.ForeignKey(
+        "ObjectLinkMeta",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="managed_parameters",
+    )
+    # true when the parameter is auto-managed by LinkMeta lifecycle
+    is_managed_link_param = models.BooleanField(default=False)
+    # true when the parameter is a legacy linked parameter hidden from active UI
+    is_legacy_link_param_deprecated = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["category__order", "order", "id"]
@@ -171,6 +183,62 @@ class Object_ParentObject(models.Model):
         return f"{self.parent_object} -> {self.object}"
 
 
+class ObjectLinkMeta(models.Model):
+    """
+    Named role for a parent->child object link.
+
+    Multiple link meta entries may reference the same parent/child pair,
+    allowing semantic roles like APPLICANT/RESPONDENT.
+    """
+
+    parent_object = models.ForeignKey(
+        Object,
+        on_delete=models.CASCADE,
+        related_name="outgoing_link_meta",
+    )
+    child_object = models.ForeignKey(
+        Object,
+        on_delete=models.CASCADE,
+        related_name="incoming_link_meta",
+    )
+    object_link = models.ForeignKey(
+        Object_ParentObject,
+        on_delete=models.CASCADE,
+        related_name="link_meta",
+    )
+    code = models.CharField(max_length=80)
+    display_name = models.CharField(max_length=255)
+    LINK_TYPE_CHOICES = [
+        ("single", "single"),
+        ("multiple", "multiple"),
+    ]
+    link_type = models.CharField(
+        max_length=10,
+        choices=LINK_TYPE_CHOICES,
+        default="single",
+    )
+    order = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["parent_object", "code"], name="uniq_linkmeta_parent_code"),
+            models.UniqueConstraint(
+                fields=["parent_object", "display_name"],
+                name="uniq_linkmeta_parent_display",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["parent_object", "order", "id"], name="idx_linkmeta_parent_order"),
+            models.Index(fields=["object_link"], name="idx_linkmeta_relation"),
+        ]
+        ordering = ["parent_object_id", "order", "id"]
+
+    def __str__(self) -> str:
+        return f"{self.parent_object} -> {self.child_object} [{self.code}]"
+
+
 class ObjectLink_identificators(models.Model):
     """
     Stores row‑level links between parent and child objects.  Each entry
@@ -185,13 +253,37 @@ class ObjectLink_identificators(models.Model):
         on_delete=models.CASCADE,
         related_name="row_links",
     )
+    object_link_meta = models.ForeignKey(
+        ObjectLinkMeta,
+        on_delete=models.CASCADE,
+        related_name="row_links",
+        null=True,
+        blank=True,
+    )
     # identifier (id_to_connect) of a row in the child object
     object_identificator = models.CharField(max_length=255)
     # identifier (id_to_connect) of a row in the parent object
     parent_object_identificator = models.CharField(max_length=255)
 
     class Meta:
-        unique_together = ("object_link", "object_identificator", "parent_object_identificator")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["object_link", "object_identificator", "parent_object_identificator"],
+                condition=models.Q(object_link_meta__isnull=True),
+                name="uniq_objlink_ident_legacy",
+            ),
+            models.UniqueConstraint(
+                fields=["object_link_meta", "object_identificator", "parent_object_identificator"],
+                condition=models.Q(object_link_meta__isnull=False),
+                name="uniq_objlink_ident_meta",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["object_link"], name="idx_objlink_ident_link"),
+            models.Index(fields=["object_link_meta"], name="idx_objlink_ident_meta"),
+            models.Index(fields=["parent_object_identificator"], name="idx_objlink_ident_parent"),
+            models.Index(fields=["object_identificator"], name="idx_objlink_ident_child"),
+        ]
 
     def __str__(self) -> str:
         return f"{self.object_link}: {self.parent_object_identificator} -> {self.object_identificator}"
@@ -279,6 +371,13 @@ class RecordLink(models.Model):
         on_delete=models.CASCADE,
         related_name="record_links",
     )
+    object_link_meta = models.ForeignKey(
+        ObjectLinkMeta,
+        on_delete=models.CASCADE,
+        related_name="record_links",
+        null=True,
+        blank=True,
+    )
     parent_record = models.ForeignKey(
         ObjectRecord,
         on_delete=models.CASCADE,
@@ -295,11 +394,18 @@ class RecordLink(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["object_link", "parent_record", "child_record"],
-                name="uniq_record_link_tuple",
+                condition=models.Q(object_link_meta__isnull=True),
+                name="uniq_record_link_legacy",
+            ),
+            models.UniqueConstraint(
+                fields=["object_link_meta", "parent_record", "child_record"],
+                condition=models.Q(object_link_meta__isnull=False),
+                name="uniq_record_link_meta",
             ),
         ]
         indexes = [
             models.Index(fields=["object_link"], name="idx_record_link_link"),
+            models.Index(fields=["object_link_meta"], name="idx_record_link_meta"),
             models.Index(fields=["parent_record"], name="idx_record_link_parent"),
             models.Index(fields=["child_record"], name="idx_record_link_child"),
         ]

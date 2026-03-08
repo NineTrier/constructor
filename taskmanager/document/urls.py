@@ -25,6 +25,8 @@ urlpatterns = [
     path('doctype_add', views.CreateDocType), # добавление типа документа
     path('doctype_remove', views.DeleteDocType), # удаление типа документа
     path('acceptFilters', views.AcceptFilters),
+    path('api/v1/resolve_tokens/', views.api_v1_resolve_tokens, name='api_v1_resolve_tokens'),
+    path('api/v1/prefetch_graph/', views.api_v1_prefetch_graph, name='api_v1_prefetch_graph'),
     path('connect_objects_to_document/<int:pk>/', views.connect_objects_to_document, name='connect_objects_to_document'),
     path('delete_object_from_document/<int:pk>/', views.delete_object_from_document, name='delete_object_from_document'),
 ]

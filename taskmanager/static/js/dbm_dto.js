@@ -117,7 +117,28 @@
 
     function normaliseListPayload(payload) {
         if (payload && payload.api_version === 'v1' && Array.isArray(payload.records)) {
-            return payload;
+            const normalisedRecords = payload.records.map(function (record) {
+                const item = record || {};
+                return {
+                    record_uid: String(item.record_uid || item.id || ''),
+                    identificator: item.identificator != null ? String(item.identificator) : '',
+                    fields: item.fields || {},
+                    _legacy_ident: item.identificator != null ? String(item.identificator) : '',
+                };
+            });
+            const page = payload.page || {};
+            return {
+                api_version: 'v1',
+                object_id: payload.object_id,
+                schema: payload.schema || { parameters: {} },
+                records: normalisedRecords,
+                page: {
+                    limit: page.limit != null ? page.limit : normalisedRecords.length,
+                    offset: page.offset != null ? page.offset : 0,
+                    has_more: page.has_more !== undefined ? !!page.has_more : false,
+                    total: page.total,
+                },
+            };
         }
         if (isV1Only() || !isLegacyFallbackEnabled()) {
             throw new Error('Legacy list payload is disabled by UI flags');

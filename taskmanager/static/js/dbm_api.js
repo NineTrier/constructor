@@ -73,6 +73,68 @@
         return fetch(url, opts).then(handleResponse);
     }
 
+    function findIdentificatorParamId(schema) {
+        const params = schema && schema.parameters ? schema.parameters : {};
+        const keys = Object.keys(params);
+        for (let i = 0; i < keys.length; i += 1) {
+            const paramId = keys[i];
+            if (params[paramId] && params[paramId].identificator) {
+                return paramId;
+            }
+        }
+        return null;
+    }
+
+    function normaliseListResponse(payload, cfg) {
+        const options = cfg || {};
+        const recordsRaw = payload && Array.isArray(payload.records) ? payload.records : [];
+        const page = payload && payload.page ? payload.page : {};
+        const schema = payload && payload.schema ? payload.schema : null;
+        const identParamId = findIdentificatorParamId(schema);
+        const normalisedRecords = recordsRaw.map(function (record) {
+            const item = Object.assign({}, record || {});
+            const uid = String(item.record_uid || item.id || '');
+            let identificator = item.identificator;
+            if ((identificator == null || identificator === '') && identParamId && item.fields && item.fields[identParamId]) {
+                const fieldValue = item.fields[identParamId];
+                identificator = (fieldValue && fieldValue.value !== undefined) ? fieldValue.value : '';
+            }
+            if (identificator == null) {
+                identificator = '';
+            }
+            return {
+                record_uid: uid,
+                identificator: String(identificator),
+                fields: item.fields || {},
+            };
+        });
+        const limit = Number(page.limit != null ? page.limit : (options.limit != null ? options.limit : 50));
+        const offset = Number(page.offset != null ? page.offset : (options.offset != null ? options.offset : 0));
+        const total = page.total != null ? Number(page.total) : null;
+        const hasMore = page.has_more !== undefined
+            ? !!page.has_more
+            : (total != null ? (offset + normalisedRecords.length < total) : normalisedRecords.length === limit);
+        const result = {
+            api_version: 'v1',
+            object_id: payload && payload.object_id != null ? payload.object_id : null,
+            schema: schema,
+            records: normalisedRecords,
+            limit: limit,
+            offset: offset,
+            has_more: hasMore,
+            page: {
+                limit: limit,
+                offset: offset,
+                has_more: hasMore,
+            },
+        };
+        if (total != null) {
+            result.total = total;
+            result.page.total = total;
+        }
+        return result;
+    }
+
     function requestJson(url, method, payload) {
         const headers = new Headers({
             'Content-Type': 'application/json',
@@ -88,24 +150,61 @@
     function listRecords(objectId, options) {
         const params = new URLSearchParams();
         const cfg = options || {};
-        params.set('limit', String(cfg.limit != null ? cfg.limit : 50));
-        params.set('offset', String(cfg.offset != null ? cfg.offset : 0));
+        const limit = cfg.limit != null ? cfg.limit : 50;
+        const offset = cfg.offset != null ? cfg.offset : 0;
+        params.set('limit', String(limit));
+        params.set('offset', String(offset));
         params.set('order', String(cfg.order || 'updated_at'));
         params.set('include_schema', String(cfg.include_schema != null ? cfg.include_schema : 1));
+        if (cfg.includeTotal) {
+            params.set('include_total', '1');
+        }
         if (cfg.q) {
-            params.set('q', String(cfg.q));
+            params.set('q', String(cfg.q).trim());
         }
         return request('/database/api/v1/objects/' + objectId + '/records/?' + params.toString(), {
             method: 'GET',
             headers: {
                 'X-API-Version': 'v1',
             },
+            signal: cfg.signal,
+        }).then(function (payload) {
+            return normaliseListResponse(payload, cfg);
         }).catch(function (error) {
+            if (error && error.name === 'AbortError') {
+                throw error;
+            }
             if (!canUseLegacyFallback()) {
                 throw error;
             }
             warnLegacyFallback('listRecords');
-            return getObjectLegacy(objectId);
+            return getObjectLegacy(objectId).then(function (legacyPayload) {
+                const idents = (legacyPayload && Array.isArray(legacyPayload.idents)) ? legacyPayload.idents : [];
+                const records = idents.map(function (item) {
+                    return {
+                        record_uid: String(item.id || ''),
+                        identificator: String(item.param_ident || ''),
+                        fields: {},
+                    };
+                });
+                const fallback = {
+                    api_version: 'v1',
+                    object_id: objectId,
+                    schema: legacyPayload && legacyPayload.schema ? legacyPayload.schema : null,
+                    records: records,
+                    limit: Number(limit),
+                    offset: Number(offset),
+                    has_more: false,
+                    total: records.length,
+                    page: {
+                        limit: Number(limit),
+                        offset: Number(offset),
+                        has_more: false,
+                        total: records.length,
+                    },
+                };
+                return fallback;
+            });
         });
     }
 
@@ -152,6 +251,37 @@
         return request(
             '/database/api/v1/objects/' + objectId + '/records/' + encodeURIComponent(recordUid) + '/links/',
             { method: 'GET', headers: { 'X-API-Version': 'v1' } }
+        );
+    }
+
+    function listLinksMeta(objectId) {
+        return request(
+            '/database/api/v1/objects/' + objectId + '/links-meta/',
+            { method: 'GET', headers: { 'X-API-Version': 'v1' } }
+        );
+    }
+
+    function createLinkMeta(objectId, payload) {
+        return requestJson(
+            '/database/api/v1/objects/' + objectId + '/links-meta/',
+            'POST',
+            payload || {}
+        );
+    }
+
+    function updateLinkMeta(objectId, linkMetaId, payload) {
+        return requestJson(
+            '/database/api/v1/objects/' + objectId + '/links-meta/' + encodeURIComponent(linkMetaId) + '/',
+            'PATCH',
+            payload || {}
+        );
+    }
+
+    function deleteLinkMeta(objectId, linkMetaId) {
+        return requestJson(
+            '/database/api/v1/objects/' + objectId + '/links-meta/' + encodeURIComponent(linkMetaId) + '/',
+            'DELETE',
+            {}
         );
     }
 
@@ -230,6 +360,19 @@
         return postForm('/document/delete_object_from_document/' + docId + '/', formData);
     }
 
+    function prefetchGraph(documentId, context, tokens, options) {
+        return requestJson(
+            '/document/api/v1/prefetch_graph/',
+            'POST',
+            {
+                document_id: documentId,
+                context: context || {},
+                tokens: Array.isArray(tokens) ? tokens : [],
+                options: options || {},
+            }
+        );
+    }
+
     window.dbmApi = {
         isV1Only: function () { return uiV1Only; },
         isLegacyFallbackEnabled: function () { return legacyFallbackEnabled; },
@@ -239,11 +382,16 @@
         updateRecord: updateRecord,
         deleteRecord: deleteRecord,
         getLinks: getLinks,
+        listLinksMeta: listLinksMeta,
+        createLinkMeta: createLinkMeta,
+        updateLinkMeta: updateLinkMeta,
+        deleteLinkMeta: deleteLinkMeta,
         createLink: createLink,
         deleteLink: deleteLink,
         getObject: getObjectLegacy,
         getObjectsToConnect: getObjectsToConnect,
         connectObjectsToDocument: connectObjectsToDocument,
         deleteObjectFromDocument: deleteObjectFromDocument,
+        prefetchGraph: prefetchGraph,
     };
 })();

@@ -27,6 +27,8 @@ urlpatterns = [
     path('get_object/<int:pk>/', views.get_object, name='get_object'),
     path('api/v1/objects/', views.api_v1_objects_list, name='api_v1_objects_list'),
     path('api/v1/objects/<int:pk>/records/', views.api_v1_object_records, name='api_v1_object_records'),
+    path('api/v1/objects/<int:pk>/links-meta/', views.api_v1_object_links_meta, name='api_v1_object_links_meta'),
+    path('api/v1/objects/<int:pk>/links-meta/<int:meta_id>/', views.api_v1_object_links_meta_detail, name='api_v1_object_links_meta_detail'),
     path('api/v1/objects/<int:pk>/records/<str:record_uid>/', views.api_v1_object_record_detail, name='api_v1_object_record_detail'),
     path('api/v1/objects/<int:pk>/records/<str:record_uid>/links/', views.api_v1_record_links, name='api_v1_record_links'),
     # Row operations

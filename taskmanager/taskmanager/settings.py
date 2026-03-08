@@ -214,5 +214,13 @@ DBM_FILE_FALLBACK_READ = os.getenv("DBM_FILE_FALLBACK_READ", "1").lower() in ("1
 DBM_UI_V1_ONLY = os.getenv("DBM_UI_V1_ONLY", "0").lower() in ("1", "true", "yes")
 DBM_UI_USE_API_FOR_MUTATIONS = os.getenv("DBM_UI_USE_API_FOR_MUTATIONS", "1").lower() in ("1", "true", "yes")
 DBM_UI_LEGACY_FALLBACK = os.getenv("DBM_UI_LEGACY_FALLBACK", "0").lower() in ("1", "true", "yes")
+DBM_LINKS_META_UI = os.getenv("DBM_LINKS_META_UI", "1").lower() in ("1", "true", "yes")
+DOCUMENT_LINK_TREE_UI = os.getenv("DOCUMENT_LINK_TREE_UI", "1").lower() in ("1", "true", "yes")
+DOCUMENT_VARIABLES_TREE_UNIFIED_UI = os.getenv("DOCUMENT_VARIABLES_TREE_UNIFIED_UI", "1").lower() in ("1", "true", "yes")
+DOCUMENT_LINK_TREE_DEBUG = os.getenv("DOCUMENT_LINK_TREE_DEBUG", "0").lower() in ("1", "true", "yes")
+DOCUMENT_EVENT_DRIVEN_UI = os.getenv("DOCUMENT_EVENT_DRIVEN_UI", "0").lower() in ("1", "true", "yes")
+DBM_DISABLE_LEGACY_LINKED_PARAMS = os.getenv("DBM_DISABLE_LEGACY_LINKED_PARAMS", "0").lower() in ("1", "true", "yes")
+DOC_TOKEN_HUMAN_STRICT = os.getenv("DOC_TOKEN_HUMAN_STRICT", "0").lower() in ("1", "true", "yes")
 DBM_FLAG_VALIDATION_STRICT = os.getenv("DBM_FLAG_VALIDATION_STRICT", "0").lower() in ("1", "true", "yes")
+EXPORT_ALLOW_UNRESOLVED = os.getenv("EXPORT_ALLOW_UNRESOLVED", "0").lower() in ("1", "true", "yes")
 
